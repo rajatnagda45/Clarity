@@ -123,11 +123,12 @@ export default function DocumentsPage() {
   return (
     <div className="mx-auto flex w-full max-w-5xl flex-col gap-6 px-6 py-10">
       <div className="flex flex-col gap-2">
-        <p className="text-sm font-medium uppercase tracking-[0.2em] text-blue-600">Phase A3</p>
+        <p className="text-sm font-medium uppercase tracking-[0.2em] text-blue-600">Phase A4</p>
         <h1 className="text-3xl font-semibold text-slate-900">Documents</h1>
         <p className="text-sm text-slate-600">
-          Uploads now move through extraction, normalization, and metadata preparation. Chunking,
-          embeddings, retrieval, and AI reasoning start in later milestones.
+          Uploads now move through extraction, normalization, metadata preparation, and
+          clause-aware chunk generation. Embeddings, retrieval, and AI reasoning start in later
+          milestones.
         </p>
       </div>
 
@@ -159,7 +160,7 @@ export default function DocumentsPage() {
             {documents.length} total
           </span>
         </div>
-        <DocumentList documents={documents} />
+        <DocumentList documents={documents} workspaceId={workspaceId} />
       </section>
     </div>
   );

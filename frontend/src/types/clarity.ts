@@ -8,6 +8,8 @@ export type DocumentStatus =
   | 'normalized'
   | 'metadata_ready'
   | 'awaiting_chunking'
+  | 'chunking'
+  | 'chunked'
   | 'failed';
 export type Plan = 'free' | 'pro' | 'team';
 export type ClauseType =
@@ -43,6 +45,32 @@ export interface Document {
 
 export interface DocumentDetail extends Document {
   clauses: Clause[];
+}
+
+export interface ChunkSourceOffset {
+  page: number;
+  blockOrder: number;
+  charStart: number;
+  charEnd: number;
+}
+
+export interface DocumentChunk {
+  chunkId: string;
+  chunkIndex: number;
+  sectionTitle: string | null;
+  clauseNumber: string | null;
+  pageStart: number;
+  pageEnd: number;
+  sourceOffsets: ChunkSourceOffset[];
+  tokenCount: number;
+  checksum: string;
+  parserVersion: string;
+  chunkVersion: string;
+  chunkKind: string;
+  fragmentIndex: number;
+  fragmentCount: number;
+  crossReferences: string[];
+  text: string;
 }
 
 export interface SpanRef {

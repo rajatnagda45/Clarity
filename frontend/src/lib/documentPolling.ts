@@ -2,7 +2,7 @@ import type { Document, DocumentStatus } from '@/types/clarity';
 
 
 export const TERMINAL_DOCUMENT_STATUSES: ReadonlySet<DocumentStatus> = new Set([
-  'awaiting_chunking',
+  'chunked',
   'failed',
 ]);
 

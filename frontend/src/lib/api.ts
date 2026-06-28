@@ -7,6 +7,7 @@
 
 import type {
   Document,
+  DocumentChunk,
   DocumentDetail,
   Conversation,
   Message,
@@ -144,6 +145,17 @@ export async function getDocument(
   documentId: string,
 ): Promise<DocumentDetail> {
   return apiFetch<DocumentDetail>(`/api/documents/${documentId}`, { method: 'GET', ...auth });
+}
+
+export async function listDocumentChunks(
+  auth: AuthContext,
+  documentId: string,
+): Promise<DocumentChunk[]> {
+  const response = await apiFetch<{ documentId: string; chunks: DocumentChunk[] }>(
+    `/api/documents/${documentId}/chunks`,
+    { method: 'GET', ...auth },
+  );
+  return response.chunks;
 }
 
 // ---------------------------------------------------------------------------

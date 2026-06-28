@@ -38,21 +38,27 @@ def _document_row(**overrides):
         "status": "uploaded",
         "ingestion_run_id": None,
         "ingestion_started_at": None,
+        "ingestion_completed_at": None,
     }
     row.update(overrides)
     return row
 
 
 @pytest.mark.asyncio
-async def test_run_document_ingestion_transitions_document_to_awaiting_chunking():
+async def test_run_document_ingestion_transitions_document_to_chunked():
     from services.ingestion import pipeline as ingestion_pipeline
 
     row = _document_row()
 
-    documents_table = _build_documents_table(row, execute_count=6)
+    documents_table = _build_documents_table(row, execute_count=8)
     artifacts_table = MagicMock()
     artifacts_table.upsert.return_value = artifacts_table
     artifacts_table.execute.return_value = SimpleNamespace(data=[])
+    chunks_table = MagicMock()
+    chunks_table.delete.return_value = chunks_table
+    chunks_table.eq.return_value = chunks_table
+    chunks_table.insert.return_value = chunks_table
+    chunks_table.execute.side_effect = [SimpleNamespace(data=[]), SimpleNamespace(data=[])]
 
     usage_table = MagicMock()
     usage_table.insert.return_value = usage_table
@@ -62,6 +68,7 @@ async def test_run_document_ingestion_transitions_document_to_awaiting_chunking(
     client_mock.table.side_effect = lambda name: {
         "documents": documents_table,
         "document_ingestion_artifacts": artifacts_table,
+        "chunks": chunks_table,
         "usage_events": usage_table,
     }[name]
 
@@ -75,8 +82,17 @@ async def test_run_document_ingestion_transitions_document_to_awaiting_chunking(
         for call in documents_table.update.call_args_list
         if "status" in call.args[0]
     ]
-    assert statuses == ["extracted", "normalized", "metadata_ready", "awaiting_chunking"]
+    assert statuses == [
+        "extracted",
+        "normalized",
+        "metadata_ready",
+        "awaiting_chunking",
+        "chunking",
+        "chunked",
+    ]
     assert artifacts_table.upsert.call_count == 3
+    chunks_table.delete.assert_called_once()
+    chunks_table.insert.assert_called_once()
     assert usage_table.insert.call_count == 1
     assert documents_table.update.call_args_list[-1].args[0]["ingestion_run_id"] is None
 
@@ -93,6 +109,7 @@ async def test_run_document_ingestion_marks_failed_on_extraction_error():
     client_mock.table.side_effect = lambda name: {
         "documents": documents_table,
         "document_ingestion_artifacts": MagicMock(),
+        "chunks": MagicMock(),
         "usage_events": MagicMock(),
     }[name]
 
@@ -106,23 +123,31 @@ async def test_run_document_ingestion_marks_failed_on_extraction_error():
 
 
 @pytest.mark.asyncio
-async def test_run_document_ingestion_skips_documents_already_awaiting_chunking():
+async def test_run_document_ingestion_skips_documents_already_chunked_with_current_chunks():
     from services.ingestion import pipeline as ingestion_pipeline
 
     row = _document_row(
         id="doc-3",
         r2_key="workspaces/ws-1/documents/doc-3/ready.pdf",
-        status="awaiting_chunking",
+        status="chunked",
     )
 
     documents_table = _build_documents_table(row, execute_count=1)
     artifacts_table = MagicMock()
+    chunks_table = MagicMock()
+    chunks_table.select.return_value = chunks_table
+    chunks_table.eq.return_value = chunks_table
+    chunks_table.limit.return_value = chunks_table
+    chunks_table.execute.return_value = SimpleNamespace(
+        data=[{"chunk_version": "a4.v1", "parser_version": "a3.v1"}]
+    )
     usage_table = MagicMock()
 
     client_mock = MagicMock()
     client_mock.table.side_effect = lambda name: {
         "documents": documents_table,
         "document_ingestion_artifacts": artifacts_table,
+        "chunks": chunks_table,
         "usage_events": usage_table,
     }[name]
 
@@ -134,6 +159,41 @@ async def test_run_document_ingestion_skips_documents_already_awaiting_chunking(
     fetch_mock.assert_not_called()
     artifacts_table.upsert.assert_not_called()
     usage_table.insert.assert_not_called()
+
+
+@pytest.mark.asyncio
+async def test_run_document_ingestion_replaces_existing_chunks_idempotently():
+    from services.ingestion import pipeline as ingestion_pipeline
+
+    row = _document_row(id="doc-4")
+    documents_table = _build_documents_table(row, execute_count=8)
+    artifacts_table = MagicMock()
+    artifacts_table.upsert.return_value = artifacts_table
+    artifacts_table.execute.return_value = SimpleNamespace(data=[])
+    chunks_table = MagicMock()
+    chunks_table.delete.return_value = chunks_table
+    chunks_table.eq.return_value = chunks_table
+    chunks_table.insert.return_value = chunks_table
+    chunks_table.execute.side_effect = [SimpleNamespace(data=[]), SimpleNamespace(data=[])]
+    usage_table = MagicMock()
+    usage_table.insert.return_value = usage_table
+    usage_table.execute.return_value = SimpleNamespace(data=[])
+
+    client_mock = MagicMock()
+    client_mock.table.side_effect = lambda name: {
+        "documents": documents_table,
+        "document_ingestion_artifacts": artifacts_table,
+        "chunks": chunks_table,
+        "usage_events": usage_table,
+    }[name]
+
+    with patch.object(ingestion_pipeline, "get_client", return_value=client_mock), patch.object(
+        ingestion_pipeline, "fetch_document_source", return_value=_sample_pdf_bytes()
+    ):
+        await ingestion_pipeline.run_document_ingestion("doc-4", "ws-1")
+
+    chunks_table.delete.assert_called_once()
+    chunks_table.insert.assert_called_once()
 
 
 def test_claim_ingestion_lease_rejects_concurrent_attempts():
@@ -161,6 +221,7 @@ def test_claim_ingestion_lease_allows_stale_retry():
     documents_table.update.return_value = documents_table
     documents_table.eq.return_value = documents_table
     documents_table.execute.return_value = SimpleNamespace(data=[{"id": "doc-1"}])
+    documents_table.is_.return_value = documents_table
 
     client_mock = MagicMock()
     client_mock.table.return_value = documents_table

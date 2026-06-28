@@ -52,6 +52,11 @@ class Settings(BaseSettings):
     # Upload limits
     max_upload_bytes: int = 50 * 1024 * 1024
     ingestion_lease_seconds: int = 900
+    parser_version: str = "a3.v1"
+    chunk_version: str = "a4.v1"
+    chunk_target_tokens: int = 400
+    chunk_max_tokens: int = 700
+    chunk_overlap_tokens: int = 60
 
     # LangSmith
     langchain_tracing_v2: bool = True

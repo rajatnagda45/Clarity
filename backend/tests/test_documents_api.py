@@ -368,3 +368,98 @@ async def test_get_document_not_found_inside_workspace_returns_404(client, token
         )
 
     assert response.status_code == 404
+
+
+@pytest.mark.asyncio
+async def test_chunk_inspector_returns_workspace_scoped_chunks(client, token_a, workspace_id_a):
+    from api.routers import documents as documents_router
+    from api import deps as deps_module
+    from db import client as db_client
+
+    memberships_table = _memberships_query("viewer")
+    documents_query = MagicMock()
+    documents_query.select.return_value = documents_query
+    documents_query.eq.return_value = documents_query
+    documents_query.limit.return_value = documents_query
+    documents_query.execute.return_value = SimpleNamespace(data=[{"id": "doc-1"}])
+
+    chunks_query = MagicMock()
+    chunks_query.select.return_value = chunks_query
+    chunks_query.eq.return_value = chunks_query
+    chunks_query.order.return_value = chunks_query
+    chunks_query.execute.return_value = SimpleNamespace(
+        data=[
+            {
+                "chunk_id": "chk_1",
+                "chunk_index": 0,
+                "section_title": "TERMINATION",
+                "clause_number": "12.1",
+                "page_start": 4,
+                "page_end": 5,
+                "source_offsets": [
+                    {"page": 4, "block_order": 1, "char_start": 0, "char_end": 80},
+                ],
+                "token_count": 42,
+                "checksum": "abc123",
+                "parser_version": "a3.v1",
+                "chunk_version": "a4.v1",
+                "chunk_kind": "clause",
+                "fragment_index": 0,
+                "fragment_count": 1,
+                "cross_references": ["Section 9.2"],
+                "text": "12.1 Either party may terminate for convenience.",
+            }
+        ]
+    )
+
+    client_mock = MagicMock()
+    client_mock.table.side_effect = lambda name: {
+        "memberships": memberships_table,
+        "documents": documents_query,
+        "chunks": chunks_query,
+    }[name]
+
+    with patch.object(documents_router, "get_client", return_value=client_mock), patch.object(
+        deps_module, "get_client", return_value=client_mock
+    ), patch.object(
+        db_client, "get_client", return_value=client_mock
+    ):
+        response = await client.get(
+            "/api/documents/doc-1/chunks",
+            headers={
+                "Authorization": f"Bearer {token_a}",
+                "X-Workspace-Id": workspace_id_a,
+            },
+        )
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["documentId"] == "doc-1"
+    assert body["chunks"][0]["chunkId"] == "chk_1"
+    chunks_query.eq.assert_any_call("workspace_id", workspace_id_a)
+
+
+@pytest.mark.asyncio
+async def test_chunk_inspector_is_disabled_in_production(client, token_a, workspace_id_a):
+    from api.routers import documents as documents_router
+    from api import deps as deps_module
+    from db import client as db_client
+
+    client_mock = MagicMock()
+    client_mock.table.return_value = _memberships_query("viewer")
+
+    with patch.object(documents_router, "get_client", return_value=client_mock), patch.object(
+        deps_module, "get_client", return_value=client_mock
+    ), patch.object(
+        db_client, "get_client", return_value=client_mock
+    ), patch.object(documents_router.settings, "environment", "production"):
+        response = await client.get(
+            "/api/documents/doc-1/chunks",
+            headers={
+                "Authorization": f"Bearer {token_a}",
+                "X-Workspace-Id": workspace_id_a,
+            },
+        )
+
+    assert response.status_code == 404
+    assert response.json()["detail"]["code"] == "not_found"

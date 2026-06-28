@@ -119,7 +119,7 @@ class ClauseSummary(BaseModel):
 class DocumentSummary(BaseModel):
     id: str
     filename: str
-    status: Literal["uploaded", "extracted", "normalized", "metadata_ready", "awaiting_chunking", "failed"]
+    status: Literal["uploaded", "extracted", "normalized", "metadata_ready", "awaiting_chunking", "chunking", "chunked", "failed"]
     source_type: Literal["pdf", "docx", "url"] = Field(alias="sourceType")
     page_count: int | None = Field(default=None, alias="pageCount")
     created_at: str = Field(alias="createdAt")
@@ -134,6 +134,43 @@ class DocumentListResponse(BaseModel):
 
 class DocumentDetailResponse(DocumentSummary):
     clauses: list[ClauseSummary]
+
+
+class ChunkSourceOffset(BaseModel):
+    page: int
+    block_order: int = Field(alias="blockOrder")
+    char_start: int = Field(alias="charStart")
+    char_end: int = Field(alias="charEnd")
+
+    model_config = {"populate_by_name": True}
+
+
+class DocumentChunkSummary(BaseModel):
+    chunk_id: str = Field(alias="chunkId")
+    chunk_index: int = Field(alias="chunkIndex")
+    section_title: str | None = Field(default=None, alias="sectionTitle")
+    clause_number: str | None = Field(default=None, alias="clauseNumber")
+    page_start: int = Field(alias="pageStart")
+    page_end: int = Field(alias="pageEnd")
+    source_offsets: list[ChunkSourceOffset] = Field(alias="sourceOffsets")
+    token_count: int = Field(alias="tokenCount")
+    checksum: str
+    parser_version: str = Field(alias="parserVersion")
+    chunk_version: str = Field(alias="chunkVersion")
+    chunk_kind: str = Field(alias="chunkKind")
+    fragment_index: int = Field(alias="fragmentIndex")
+    fragment_count: int = Field(alias="fragmentCount")
+    cross_references: list[str] = Field(alias="crossReferences")
+    text: str
+
+    model_config = {"populate_by_name": True}
+
+
+class DocumentChunkListResponse(BaseModel):
+    document_id: str = Field(alias="documentId")
+    chunks: list[DocumentChunkSummary]
+
+    model_config = {"populate_by_name": True}
 
 
 class ApiErrorResponse(BaseModel):

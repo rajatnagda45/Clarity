@@ -9,7 +9,7 @@ from fastapi import APIRouter, BackgroundTasks, Depends, File, HTTPException, Re
 from api.deps import require_workspace_role
 from config import settings
 from db.client import tenant_query, get_client
-from schemas import DocumentDetailResponse, DocumentListResponse, DocumentSummary
+from schemas import DocumentChunkListResponse, DocumentChunkSummary, DocumentDetailResponse, DocumentListResponse, DocumentSummary
 from services.ingestion.pipeline import run_document_ingestion_task
 from services.ingestion.url import (
     UrlIngestionNotImplementedError,
@@ -114,6 +114,62 @@ async def list_documents(
     )
     documents = [_document_summary_from_row(row) for row in rows.data or []]
     return DocumentListResponse(documents=documents)
+
+
+@router.get("/{document_id}/chunks", response_model=DocumentChunkListResponse)
+async def inspect_document_chunks(
+    document_id: str,
+    membership: tuple[str, str] = Depends(require_workspace_role),
+) -> DocumentChunkListResponse:
+    if settings.environment == "production":
+        raise _error(status.HTTP_404_NOT_FOUND, "not_found", "Developer chunk inspector unavailable.")
+
+    workspace_id, _ = membership
+    document = (
+        tenant_query("documents", workspace_id)
+        .eq("id", document_id)
+        .limit(1)
+        .execute()
+    )
+    if not document.data:
+        raise _error(status.HTTP_404_NOT_FOUND, "document_not_found", "Document was not found.")
+
+    chunk_rows = (
+        tenant_query("chunks", workspace_id)
+        .eq("document_id", document_id)
+        .order("chunk_index")
+        .execute()
+    )
+    chunks = [
+        DocumentChunkSummary(
+            chunkId=row["chunk_id"],
+            chunkIndex=row["chunk_index"],
+            sectionTitle=row.get("section_title"),
+            clauseNumber=row.get("clause_number"),
+            pageStart=row["page_start"],
+            pageEnd=row["page_end"],
+            sourceOffsets=[
+                {
+                    "page": offset["page"],
+                    "blockOrder": offset["block_order"],
+                    "charStart": offset["char_start"],
+                    "charEnd": offset["char_end"],
+                }
+                for offset in row.get("source_offsets") or []
+            ],
+            tokenCount=row["token_count"],
+            checksum=row["checksum"],
+            parserVersion=row["parser_version"],
+            chunkVersion=row["chunk_version"],
+            chunkKind=row["chunk_kind"],
+            fragmentIndex=row.get("fragment_index", 0),
+            fragmentCount=row.get("fragment_count", 1),
+            crossReferences=row.get("cross_references") or [],
+            text=row["text"],
+        )
+        for row in chunk_rows.data or []
+    ]
+    return DocumentChunkListResponse(documentId=document_id, chunks=chunks)
 
 
 @router.get("/{document_id}", response_model=DocumentDetailResponse)

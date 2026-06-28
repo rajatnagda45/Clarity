@@ -18,8 +18,8 @@ function makeDocument(status: Document['status']): Document {
 
 
 describe('document polling helpers', () => {
-  it('treats awaiting_chunking and failed as terminal', () => {
-    expect(isTerminalDocumentStatus('awaiting_chunking')).toBe(true);
+  it('treats chunked and failed as terminal', () => {
+    expect(isTerminalDocumentStatus('chunked')).toBe(true);
     expect(isTerminalDocumentStatus('failed')).toBe(true);
     expect(isTerminalDocumentStatus('uploaded')).toBe(false);
   });
@@ -30,6 +30,6 @@ describe('document polling helpers', () => {
 
   it('keeps polling while any document is non-terminal', () => {
     expect(shouldPollDocuments([makeDocument('awaiting_chunking'), makeDocument('normalized')])).toBe(true);
-    expect(shouldPollDocuments([makeDocument('awaiting_chunking'), makeDocument('failed')])).toBe(false);
+    expect(shouldPollDocuments([makeDocument('chunked'), makeDocument('failed')])).toBe(false);
   });
 });

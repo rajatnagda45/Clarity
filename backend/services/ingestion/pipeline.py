@@ -11,8 +11,9 @@ from config import settings
 from db.client import get_client
 from services.ingestion.extractors.docx import DocxExtractionError, extract_docx_document
 from services.ingestion.extractors.pdf import PdfExtractionError, extract_pdf_document
+from services.ingestion.chunker import generate_chunks
 from services.ingestion.fetcher import fetch_document_source
-from services.ingestion.models import ExtractedDocument, NormalizedDocument, PreprocessingResult
+from services.ingestion.models import ExtractedDocument, GeneratedChunk, NormalizedDocument, PreprocessingResult
 from services.ingestion.normalizer import normalize_extracted_document
 from services.ingestion.preprocessor import preprocess_document
 
@@ -25,6 +26,8 @@ DocumentStage = Literal[
     "normalized",
     "metadata_ready",
     "awaiting_chunking",
+    "chunking",
+    "chunked",
     "failed",
 ]
 
@@ -72,7 +75,7 @@ def _claim_ingestion_lease(document_id: str, workspace_id: str) -> tuple[dict[st
     if document is None:
         return None, None
 
-    if document["status"] == "awaiting_chunking":
+    if document["status"] == "chunked" and _document_has_current_chunks(document_id, workspace_id):
         return document, None
 
     lease_started_at = _parse_timestamp(document.get("ingestion_started_at"))
@@ -110,6 +113,25 @@ def _claim_ingestion_lease(document_id: str, workspace_id: str) -> tuple[dict[st
     updated_document = dict(document)
     updated_document.update(payload)
     return updated_document, run_id
+
+
+def _document_has_current_chunks(document_id: str, workspace_id: str) -> bool:
+    result = (
+        get_client()
+        .table("chunks")
+        .select("chunk_version, parser_version")
+        .eq("document_id", document_id)
+        .eq("workspace_id", workspace_id)
+        .limit(1)
+        .execute()
+    )
+    row = (result.data or [None])[0]
+    if row is None:
+        return False
+    return (
+        row.get("chunk_version") == settings.chunk_version
+        and row.get("parser_version") == settings.parser_version
+    )
 
 
 def _update_document_for_run(
@@ -219,6 +241,47 @@ def _record_usage_event(workspace_id: str) -> None:
     ).execute()
 
 
+def _persist_chunks(document_id: str, workspace_id: str, chunks: list[GeneratedChunk]) -> None:
+    chunk_rows = [
+        {
+            "workspace_id": chunk.workspace_id,
+            "document_id": chunk.document_id,
+            "chunk_id": chunk.chunk_id,
+            "chunk_index": chunk.chunk_index,
+            "section_title": chunk.section_title,
+            "clause_number": chunk.clause_number,
+            "page": chunk.page_start,
+            "page_start": chunk.page_start,
+            "page_end": chunk.page_end,
+            "char_start": chunk.source_offsets[0].char_start,
+            "char_end": chunk.source_offsets[-1].char_end,
+            "source_offsets": [offset.model_dump(mode="json") for offset in chunk.source_offsets],
+            "token_count": chunk.token_count,
+            "checksum": chunk.checksum,
+            "parser_version": chunk.parser_version,
+            "chunk_version": chunk.chunk_version,
+            "chunk_kind": chunk.chunk_kind,
+            "fragment_index": chunk.fragment_index,
+            "fragment_count": chunk.fragment_count,
+            "cross_references": chunk.cross_references,
+            "text": chunk.text,
+            "content_hash": chunk.content_hash,
+            "bm25_tokens": None,
+        }
+        for chunk in chunks
+    ]
+
+    (
+        get_client()
+        .table("chunks")
+        .delete()
+        .eq("document_id", document_id)
+        .eq("workspace_id", workspace_id)
+        .execute()
+    )
+    get_client().table("chunks").insert(chunk_rows).execute()
+
+
 def _extract_document(source_type: str, payload: bytes) -> ExtractedDocument:
     if source_type == "pdf":
         return extract_pdf_document(payload)
@@ -305,11 +368,35 @@ async def run_document_ingestion(document_id: str, workspace_id: str) -> None:
             page_count=preprocessing.metadata.page_count,
             error=None,
         )
-        _finalize_document(
+        _update_document_for_run(
             document_id,
             workspace_id,
             run_id,
             status="awaiting_chunking",
+            page_count=preprocessing.metadata.page_count,
+            error=None,
+        )
+        chunks = await asyncio.to_thread(
+            generate_chunks,
+            workspace_id,
+            document_id,
+            normalized,
+            preprocessing,
+        )
+        _update_document_for_run(
+            document_id,
+            workspace_id,
+            run_id,
+            status="chunking",
+            page_count=preprocessing.metadata.page_count,
+            error=None,
+        )
+        await asyncio.to_thread(_persist_chunks, document_id, workspace_id, chunks)
+        _finalize_document(
+            document_id,
+            workspace_id,
+            run_id,
+            status="chunked",
             page_count=preprocessing.metadata.page_count,
             error=None,
         )
