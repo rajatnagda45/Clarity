@@ -1,0 +1,51 @@
+[tool.poetry]
+name = "clarity-backend"
+version = "0.1.0"
+description = "Clarity — self-auditing contract intelligence API"
+authors = ["Rajat Nagda <rajatnagda2004@gmail.com>"]
+readme = "README.md"
+packages = [{ include = "." }]
+
+[tool.poetry.dependencies]
+python = ">=3.11,<4.0"
+fastapi = "^0.115.0"
+uvicorn = { version = "^0.32.0", extras = ["standard"] }
+pydantic = "^2.10.0"
+pydantic-settings = "^2.7.0"
+supabase = "^2.10.0"
+openai = "^1.58.0"
+langchain = "^0.3.0"
+langgraph = "^0.2.0"
+langchain-openai = "^0.2.0"
+langchain-community = "^0.3.0"
+langsmith = "^0.2.0"
+pinecone-client = "^5.0.0"
+cohere = "^5.11.0"
+rank-bm25 = "^0.2.2"
+PyMuPDF = "^1.24.0"
+httpx = "^0.28.0"
+PyJWT = { version = "^2.10.0", extras = ["crypto"] }
+sentry-sdk = { version = "^2.19.0", extras = ["fastapi"] }
+python-multipart = "^0.0.20"
+boto3 = "^1.35.0"
+scikit-learn = "^1.6.0"
+numpy = "^2.2.0"
+
+[tool.poetry.group.dev.dependencies]
+pytest = "^8.3.0"
+pytest-asyncio = "^0.25.0"
+httpx = "^0.28.0"
+pytest-cov = "^6.0.0"
+ruff = "^0.9.0"
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+testpaths = ["tests"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py311"
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
