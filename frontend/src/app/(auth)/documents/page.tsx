@@ -8,6 +8,7 @@ import { useSearchParams } from 'next/navigation';
 import { DocumentList } from '@/components/documents/DocumentList';
 import { Dropzone } from '@/components/upload/Dropzone';
 import { listDocuments, uploadDocument } from '@/lib/api';
+import { shouldPollDocuments, shouldStartPollingForUpload } from '@/lib/documentPolling';
 import type { Document } from '@/types/clarity';
 
 
@@ -29,18 +30,22 @@ export default function DocumentsPage() {
   const [loadState, setLoadState] = useState<LoadState>('idle');
   const [errorMessage, setErrorMessage] = useState('');
   const [isUploading, setIsUploading] = useState(false);
+  const [pollRefreshKey, setPollRefreshKey] = useState(0);
 
   useEffect(() => {
     let cancelled = false;
+    let pollTimer: ReturnType<typeof setTimeout> | undefined;
 
-    async function loadDocuments() {
+    async function loadDocuments(showLoading = true) {
       if (!workspaceId) {
         setLoadState('error');
         setErrorMessage('Choose a workspace from the dashboard before uploading documents.');
         return;
       }
 
-      setLoadState('loading');
+      if (showLoading) {
+        setLoadState('loading');
+      }
       setErrorMessage('');
 
       try {
@@ -54,6 +59,13 @@ export default function DocumentsPage() {
 
         setDocuments(docs);
         setLoadState('loaded');
+
+        const shouldPoll = shouldPollDocuments(docs);
+        if (shouldPoll) {
+          pollTimer = setTimeout(() => {
+            void loadDocuments(false);
+          }, 2000);
+        }
       } catch (error) {
         if (cancelled) return;
         setErrorMessage(error instanceof Error ? error.message : 'Failed to load documents.');
@@ -64,8 +76,11 @@ export default function DocumentsPage() {
     void loadDocuments();
     return () => {
       cancelled = true;
+      if (pollTimer) {
+        clearTimeout(pollTimer);
+      }
     };
-  }, [getToken, workspaceId]);
+  }, [getToken, workspaceId, pollRefreshKey]);
 
   async function handleFileSelected(file: File) {
     if (!workspaceId) {
@@ -95,6 +110,9 @@ export default function DocumentsPage() {
       const created = await uploadDocument({ token, workspaceId }, file);
       setDocuments((current) => [created, ...current]);
       setLoadState('loaded');
+      if (shouldStartPollingForUpload(created)) {
+        setPollRefreshKey((current) => current + 1);
+      }
     } catch (error) {
       setErrorMessage(error instanceof Error ? error.message : 'Upload failed.');
     } finally {
@@ -105,11 +123,11 @@ export default function DocumentsPage() {
   return (
     <div className="mx-auto flex w-full max-w-5xl flex-col gap-6 px-6 py-10">
       <div className="flex flex-col gap-2">
-        <p className="text-sm font-medium uppercase tracking-[0.2em] text-blue-600">Phase A2</p>
+        <p className="text-sm font-medium uppercase tracking-[0.2em] text-blue-600">Phase A3</p>
         <h1 className="text-3xl font-semibold text-slate-900">Documents</h1>
         <p className="text-sm text-slate-600">
-          Upload stores original files securely and persists metadata only. Parsing and AI start in
-          later milestones.
+          Uploads now move through extraction, normalization, and metadata preparation. Chunking,
+          embeddings, retrieval, and AI reasoning start in later milestones.
         </p>
       </div>
 
@@ -130,7 +148,7 @@ export default function DocumentsPage() {
 
       <Dropzone disabled={!workspaceId || isUploading} onFileSelected={handleFileSelected} />
 
-      {isUploading ? <p className="text-sm text-slate-500">Uploading document…</p> : null}
+      {isUploading ? <p className="text-sm text-slate-500">Uploading and queueing ingestion…</p> : null}
       {loadState === 'loading' ? <p className="text-sm text-slate-500">Loading documents…</p> : null}
       {errorMessage ? <p className="text-sm text-red-600">{errorMessage}</p> : null}
 

@@ -119,7 +119,7 @@ class ClauseSummary(BaseModel):
 class DocumentSummary(BaseModel):
     id: str
     filename: str
-    status: Literal["processing", "ready", "failed"]
+    status: Literal["uploaded", "extracted", "normalized", "metadata_ready", "awaiting_chunking", "failed"]
     source_type: Literal["pdf", "docx", "url"] = Field(alias="sourceType")
     page_count: int | None = Field(default=None, alias="pageCount")
     created_at: str = Field(alias="createdAt")

@@ -3,7 +3,7 @@
 > **An AI contract auditor that catches its own hallucinations, proves every claim against the exact source text, and shows you a measured trust score for each answer.**
 
 [![CI](https://github.com/rajatnagda45/Clarity/actions/workflows/ci.yml/badge.svg)](https://github.com/rajatnagda45/Clarity/actions/workflows/ci.yml)
-![Phase](https://img.shields.io/badge/phase-A1%20authenticated%20shell-blue)
+![Phase](https://img.shields.io/badge/phase-A3%20ingestion%20pipeline-blue)
 ![Stack](https://img.shields.io/badge/stack-Next.js%2015%20%2B%20FastAPI%20%2B%20LangGraph-informational)
 ![License](https://img.shields.io/badge/license-MIT-green)
 
@@ -11,7 +11,7 @@
 
 ## Current Status
 
-Milestone **A2** is complete.
+Milestone **A3** is complete.
 
 Implemented today:
 - Clerk-backed protected app shell for `/dashboard`, `/documents`, and `/chat`
@@ -20,18 +20,20 @@ Implemented today:
 - workspace-aware dashboard flow in the frontend
 - `POST /api/documents`, `GET /api/documents`, and `GET /api/documents/{id}`
 - secure Cloudflare R2 object storage integration for original uploads
-- document metadata persistence in PostgreSQL without starting parsing yet
+- background ingestion pipeline for PDF and DOCX extraction
+- text normalization, metadata extraction, and clause-aware preprocessing
+- deterministic document lifecycle through `uploaded → extracted → normalized → metadata_ready → awaiting_chunking`
+- resumable artifact persistence for ingestion stages
 - backend and frontend test baseline still green after the milestone
 
 Not implemented yet in Phase A:
-- document parsing
 - chunking
 - embeddings
 - Pinecone indexing
 - retrieval
 - SSE chat
 
-A3 technical debt notes recorded for parsing kickoff:
+A4 technical debt notes recorded for chunking and later parsing hardening:
 - add file signature validation before parser execution
 - add malware scanning before downstream document processing
 - harden parser handling for untrusted and malformed documents

@@ -1,0 +1,359 @@
+from __future__ import annotations
+
+import asyncio
+import hashlib
+import logging
+from datetime import UTC, datetime, timedelta
+from typing import Any, Literal
+from uuid import uuid4
+
+from config import settings
+from db.client import get_client
+from services.ingestion.extractors.docx import DocxExtractionError, extract_docx_document
+from services.ingestion.extractors.pdf import PdfExtractionError, extract_pdf_document
+from services.ingestion.fetcher import fetch_document_source
+from services.ingestion.models import ExtractedDocument, NormalizedDocument, PreprocessingResult
+from services.ingestion.normalizer import normalize_extracted_document
+from services.ingestion.preprocessor import preprocess_document
+
+
+logger = logging.getLogger(__name__)
+
+DocumentStage = Literal[
+    "uploaded",
+    "extracted",
+    "normalized",
+    "metadata_ready",
+    "awaiting_chunking",
+    "failed",
+]
+
+
+class IngestionError(Exception):
+    def __init__(self, code: str, message: str) -> None:
+        super().__init__(message)
+        self.code = code
+        self.message = message
+
+
+class IngestionBusy(Exception):
+    pass
+
+
+class IngestionOwnershipLost(Exception):
+    pass
+
+
+def _now_utc() -> datetime:
+    return datetime.now(UTC)
+
+
+def _parse_timestamp(value: str | None) -> datetime | None:
+    if not value:
+        return None
+    return datetime.fromisoformat(value.replace("Z", "+00:00"))
+
+
+def _load_document(document_id: str, workspace_id: str) -> dict[str, Any] | None:
+    result = (
+        get_client()
+        .table("documents")
+        .select("*")
+        .eq("id", document_id)
+        .eq("workspace_id", workspace_id)
+        .limit(1)
+        .execute()
+    )
+    return (result.data or [None])[0]
+
+
+def _claim_ingestion_lease(document_id: str, workspace_id: str) -> tuple[dict[str, Any] | None, str | None]:
+    document = _load_document(document_id, workspace_id)
+    if document is None:
+        return None, None
+
+    if document["status"] == "awaiting_chunking":
+        return document, None
+
+    lease_started_at = _parse_timestamp(document.get("ingestion_started_at"))
+    lease_deadline = _now_utc() - timedelta(seconds=settings.ingestion_lease_seconds)
+    current_run_id = document.get("ingestion_run_id")
+    lease_is_stale = bool(current_run_id and lease_started_at and lease_started_at < lease_deadline)
+
+    if current_run_id and not lease_is_stale:
+        raise IngestionBusy("Document is already being ingested.")
+
+    run_id = str(uuid4())
+    payload = {
+        "ingestion_run_id": run_id,
+        "ingestion_started_at": _now_utc().isoformat(),
+        "ingestion_completed_at": None,
+    }
+
+    query = (
+        get_client()
+        .table("documents")
+        .update(payload)
+        .eq("id", document_id)
+        .eq("workspace_id", workspace_id)
+        .eq("status", document["status"])
+    )
+    if current_run_id and lease_is_stale:
+        query = query.eq("ingestion_run_id", current_run_id)
+    else:
+        query = query.is_("ingestion_run_id", "null")
+
+    result = query.execute()
+    if not result.data:
+        raise IngestionBusy("Another ingestion attempt acquired the lease first.")
+
+    updated_document = dict(document)
+    updated_document.update(payload)
+    return updated_document, run_id
+
+
+def _update_document_for_run(
+    document_id: str,
+    workspace_id: str,
+    run_id: str,
+    *,
+    status: DocumentStage,
+    page_count: int | None = None,
+    error: str | None = None,
+) -> None:
+    payload: dict[str, Any] = {
+        "status": status,
+        "error": error,
+    }
+    if page_count is not None:
+        payload["page_count"] = page_count
+
+    result = (
+        get_client()
+        .table("documents")
+        .update(payload)
+        .eq("id", document_id)
+        .eq("workspace_id", workspace_id)
+        .eq("ingestion_run_id", run_id)
+        .execute()
+    )
+    if not result.data:
+        raise IngestionOwnershipLost("Ingestion lease was lost before document state update.")
+    logger.info(
+        "document_ingestion_status_updated",
+        extra={"document_id": document_id, "workspace_id": workspace_id, "status": status},
+    )
+
+
+def _upsert_artifacts(
+    document_id: str,
+    workspace_id: str,
+    run_id: str,
+    *,
+    source_sha256: str,
+    extraction: ExtractedDocument | None = None,
+    normalized: NormalizedDocument | None = None,
+    preprocessing: PreprocessingResult | None = None,
+) -> None:
+    row: dict[str, Any] = {
+        "document_id": document_id,
+        "workspace_id": workspace_id,
+        "ingestion_run_id": run_id,
+        "source_sha256": source_sha256,
+    }
+    if extraction is not None:
+        row["extraction_text"] = extraction.full_text
+        row["extraction_blocks"] = [block.model_dump(mode="json") for block in extraction.blocks]
+    if normalized is not None:
+        row["normalized_text"] = normalized.full_text
+        row["normalized_blocks"] = [block.model_dump(mode="json") for block in normalized.blocks]
+    if preprocessing is not None:
+        row["metadata"] = preprocessing.metadata.model_dump(mode="json")
+        row["preprocessing_segments"] = [
+            segment.model_dump(mode="json") for segment in preprocessing.segments
+        ]
+
+    get_client().table("document_ingestion_artifacts").upsert(row).execute()
+
+
+def _finalize_document(
+    document_id: str,
+    workspace_id: str,
+    run_id: str,
+    *,
+    status: DocumentStage,
+    page_count: int | None = None,
+    error: str | None = None,
+) -> None:
+    payload: dict[str, Any] = {
+        "status": status,
+        "error": error,
+        "ingestion_run_id": None,
+        "ingestion_completed_at": _now_utc().isoformat(),
+    }
+    if page_count is not None:
+        payload["page_count"] = page_count
+
+    result = (
+        get_client()
+        .table("documents")
+        .update(payload)
+        .eq("id", document_id)
+        .eq("workspace_id", workspace_id)
+        .eq("ingestion_run_id", run_id)
+        .execute()
+    )
+    if not result.data:
+        raise IngestionOwnershipLost("Ingestion lease was lost before finalization.")
+
+
+def _record_usage_event(workspace_id: str) -> None:
+    get_client().table("usage_events").insert(
+        {
+            "workspace_id": workspace_id,
+            "kind": "ingest",
+            "input_tokens": 0,
+            "output_tokens": 0,
+            "latency_ms": None,
+        }
+    ).execute()
+
+
+def _extract_document(source_type: str, payload: bytes) -> ExtractedDocument:
+    if source_type == "pdf":
+        return extract_pdf_document(payload)
+    if source_type == "docx":
+        return extract_docx_document(payload)
+    raise IngestionError("unsupported_source_type", f"Unsupported source type '{source_type}'.")
+
+
+async def run_document_ingestion(document_id: str, workspace_id: str) -> None:
+    try:
+        document, run_id = _claim_ingestion_lease(document_id, workspace_id)
+    except IngestionBusy:
+        logger.info(
+            "document_ingestion_skipped_busy_document",
+            extra={"document_id": document_id, "workspace_id": workspace_id},
+        )
+        return
+
+    if document is None:
+        logger.warning(
+            "document_ingestion_missing_document",
+            extra={"document_id": document_id, "workspace_id": workspace_id},
+        )
+        return
+
+    if run_id is None:
+        logger.info(
+            "document_ingestion_skipped_ready_document",
+            extra={"document_id": document_id, "workspace_id": workspace_id},
+        )
+        return
+
+    try:
+        source_bytes = await asyncio.to_thread(fetch_document_source, document["r2_key"])
+        source_sha256 = hashlib.sha256(source_bytes).hexdigest()
+
+        extracted = await asyncio.to_thread(_extract_document, document["source_type"], source_bytes)
+        _upsert_artifacts(
+            document_id,
+            workspace_id,
+            run_id,
+            source_sha256=source_sha256,
+            extraction=extracted,
+        )
+        _update_document_for_run(
+            document_id,
+            workspace_id,
+            run_id,
+            status="extracted",
+            page_count=extracted.page_count,
+            error=None,
+        )
+
+        normalized = await asyncio.to_thread(normalize_extracted_document, extracted)
+        _upsert_artifacts(
+            document_id,
+            workspace_id,
+            run_id,
+            source_sha256=source_sha256,
+            normalized=normalized,
+        )
+        _update_document_for_run(
+            document_id,
+            workspace_id,
+            run_id,
+            status="normalized",
+            page_count=normalized.page_count,
+            error=None,
+        )
+
+        preprocessing = await asyncio.to_thread(preprocess_document, normalized, source_sha256)
+        _upsert_artifacts(
+            document_id,
+            workspace_id,
+            run_id,
+            source_sha256=source_sha256,
+            preprocessing=preprocessing,
+        )
+        _update_document_for_run(
+            document_id,
+            workspace_id,
+            run_id,
+            status="metadata_ready",
+            page_count=preprocessing.metadata.page_count,
+            error=None,
+        )
+        _finalize_document(
+            document_id,
+            workspace_id,
+            run_id,
+            status="awaiting_chunking",
+            page_count=preprocessing.metadata.page_count,
+            error=None,
+        )
+        _record_usage_event(workspace_id)
+    except IngestionOwnershipLost:
+        logger.info(
+            "document_ingestion_stopped_after_lease_loss",
+            extra={"document_id": document_id, "workspace_id": workspace_id},
+        )
+    except (PdfExtractionError, DocxExtractionError, IngestionError, ValueError) as exc:
+        logger.warning(
+            "document_ingestion_failed",
+            extra={
+                "document_id": document_id,
+                "workspace_id": workspace_id,
+                "error": str(exc),
+            },
+        )
+        try:
+            _finalize_document(document_id, workspace_id, run_id, status="failed", error=str(exc))
+        except IngestionOwnershipLost:
+            logger.info(
+                "document_ingestion_failure_ignored_after_lease_loss",
+                extra={"document_id": document_id, "workspace_id": workspace_id},
+            )
+    except Exception:
+        logger.exception(
+            "document_ingestion_unexpected_failure",
+            extra={"document_id": document_id, "workspace_id": workspace_id},
+        )
+        try:
+            _finalize_document(
+                document_id,
+                workspace_id,
+                run_id,
+                status="failed",
+                error="Document ingestion failed unexpectedly.",
+            )
+        except IngestionOwnershipLost:
+            logger.info(
+                "document_ingestion_unexpected_failure_ignored_after_lease_loss",
+                extra={"document_id": document_id, "workspace_id": workspace_id},
+            )
+
+
+async def run_document_ingestion_task(document_id: str, workspace_id: str) -> None:
+    await run_document_ingestion(document_id, workspace_id)

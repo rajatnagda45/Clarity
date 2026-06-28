@@ -4,12 +4,18 @@ from tempfile import SpooledTemporaryFile
 from pathlib import Path
 from uuid import uuid4
 
-from fastapi import APIRouter, Depends, File, HTTPException, Request, UploadFile, status
+from fastapi import APIRouter, BackgroundTasks, Depends, File, HTTPException, Request, UploadFile, status
 
 from api.deps import require_workspace_role
 from config import settings
 from db.client import tenant_query, get_client
 from schemas import DocumentDetailResponse, DocumentListResponse, DocumentSummary
+from services.ingestion.pipeline import run_document_ingestion_task
+from services.ingestion.url import (
+    UrlIngestionNotImplementedError,
+    enqueue_url_ingestion,
+    validate_url_ingestion_request,
+)
 from services.storage.r2 import build_document_storage_key, sanitize_filename, upload_document_file, delete_document_object
 
 
@@ -132,12 +138,39 @@ async def get_document(
     )
 
 
-@router.post("", response_model=DocumentSummary, status_code=status.HTTP_201_CREATED)
+@router.post("", response_model=DocumentSummary, status_code=status.HTTP_202_ACCEPTED)
 async def upload_document(
+    request: Request,
+    background_tasks: BackgroundTasks,
     file: UploadFile | None = File(default=None),
     membership: tuple[str, str] = Depends(require_editor_workspace),
 ) -> DocumentSummary:
     workspace_id, _ = membership
+    request_content_type = (request.headers.get("content-type") or "").split(";")[0].strip().lower()
+
+    if request_content_type == "application/json":
+        try:
+            payload = await request.json()
+            url_request = validate_url_ingestion_request(payload)
+            enqueue_url_ingestion(url_request)
+        except UrlIngestionNotImplementedError as exc:
+            raise _error(
+                status.HTTP_501_NOT_IMPLEMENTED,
+                "url_ingestion_not_implemented",
+                str(exc),
+            ) from exc
+        except Exception as exc:
+            raise _error(
+                status.HTTP_400_BAD_REQUEST,
+                "invalid_url_ingestion_request",
+                "A valid URL ingestion payload is required.",
+            ) from exc
+        raise _error(
+            status.HTTP_501_NOT_IMPLEMENTED,
+            "url_ingestion_not_implemented",
+            "URL ingestion architecture is defined, but implementation starts in a later milestone.",
+        )
+
     if file is None:
         raise _error(status.HTTP_400_BAD_REQUEST, "missing_file", "A file upload is required.")
 
@@ -164,7 +197,7 @@ async def upload_document(
         "source_type": source_type,
         "r2_key": storage_key,
         "page_count": None,
-        "status": "processing",
+        "status": "uploaded",
         "error": None,
     }
 
@@ -185,4 +218,5 @@ async def upload_document(
         buffered_upload.close()
 
     created_row = (result.data or [row])[0]
+    background_tasks.add_task(run_document_ingestion_task, document_id, workspace_id)
     return _document_summary_from_row(created_row)

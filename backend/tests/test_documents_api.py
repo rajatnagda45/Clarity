@@ -180,7 +180,7 @@ async def test_upload_persists_document_metadata(client, token_a, workspace_id_a
             {
                 "id": "doc-1",
                 "filename": "msa.pdf",
-                "status": "processing",
+                "status": "uploaded",
                 "source_type": "pdf",
                 "page_count": None,
                 "created_at": "2026-06-28T12:00:00Z",
@@ -199,7 +199,9 @@ async def test_upload_persists_document_metadata(client, token_a, workspace_id_a
         deps_module, "get_client", return_value=client_mock
     ), patch.object(
         db_client, "get_client", return_value=client_mock
-    ), patch.object(documents_router, "upload_document_file") as upload_mock:
+    ), patch.object(documents_router, "upload_document_file") as upload_mock, patch.object(
+        documents_router, "run_document_ingestion_task"
+    ) as ingestion_mock:
         response = await client.post(
             "/api/documents",
             headers={
@@ -209,12 +211,13 @@ async def test_upload_persists_document_metadata(client, token_a, workspace_id_a
             files=_multipart_file(),
         )
 
-    assert response.status_code == 201
+    assert response.status_code == 202
     body = response.json()
     assert body["filename"] == "msa.pdf"
-    assert body["status"] == "processing"
+    assert body["status"] == "uploaded"
     assert body["sourceType"] == "pdf"
     upload_mock.assert_called_once()
+    ingestion_mock.assert_called_once()
     documents_table.insert.assert_called_once()
 
 
@@ -256,6 +259,34 @@ async def test_upload_db_failure_triggers_storage_cleanup(client, token_a, works
 
 
 @pytest.mark.asyncio
+async def test_upload_url_stub_returns_501(client, token_a, workspace_id_a):
+    from api.routers import documents as documents_router
+    from api import deps as deps_module
+    from db import client as db_client
+
+    client_mock = MagicMock()
+    client_mock.table.return_value = _memberships_query("editor")
+
+    with patch.object(documents_router, "get_client", return_value=client_mock), patch.object(
+        deps_module, "get_client", return_value=client_mock
+    ), patch.object(
+        db_client, "get_client", return_value=client_mock
+    ):
+        response = await client.post(
+            "/api/documents",
+            headers={
+                "Authorization": f"Bearer {token_a}",
+                "X-Workspace-Id": workspace_id_a,
+                "Content-Type": "application/json",
+            },
+            json={"url": "https://example.com/msa.pdf"},
+        )
+
+    assert response.status_code == 501
+    assert response.json()["detail"]["code"] == "url_ingestion_not_implemented"
+
+
+@pytest.mark.asyncio
 async def test_list_documents_is_workspace_scoped(client, token_a, workspace_id_a):
     from api.routers import documents as documents_router
     from api import deps as deps_module
@@ -271,7 +302,7 @@ async def test_list_documents_is_workspace_scoped(client, token_a, workspace_id_
             {
                 "id": "doc-1",
                 "filename": "msa.pdf",
-                "status": "processing",
+                "status": "uploaded",
                 "source_type": "pdf",
                 "page_count": None,
                 "created_at": "2026-06-28T12:00:00Z",

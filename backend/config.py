@@ -51,6 +51,7 @@ class Settings(BaseSettings):
 
     # Upload limits
     max_upload_bytes: int = 50 * 1024 * 1024
+    ingestion_lease_seconds: int = 900
 
     # LangSmith
     langchain_tracing_v2: bool = True

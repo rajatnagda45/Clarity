@@ -47,6 +47,12 @@ def upload_document_file(key: str, fileobj: BinaryIO, content_type: str | None) 
         client.upload_fileobj(fileobj, settings.r2_bucket, key)
 
 
+def download_document_bytes(key: str) -> bytes:
+    client = get_r2_client()
+    response = client.get_object(Bucket=settings.r2_bucket, Key=key)
+    return response["Body"].read()
+
+
 def delete_document_object(key: str) -> None:
     client = get_r2_client()
     client.delete_object(Bucket=settings.r2_bucket, Key=key)

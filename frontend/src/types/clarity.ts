@@ -2,7 +2,13 @@ export type RiskFlag = 'normal' | 'non_standard' | 'flagged';
 export type Role = 'owner' | 'editor' | 'viewer';
 export type EntailmentLabel = 'entail' | 'neutral' | 'contradict';
 export type SourceType = 'pdf' | 'docx' | 'url';
-export type DocumentStatus = 'processing' | 'ready' | 'failed';
+export type DocumentStatus =
+  | 'uploaded'
+  | 'extracted'
+  | 'normalized'
+  | 'metadata_ready'
+  | 'awaiting_chunking'
+  | 'failed';
 export type Plan = 'free' | 'pro' | 'team';
 export type ClauseType =
   | 'termination'
