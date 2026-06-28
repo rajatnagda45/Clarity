@@ -70,6 +70,12 @@ class Settings(BaseSettings):
     index_max_retries: int = 3
     index_timeout_seconds: int = 30
     index_lease_seconds: int = 900
+    retrieval_dense_top_k: int = 20
+    retrieval_sparse_top_k: int = 20
+    retrieval_final_top_k: int = 5
+    retrieval_rrf_k: int = 60
+    retrieval_cross_reference_limit: int = 2
+    retrieval_cache_ttl_seconds: int = 60
 
     # LangSmith
     langchain_tracing_v2: bool = True

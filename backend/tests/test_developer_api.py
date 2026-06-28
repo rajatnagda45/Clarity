@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from types import SimpleNamespace
-from unittest.mock import MagicMock, patch
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
@@ -289,3 +289,131 @@ async def test_developer_dashboard_returns_documents_and_failed_jobs(client, tok
     assert body["statusCounts"]["indexed"] == 1
     assert body["statusCounts"]["failed"] == 1
     assert len(body["failedJobs"]) == 1
+
+
+@pytest.mark.asyncio
+async def test_retrieval_metrics_returns_developer_summary(client, token_a, workspace_id_a):
+    from api.routers import developer as developer_router
+    from api import deps as deps_module
+    from db import client as db_client
+
+    memberships_table = _memberships_query("viewer")
+    retrieval_query = MagicMock()
+    retrieval_query.select.return_value = retrieval_query
+    retrieval_query.eq.return_value = retrieval_query
+    retrieval_query.execute.return_value = SimpleNamespace(
+        data=[
+            {
+                "total_latency_ms": 120,
+                "final_result_count": 5,
+                "dense_candidate_count": 10,
+                "sparse_candidate_count": 10,
+                "dense_contributed_count": 4,
+                "sparse_contributed_count": 3,
+                "fusion_latency_ms": 8,
+                "filter_count": 1,
+                "cache_hit": True,
+                "failed": False,
+            }
+        ]
+    )
+
+    client_mock = MagicMock()
+    client_mock.table.side_effect = lambda name: {
+        "memberships": memberships_table,
+        "retrieval_events": retrieval_query,
+    }[name]
+
+    with patch.object(developer_router, "tenant_query", return_value=retrieval_query), patch.object(
+        deps_module, "get_client", return_value=client_mock
+    ), patch.object(
+        db_client, "get_client", return_value=client_mock
+    ):
+        response = await client.get(
+            "/api/developer/metrics/retrieval",
+            headers={
+                "Authorization": f"Bearer {token_a}",
+                "X-Workspace-Id": workspace_id_a,
+            },
+        )
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["queryVolume"] == 1
+    assert body["retrievalCacheHits"] == 1
+
+
+@pytest.mark.asyncio
+async def test_retrieval_explorer_returns_debug_payload(client, token_a, workspace_id_a):
+    from api.routers import developer as developer_router
+    from api import deps as deps_module
+    from db import client as db_client
+    from services.retrieval.models import RetrievalEvidence, RetrievalExplorerResponse
+
+    memberships_table = _memberships_query("viewer")
+    client_mock = MagicMock()
+    client_mock.table.side_effect = lambda name: {
+        "memberships": memberships_table,
+    }[name]
+
+    explorer_response = RetrievalExplorerResponse(
+        normalizedQuery={
+            "rawQuery": "termination notice",
+            "normalizedQuery": "termination notice",
+            "tokens": ["termination", "notice"],
+            "clauseRefs": [],
+            "quotedPhrases": [],
+        },
+        cacheHit=False,
+        denseCandidates=[{"chunkId": "chk-1", "documentId": "doc-1", "rank": 1, "score": 0.9, "reason": "dense"}],
+        sparseCandidates=[{"chunkId": "chk-1", "documentId": "doc-1", "rank": 1, "score": 3.2, "reason": "sparse"}],
+        fusedCandidates=[{"chunkId": "chk-1", "documentId": "doc-1", "rank": 1, "score": 0.03, "reason": "hybrid"}],
+        results=[
+            RetrievalEvidence(
+                workspaceId=workspace_id_a,
+                documentId="doc-1",
+                chunkId="chk-1",
+                chunkIndex=0,
+                text="Termination clause text",
+                sectionTitle="Termination",
+                clauseNumber="1.1",
+                pageStart=1,
+                pageEnd=1,
+                chunkKind="clause",
+                crossReferences=[],
+                vectorScore=0.9,
+                bm25Score=3.2,
+                rrfScore=0.03,
+                finalScore=0.03,
+                finalRank=1,
+                retrievalReason="Strong lexical and semantic agreement.",
+                retrievalSources=["dense", "sparse"],
+                parserVersion="a3.v1",
+                chunkVersion="a4.v1",
+                embeddingVersion="a5.v1",
+            )
+        ],
+        denseLatencyMs=10,
+        sparseLatencyMs=11,
+        fusionLatencyMs=4,
+        totalLatencyMs=25,
+    )
+
+    with patch.object(deps_module, "get_client", return_value=client_mock), patch.object(
+        db_client, "get_client", return_value=client_mock
+    ), patch.object(
+        developer_router, "retrieve_evidence", new=AsyncMock(return_value=(None, explorer_response))
+    ):
+        response = await client.post(
+            "/api/developer/retrieval/explore",
+            headers={
+                "Authorization": f"Bearer {token_a}",
+                "X-Workspace-Id": workspace_id_a,
+            },
+            json={"query": "termination notice"},
+        )
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["denseCandidates"][0]["chunkId"] == "chk-1"
+    assert body["results"][0]["finalRank"] == 1

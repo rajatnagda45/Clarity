@@ -174,6 +174,87 @@ export interface IndexMetrics {
   indexedDimensions: number;
 }
 
+export interface RetrievalFilters {
+  sectionTitle?: string;
+  clauseNumber?: string;
+  pageStart?: number;
+  pageEnd?: number;
+  chunkKind?: string;
+}
+
+export interface RetrievalEvidence {
+  workspaceId: string;
+  documentId: string;
+  chunkId: string;
+  chunkIndex: number;
+  text: string;
+  sectionTitle: string | null;
+  clauseNumber: string | null;
+  pageStart: number;
+  pageEnd: number;
+  chunkKind: string;
+  crossReferences: string[];
+  vectorScore: number | null;
+  bm25Score: number | null;
+  rrfScore: number;
+  finalScore: number;
+  finalRank: number;
+  retrievalReason: string;
+  retrievalSources: Array<'dense' | 'sparse' | 'cross_reference'>;
+  parserVersion: string;
+  chunkVersion: string;
+  embeddingVersion: string | null;
+}
+
+export interface RetrievalStageEntry {
+  chunkId: string;
+  documentId: string;
+  rank: number;
+  score: number;
+  reason: string | null;
+}
+
+export interface RetrievalNormalizedQuery {
+  rawQuery: string;
+  normalizedQuery: string;
+  tokens: string[];
+  clauseRefs: string[];
+  quotedPhrases: string[];
+}
+
+export interface RetrievalResponse {
+  normalizedQuery: RetrievalNormalizedQuery;
+  retrievalMode: string;
+  cacheHit: boolean;
+  results: RetrievalEvidence[];
+}
+
+export interface RetrievalExplorerResponse {
+  normalizedQuery: RetrievalNormalizedQuery;
+  cacheHit: boolean;
+  denseCandidates: RetrievalStageEntry[];
+  sparseCandidates: RetrievalStageEntry[];
+  fusedCandidates: RetrievalStageEntry[];
+  results: RetrievalEvidence[];
+  denseLatencyMs: number;
+  sparseLatencyMs: number;
+  fusionLatencyMs: number;
+  totalLatencyMs: number;
+}
+
+export interface RetrievalMetrics {
+  retrievalLatencyMs: number;
+  averageRetrievedChunks: number;
+  denseRecall: number;
+  sparseRecall: number;
+  fusionLatencyMs: number;
+  averageFusionScore: number;
+  filterUsage: number;
+  queryVolume: number;
+  retrievalCacheHits: number;
+  retrievalFailures: number;
+}
+
 export interface DeveloperDashboardDocument {
   id: string;
   filename: string;

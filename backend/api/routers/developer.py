@@ -5,9 +5,20 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from api.deps import require_workspace_role
 from config import settings
 from db.client import tenant_query
-from schemas import DeveloperDashboardDocument, DeveloperDashboardResponse, EmbeddingMetricsResponse, IndexMetricsResponse
+from schemas import (
+    DeveloperDashboardDocument,
+    DeveloperDashboardResponse,
+    EmbeddingMetricsResponse,
+    IndexMetricsResponse,
+    RetrievalExplorerResponse,
+    RetrievalMetricsResponse,
+    RetrievalSearchRequest,
+)
 from services.embeddings.metrics import build_embedding_metrics
 from services.indexing.metrics import build_index_metrics
+from services.retrieval.metrics import build_retrieval_metrics
+from services.retrieval.models import RetrievalRequest
+from services.retrieval.service import retrieve_evidence
 
 
 router = APIRouter(prefix="/api/developer", tags=["developer"])
@@ -51,6 +62,42 @@ async def get_index_metrics(
     return IndexMetricsResponse(
         **build_index_metrics(documents.data or [], index_rows.data or [])
     )
+
+
+@router.get("/metrics/retrieval", response_model=RetrievalMetricsResponse)
+async def get_retrieval_metrics(
+    membership: tuple[str, str] = Depends(require_workspace_role),
+) -> RetrievalMetricsResponse:
+    if settings.environment == "production":
+        raise _error(status.HTTP_404_NOT_FOUND, "not_found", "Developer metrics unavailable.")
+
+    workspace_id, _ = membership
+    event_rows = tenant_query("retrieval_events", workspace_id).execute()
+    return RetrievalMetricsResponse(
+        **build_retrieval_metrics(event_rows.data or [])
+    )
+
+
+@router.post("/retrieval/explore", response_model=RetrievalExplorerResponse)
+async def explore_retrieval(
+    payload: RetrievalSearchRequest,
+    membership: tuple[str, str] = Depends(require_workspace_role),
+) -> RetrievalExplorerResponse:
+    if settings.environment == "production":
+        raise _error(status.HTTP_404_NOT_FOUND, "not_found", "Developer retrieval explorer unavailable.")
+
+    workspace_id, _ = membership
+    if payload.filters and payload.filters.page_start and payload.filters.page_end:
+        if payload.filters.page_start > payload.filters.page_end:
+            raise _error(
+                status.HTTP_422_UNPROCESSABLE_ENTITY,
+                "invalid_page_range",
+                "pageStart cannot be greater than pageEnd.",
+            )
+
+    request = RetrievalRequest.model_validate(payload.model_dump())
+    _, explorer = await retrieve_evidence(request, workspace_id)
+    return RetrievalExplorerResponse(**explorer.model_dump(mode="json", by_alias=True))
 
 
 @router.get("/dashboard", response_model=DeveloperDashboardResponse)

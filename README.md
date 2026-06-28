@@ -3,7 +3,7 @@
 > **An AI contract auditor that catches its own hallucinations, proves every claim against the exact source text, and shows you a measured trust score for each answer.**
 
 [![CI](https://github.com/rajatnagda45/Clarity/actions/workflows/ci.yml/badge.svg)](https://github.com/rajatnagda45/Clarity/actions/workflows/ci.yml)
-![Phase](https://img.shields.io/badge/phase-A6%20vector%20indexing-blue)
+![Phase](https://img.shields.io/badge/phase-A7%20hybrid%20retrieval-blue)
 ![Stack](https://img.shields.io/badge/stack-Next.js%2015%20%2B%20FastAPI%20%2B%20LangGraph-informational)
 ![License](https://img.shields.io/badge/license-MIT-green)
 
@@ -11,7 +11,7 @@
 
 ## Current Status
 
-Milestone **A6** is complete.
+Milestone **A7** is complete.
 
 Implemented today:
 - Clerk-backed protected app shell for `/dashboard`, `/documents`, and `/chat`
@@ -33,12 +33,14 @@ Implemented today:
 - deterministic vector synchronization with version-aware reruns, stale-vector cleanup, and workspace namespace isolation
 - developer-only vector index explorer for namespace, vector id, sync status, and version metadata inspection
 - consolidated developer dashboard for documents, pipeline status, chunk inspection, embeddings, vector indexing, metrics, timeline, and failed jobs
+- hybrid retrieval engine with deterministic query normalization, dense retrieval, BM25 retrieval, reciprocal-rank fusion, metadata filters, and bounded cross-reference expansion
+- developer-only retrieval explorer showing normalized queries, dense/sparse/fused ranks, score explanations, retrieval reasons, and final evidence ordering
+- developer retrieval metrics for latency, retrieved chunk counts, dense/sparse contribution, fusion timing, filter usage, cache hits, and failures
 - deterministic document lifecycle through `uploaded → extracted → normalized → metadata_ready → awaiting_chunking → chunking → chunked → awaiting_embeddings → embedding → embedded → awaiting_index → indexing → indexed`
 - resumable artifact persistence for ingestion stages
 - backend and frontend test baseline still green after the milestone
 
 Not implemented yet in Phase A:
-- retrieval
 - SSE chat
 
 A6 technical debt notes recorded for retrieval-adjacent parsing hardening:

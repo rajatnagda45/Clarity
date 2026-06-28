@@ -5,8 +5,8 @@ import { useAuth } from '@clerk/nextjs';
 import { useEffect, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
 
-import { getDeveloperDashboard, getEmbeddingMetrics, getIndexMetrics } from '@/lib/api';
-import type { DeveloperDashboard, EmbeddingMetrics, IndexMetrics } from '@/types/clarity';
+import { getDeveloperDashboard, getEmbeddingMetrics, getIndexMetrics, getRetrievalMetrics } from '@/lib/api';
+import type { DeveloperDashboard, EmbeddingMetrics, IndexMetrics, RetrievalMetrics } from '@/types/clarity';
 
 
 type LoadState = 'idle' | 'loading' | 'loaded' | 'error';
@@ -30,6 +30,7 @@ export default function DeveloperDashboardPage() {
   const [dashboard, setDashboard] = useState<DeveloperDashboard | null>(null);
   const [embeddingMetrics, setEmbeddingMetrics] = useState<EmbeddingMetrics | null>(null);
   const [indexMetrics, setIndexMetrics] = useState<IndexMetrics | null>(null);
+  const [retrievalMetrics, setRetrievalMetrics] = useState<RetrievalMetrics | null>(null);
   const [loadState, setLoadState] = useState<LoadState>('idle');
   const [errorMessage, setErrorMessage] = useState('');
 
@@ -52,16 +53,18 @@ export default function DeveloperDashboardPage() {
           throw new Error('Clerk session token unavailable.');
         }
 
-        const [nextDashboard, nextEmbeddingMetrics, nextIndexMetrics] = await Promise.all([
+        const [nextDashboard, nextEmbeddingMetrics, nextIndexMetrics, nextRetrievalMetrics] = await Promise.all([
           getDeveloperDashboard({ token, workspaceId }),
           getEmbeddingMetrics({ token, workspaceId }),
           getIndexMetrics({ token, workspaceId }),
+          getRetrievalMetrics({ token, workspaceId }),
         ]);
 
         if (cancelled) return;
         setDashboard(nextDashboard);
         setEmbeddingMetrics(nextEmbeddingMetrics);
         setIndexMetrics(nextIndexMetrics);
+        setRetrievalMetrics(nextRetrievalMetrics);
         setLoadState('loaded');
       } catch (error) {
         if (cancelled) return;
@@ -135,6 +138,12 @@ export default function DeveloperDashboardPage() {
                 <p>Average indexing latency: <span className="font-mono text-slate-900">{indexMetrics?.averageIndexingLatencyMs.toFixed(2) ?? '0.00'} ms</span></p>
                 <p>Sync lag: <span className="font-mono text-slate-900">{indexMetrics?.synchronizationLagMs.toFixed(2) ?? '0.00'} ms</span></p>
                 <p>Current coverage: <span className="font-mono text-slate-900">{indexMetrics ? formatRate(indexMetrics.currentEmbeddingVersionCoverage) : 'n/a'}</span></p>
+                <p>Retrieval latency: <span className="font-mono text-slate-900">{retrievalMetrics?.retrievalLatencyMs.toFixed(2) ?? '0.00'} ms</span></p>
+                <p>Average retrieved chunks: <span className="font-mono text-slate-900">{retrievalMetrics?.averageRetrievedChunks.toFixed(2) ?? '0.00'}</span></p>
+                <p>Dense recall: <span className="font-mono text-slate-900">{retrievalMetrics ? formatRate(retrievalMetrics.denseRecall) : 'n/a'}</span></p>
+                <p>Sparse recall: <span className="font-mono text-slate-900">{retrievalMetrics ? formatRate(retrievalMetrics.sparseRecall) : 'n/a'}</span></p>
+                <p>Fusion latency: <span className="font-mono text-slate-900">{retrievalMetrics?.fusionLatencyMs.toFixed(2) ?? '0.00'} ms</span></p>
+                <p>Cache hits: <span className="font-mono text-slate-900">{retrievalMetrics?.retrievalCacheHits ?? 0}</span></p>
               </div>
               <div className="mt-4 flex flex-wrap gap-2">
                 <Link
@@ -142,6 +151,12 @@ export default function DeveloperDashboardPage() {
                   className="inline-flex rounded-full border border-slate-300 px-3 py-1 text-xs font-medium text-slate-700"
                 >
                   Embedding metrics
+                </Link>
+                <Link
+                  href={`/developer/retrieval?workspace=${encodeURIComponent(workspaceId)}`}
+                  className="inline-flex rounded-full border border-slate-300 px-3 py-1 text-xs font-medium text-slate-700"
+                >
+                  Retrieval Explorer
                 </Link>
               </div>
             </article>

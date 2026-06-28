@@ -45,3 +45,12 @@ def test_vector_indexing_migration_is_safe_to_reapply():
     assert "create table if not exists chunk_vector_index_records" in sql
     assert "create unique index if not exists chunk_vector_index_records_identity_idx" in sql
     assert "drop policy if exists chunk_vector_index_records_tenant_isolation" in sql
+
+
+def test_retrieval_migration_is_safe_to_reapply():
+    migration = Path(__file__).resolve().parents[2] / "migrations" / "006_hybrid_retrieval_engine.sql"
+    sql = migration.read_text(encoding="utf-8")
+
+    assert "create table if not exists retrieval_events" in sql
+    assert "create index if not exists retrieval_events_workspace_created_idx" in sql
+    assert "drop policy if exists retrieval_events_tenant_isolation" in sql

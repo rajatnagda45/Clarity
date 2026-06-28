@@ -1,4 +1,4 @@
-from typing import Literal
+from typing import Annotated, Literal
 from pydantic import BaseModel, Field
 
 
@@ -291,6 +291,110 @@ class IndexMetricsResponse(BaseModel):
     indexed_documents: int = Field(alias="indexedDocuments")
     average_document_indexing_time_ms: float = Field(alias="averageDocumentIndexingTimeMs")
     indexed_dimensions: int = Field(alias="indexedDimensions")
+
+    model_config = {"populate_by_name": True}
+
+
+class RetrievalFiltersRequest(BaseModel):
+    section_title: str | None = Field(default=None, alias="sectionTitle")
+    clause_number: str | None = Field(default=None, alias="clauseNumber")
+    page_start: int | None = Field(default=None, alias="pageStart")
+    page_end: int | None = Field(default=None, alias="pageEnd")
+    chunk_kind: str | None = Field(default=None, alias="chunkKind")
+
+    model_config = {"populate_by_name": True}
+
+
+class RetrievalSearchRequest(BaseModel):
+    query: str = Field(min_length=1)
+    document_ids: Annotated[list[str], Field(alias="documentIds")] = Field(default_factory=list)
+    filters: RetrievalFiltersRequest | None = None
+    limit: int | None = Field(default=None, ge=1, le=20)
+
+    model_config = {"populate_by_name": True}
+
+
+class RetrievalEvidenceResponse(BaseModel):
+    workspace_id: str = Field(alias="workspaceId")
+    document_id: str = Field(alias="documentId")
+    chunk_id: str = Field(alias="chunkId")
+    chunk_index: int = Field(alias="chunkIndex")
+    text: str
+    section_title: str | None = Field(default=None, alias="sectionTitle")
+    clause_number: str | None = Field(default=None, alias="clauseNumber")
+    page_start: int = Field(alias="pageStart")
+    page_end: int = Field(alias="pageEnd")
+    chunk_kind: str = Field(alias="chunkKind")
+    cross_references: list[str] = Field(alias="crossReferences")
+    vector_score: float | None = Field(default=None, alias="vectorScore")
+    bm25_score: float | None = Field(default=None, alias="bm25Score")
+    rrf_score: float = Field(alias="rrfScore")
+    final_score: float = Field(alias="finalScore")
+    final_rank: int = Field(alias="finalRank")
+    retrieval_reason: str = Field(alias="retrievalReason")
+    retrieval_sources: list[str] = Field(alias="retrievalSources")
+    parser_version: str = Field(alias="parserVersion")
+    chunk_version: str = Field(alias="chunkVersion")
+    embedding_version: str | None = Field(default=None, alias="embeddingVersion")
+
+    model_config = {"populate_by_name": True}
+
+
+class RetrievalNormalizedQueryResponse(BaseModel):
+    raw_query: str = Field(alias="rawQuery")
+    normalized_query: str = Field(alias="normalizedQuery")
+    tokens: list[str]
+    clause_refs: list[str] = Field(alias="clauseRefs")
+    quoted_phrases: list[str] = Field(alias="quotedPhrases")
+
+    model_config = {"populate_by_name": True}
+
+
+class RetrievalSearchResponse(BaseModel):
+    normalized_query: RetrievalNormalizedQueryResponse = Field(alias="normalizedQuery")
+    retrieval_mode: str = Field(alias="retrievalMode")
+    cache_hit: bool = Field(alias="cacheHit")
+    results: list[RetrievalEvidenceResponse]
+
+    model_config = {"populate_by_name": True}
+
+
+class RetrievalStageEntryResponse(BaseModel):
+    chunk_id: str = Field(alias="chunkId")
+    document_id: str = Field(alias="documentId")
+    rank: int
+    score: float
+    reason: str | None = None
+
+    model_config = {"populate_by_name": True}
+
+
+class RetrievalExplorerResponse(BaseModel):
+    normalized_query: RetrievalNormalizedQueryResponse = Field(alias="normalizedQuery")
+    cache_hit: bool = Field(alias="cacheHit")
+    dense_candidates: list[RetrievalStageEntryResponse] = Field(alias="denseCandidates")
+    sparse_candidates: list[RetrievalStageEntryResponse] = Field(alias="sparseCandidates")
+    fused_candidates: list[RetrievalStageEntryResponse] = Field(alias="fusedCandidates")
+    results: list[RetrievalEvidenceResponse]
+    dense_latency_ms: int = Field(alias="denseLatencyMs")
+    sparse_latency_ms: int = Field(alias="sparseLatencyMs")
+    fusion_latency_ms: int = Field(alias="fusionLatencyMs")
+    total_latency_ms: int = Field(alias="totalLatencyMs")
+
+    model_config = {"populate_by_name": True}
+
+
+class RetrievalMetricsResponse(BaseModel):
+    retrieval_latency_ms: float = Field(alias="retrievalLatencyMs")
+    average_retrieved_chunks: float = Field(alias="averageRetrievedChunks")
+    dense_recall: float = Field(alias="denseRecall")
+    sparse_recall: float = Field(alias="sparseRecall")
+    fusion_latency_ms: float = Field(alias="fusionLatencyMs")
+    average_fusion_score: float = Field(alias="averageFusionScore")
+    filter_usage: float = Field(alias="filterUsage")
+    query_volume: int = Field(alias="queryVolume")
+    retrieval_cache_hits: int = Field(alias="retrievalCacheHits")
+    retrieval_failures: int = Field(alias="retrievalFailures")
 
     model_config = {"populate_by_name": True}
 

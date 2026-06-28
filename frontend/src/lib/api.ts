@@ -14,6 +14,10 @@ import type {
   DeveloperDashboard,
   EmbeddingMetrics,
   IndexMetrics,
+  RetrievalExplorerResponse,
+  RetrievalFilters,
+  RetrievalMetrics,
+  RetrievalResponse,
   Conversation,
   Message,
   Contradiction,
@@ -187,6 +191,13 @@ export async function getIndexMetrics(auth: AuthContext): Promise<IndexMetrics> 
   });
 }
 
+export async function getRetrievalMetrics(auth: AuthContext): Promise<RetrievalMetrics> {
+  return apiFetch<RetrievalMetrics>('/api/developer/metrics/retrieval', {
+    method: 'GET',
+    ...auth,
+  });
+}
+
 export async function getDeveloperDashboard(auth: AuthContext): Promise<DeveloperDashboard> {
   return apiFetch<DeveloperDashboard>('/api/developer/dashboard', {
     method: 'GET',
@@ -200,6 +211,28 @@ export async function getDocumentVectorIndex(
 ): Promise<DocumentVectorIndexInspector> {
   return apiFetch<DocumentVectorIndexInspector>(`/api/documents/${documentId}/vectors`, {
     method: 'GET',
+    ...auth,
+  });
+}
+
+export async function searchRetrieval(
+  auth: AuthContext,
+  payload: { query: string; documentIds?: string[]; filters?: RetrievalFilters; limit?: number },
+): Promise<RetrievalResponse> {
+  return apiFetch<RetrievalResponse>('/api/retrieval/search', {
+    method: 'POST',
+    body: JSON.stringify(payload),
+    ...auth,
+  });
+}
+
+export async function exploreRetrieval(
+  auth: AuthContext,
+  payload: { query: string; documentIds?: string[]; filters?: RetrievalFilters; limit?: number },
+): Promise<RetrievalExplorerResponse> {
+  return apiFetch<RetrievalExplorerResponse>('/api/developer/retrieval/explore', {
+    method: 'POST',
+    body: JSON.stringify(payload),
     ...auth,
   });
 }

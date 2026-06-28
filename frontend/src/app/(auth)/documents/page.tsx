@@ -127,7 +127,8 @@ export default function DocumentsPage() {
         <h1 className="text-3xl font-semibold text-slate-900">Documents</h1>
         <p className="text-sm text-slate-600">
           Uploads now move through extraction, normalization, metadata preparation, clause-aware
-          chunk generation, embedding generation, and vector indexing. Retrieval and AI reasoning
+          chunk generation, embedding generation, and vector indexing. Retrieval evidence inspection
+          is now available through the developer dashboard, while answer generation and AI reasoning
           still begin in later milestones.
         </p>
       </div>
