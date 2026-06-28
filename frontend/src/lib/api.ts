@@ -13,6 +13,8 @@ import type {
   EvalMetrics,
   StreamEvent,
   ApiError,
+  MeResponse,
+  Workspace,
 } from '@/types/clarity';
 
 const BACKEND_URL = process.env.NEXT_PUBLIC_BACKEND_URL ?? 'http://localhost:8000';
@@ -23,7 +25,7 @@ const BACKEND_URL = process.env.NEXT_PUBLIC_BACKEND_URL ?? 'http://localhost:800
 
 async function apiFetch<T>(
   path: string,
-  options: RequestInit & { token: string; workspaceId: string },
+  options: RequestInit & { token: string; workspaceId?: string },
 ): Promise<T> {
   const { token, workspaceId, ...rest } = options;
 
@@ -32,7 +34,7 @@ async function apiFetch<T>(
     headers: {
       'Content-Type': 'application/json',
       Authorization: `Bearer ${token}`,
-      'X-Workspace-Id': workspaceId,
+      ...(workspaceId ? { 'X-Workspace-Id': workspaceId } : {}),
       ...(rest.headers ?? {}),
     },
   });
@@ -50,7 +52,7 @@ async function apiFetch<T>(
 // ---------------------------------------------------------------------------
 export interface AuthContext {
   token: string;
-  workspaceId: string;
+  workspaceId?: string;
 }
 
 // ---------------------------------------------------------------------------
@@ -60,6 +62,24 @@ export async function getHealth(): Promise<{ status: string; version: string; en
   const response = await fetch(`${BACKEND_URL}/health`);
   if (!response.ok) throw new Error('Backend unreachable');
   return response.json();
+}
+
+// ---------------------------------------------------------------------------
+// Auth + workspaces
+// ---------------------------------------------------------------------------
+export async function getMe(auth: AuthContext): Promise<MeResponse> {
+  return apiFetch<MeResponse>('/api/me', { method: 'GET', ...auth });
+}
+
+export async function createWorkspace(
+  auth: AuthContext,
+  payload: { name: string },
+): Promise<Workspace> {
+  return apiFetch<Workspace>('/api/workspaces', {
+    method: 'POST',
+    body: JSON.stringify(payload),
+    ...auth,
+  });
 }
 
 // ---------------------------------------------------------------------------
@@ -80,7 +100,7 @@ export async function uploadDocument(
     method: 'POST',
     headers: {
       Authorization: `Bearer ${auth.token}`,
-      'X-Workspace-Id': auth.workspaceId,
+      ...(auth.workspaceId ? { 'X-Workspace-Id': auth.workspaceId } : {}),
     },
     body: form,
   });
@@ -125,7 +145,7 @@ export function streamQuery(
         headers: {
           'Content-Type': 'application/json',
           Authorization: `Bearer ${auth.token}`,
-          'X-Workspace-Id': auth.workspaceId,
+          ...(auth.workspaceId ? { 'X-Workspace-Id': auth.workspaceId } : {}),
           Accept: 'text/event-stream',
         },
         body: JSON.stringify(payload),

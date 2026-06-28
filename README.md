@@ -3,11 +3,31 @@
 > **An AI contract auditor that catches its own hallucinations, proves every claim against the exact source text, and shows you a measured trust score for each answer.**
 
 [![CI](https://github.com/rajatnagda45/Clarity/actions/workflows/ci.yml/badge.svg)](https://github.com/rajatnagda45/Clarity/actions/workflows/ci.yml)
-![Phase](https://img.shields.io/badge/phase-0%20scaffold-blue)
+![Phase](https://img.shields.io/badge/phase-A1%20authenticated%20shell-blue)
 ![Stack](https://img.shields.io/badge/stack-Next.js%2015%20%2B%20FastAPI%20%2B%20LangGraph-informational)
 ![License](https://img.shields.io/badge/license-MIT-green)
 
 ---
+
+## Current Status
+
+Milestone **A1** is complete.
+
+Implemented today:
+- Clerk-backed protected app shell for `/dashboard`, `/documents`, and `/chat`
+- `GET /api/me` for workspace access hydration
+- `POST /api/workspaces` for first-workspace creation
+- workspace-aware dashboard flow in the frontend
+- backend and frontend test baseline still green after the milestone
+
+Not implemented yet in Phase A:
+- file upload
+- document parsing
+- chunking
+- embeddings
+- Pinecone indexing
+- retrieval
+- SSE chat
 
 ## What is Clarity?
 
@@ -156,9 +176,11 @@ clarity-docs/
 │   ├── src/
 │   │   ├── types/clarity.ts         # All shared TypeScript types
 │   │   ├── lib/api.ts               # Typed API client + SSE stream
+│   │   ├── components/workspace/    # Workspace dashboard UI
 │   │   └── app/
 │   │       ├── layout.tsx           # Clerk provider
 │   │       ├── page.tsx             # Landing page
+│   │       ├── (auth)/              # Protected Phase A shell
 │   │       └── api/health/route.ts  # Health edge route
 │   ├── package.json
 │   └── tsconfig.json
@@ -174,7 +196,8 @@ clarity-docs/
 │   │   │   ├── auth.py              # Clerk JWT verification
 │   │   │   └── rate_limit.py        # Upstash Redis sliding-window
 │   │   └── routers/
-│   │       └── health.py
+│   │       ├── health.py
+│   │       └── workspaces.py        # Phase A1 workspace APIs
 │   └── tests/
 │       ├── conftest.py
 │       ├── test_health.py

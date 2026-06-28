@@ -16,9 +16,13 @@ export type ClauseType =
 export interface Workspace {
   id: string;
   name: string;
-  ownerUserId: string;
+  role: Role;
   plan: Plan;
-  createdAt: string;
+}
+
+export interface MeResponse {
+  userId: string;
+  workspaces: Workspace[];
 }
 
 export interface Document {

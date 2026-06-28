@@ -19,6 +19,7 @@ from config import settings
 from api.middleware.auth import AuthMiddleware
 from api.middleware.rate_limit import RateLimitMiddleware
 from api.routers import health
+from api.routers import workspaces
 
 
 @asynccontextmanager
@@ -73,3 +74,4 @@ app.add_middleware(RateLimitMiddleware)
 
 # Routers
 app.include_router(health.router)
+app.include_router(workspaces.router)

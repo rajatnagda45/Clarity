@@ -75,3 +75,28 @@ class HealthResponse(BaseModel):
 class ErrorResponse(BaseModel):
     error: str
     detail: str | None = None
+
+
+class WorkspaceSummary(BaseModel):
+    id: str
+    name: str
+    role: Literal["owner", "editor", "viewer"]
+    plan: Literal["free", "pro", "team"]
+
+
+class MeResponse(BaseModel):
+    user_id: str = Field(alias="userId")
+    workspaces: list[WorkspaceSummary]
+
+    model_config = {"populate_by_name": True}
+
+
+class CreateWorkspaceRequest(BaseModel):
+    name: str = Field(min_length=1, max_length=120)
+
+
+class CreateWorkspaceResponse(BaseModel):
+    id: str
+    name: str
+    role: Literal["owner"]
+    plan: Literal["free", "pro", "team"]
