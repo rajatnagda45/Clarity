@@ -48,21 +48,14 @@ backend/services/calibrator.pkl
 # Eval fixtures are source-committed; results are not
 backend/services/eval/results/
 
-# Documentation files (hidden from GitHub)
-00_README.md
-01_PRD.md
-02_ARCHITECTURE.md
-04_API_SPEC.md
-06_BUILD_PLAN.md
-
 # Private internal docs — never publish
 00_README.md
 01_PRD.md
 02_ARCHITECTURE.md
-03_DATA_MODEL.md
 04_API_SPEC.md
-05_AGENT_LOGIC.md
 06_BUILD_PLAN.md
+03_DATA_MODEL.md
+05_AGENT_LOGIC.md
 07_TECH_DECISIONS.md
 08_NEXT_LEVEL_PLAN.md
 09_EVAL_SYSTEM.md
