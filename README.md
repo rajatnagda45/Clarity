@@ -11,23 +11,30 @@
 
 ## Current Status
 
-Milestone **A1** is complete.
+Milestone **A2** is complete.
 
 Implemented today:
 - Clerk-backed protected app shell for `/dashboard`, `/documents`, and `/chat`
 - `GET /api/me` for workspace access hydration
 - `POST /api/workspaces` for first-workspace creation
 - workspace-aware dashboard flow in the frontend
+- `POST /api/documents`, `GET /api/documents`, and `GET /api/documents/{id}`
+- secure Cloudflare R2 object storage integration for original uploads
+- document metadata persistence in PostgreSQL without starting parsing yet
 - backend and frontend test baseline still green after the milestone
 
 Not implemented yet in Phase A:
-- file upload
 - document parsing
 - chunking
 - embeddings
 - Pinecone indexing
 - retrieval
 - SSE chat
+
+A3 technical debt notes recorded for parsing kickoff:
+- add file signature validation before parser execution
+- add malware scanning before downstream document processing
+- harden parser handling for untrusted and malformed documents
 
 ## What is Clarity?
 
@@ -177,6 +184,8 @@ clarity-docs/
 │   │   ├── types/clarity.ts         # All shared TypeScript types
 │   │   ├── lib/api.ts               # Typed API client + SSE stream
 │   │   ├── components/workspace/    # Workspace dashboard UI
+│   │   ├── components/upload/       # Upload UX for documents
+│   │   ├── components/documents/    # Document list + cards
 │   │   └── app/
 │   │       ├── layout.tsx           # Clerk provider
 │   │       ├── page.tsx             # Landing page
@@ -195,11 +204,16 @@ clarity-docs/
 │   │   ├── middleware/
 │   │   │   ├── auth.py              # Clerk JWT verification
 │   │   │   └── rate_limit.py        # Upstash Redis sliding-window
+│   │   ├── deps.py                  # Role-aware workspace guards
 │   │   └── routers/
 │   │       ├── health.py
-│   │       └── workspaces.py        # Phase A1 workspace APIs
+│   │       ├── workspaces.py        # Phase A1 workspace APIs
+│   │       └── documents.py         # Phase A2 upload + metadata APIs
+│   ├── services/storage/
+│   │   └── r2.py                    # Secure object storage integration
 │   └── tests/
 │       ├── conftest.py
+│       ├── test_documents_api.py
 │       ├── test_health.py
 │       └── test_rls.py              # Workspace isolation tests
 │

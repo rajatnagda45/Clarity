@@ -27,14 +27,16 @@ export interface MeResponse {
 
 export interface Document {
   id: string;
-  workspaceId: string;
   filename: string;
   sourceType: SourceType;
-  r2Key: string;
   pageCount: number | null;
   status: DocumentStatus;
   error: string | null;
   createdAt: string;
+}
+
+export interface DocumentDetail extends Document {
+  clauses: Clause[];
 }
 
 export interface SpanRef {
@@ -154,6 +156,6 @@ export interface EvalMetrics {
 }
 
 export interface ApiError {
-  error: string;
-  detail?: string;
+  error?: string | { code?: string; message?: string };
+  detail?: string | { code?: string; message?: string };
 }

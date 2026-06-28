@@ -100,3 +100,41 @@ class CreateWorkspaceResponse(BaseModel):
     name: str
     role: Literal["owner"]
     plan: Literal["free", "pro", "team"]
+
+
+class ClauseSummary(BaseModel):
+    id: str
+    clause_type: str = Field(alias="clauseType")
+    text: str
+    page: int
+    risk_flag: str = Field(alias="riskFlag")
+    rationale: str | None = None
+    benchmark_match_id: str | None = Field(default=None, alias="benchmarkMatchId")
+    deviation_note: str | None = Field(default=None, alias="deviationNote")
+    risk_score: float | None = Field(default=None, alias="riskScore")
+
+    model_config = {"populate_by_name": True}
+
+
+class DocumentSummary(BaseModel):
+    id: str
+    filename: str
+    status: Literal["processing", "ready", "failed"]
+    source_type: Literal["pdf", "docx", "url"] = Field(alias="sourceType")
+    page_count: int | None = Field(default=None, alias="pageCount")
+    created_at: str = Field(alias="createdAt")
+    error: str | None = None
+
+    model_config = {"populate_by_name": True}
+
+
+class DocumentListResponse(BaseModel):
+    documents: list[DocumentSummary]
+
+
+class DocumentDetailResponse(DocumentSummary):
+    clauses: list[ClauseSummary]
+
+
+class ApiErrorResponse(BaseModel):
+    error: dict[str, str]

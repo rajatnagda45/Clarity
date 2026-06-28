@@ -7,6 +7,7 @@
 
 import type {
   Document,
+  DocumentDetail,
   Conversation,
   Message,
   Contradiction,
@@ -40,11 +41,36 @@ async function apiFetch<T>(
   });
 
   if (!response.ok) {
-    const err: ApiError = await response.json().catch(() => ({ error: response.statusText }));
-    throw new Error(err.detail ?? err.error);
+    throw await parseApiError(response);
   }
 
   return response.json() as Promise<T>;
+}
+
+async function parseApiError(response: Response): Promise<Error> {
+  const err = await response
+    .json()
+    .catch(() => ({ error: response.statusText })) as ApiError | { detail?: unknown };
+
+  if ('detail' in err && err.detail && typeof err.detail === 'object' && 'message' in err.detail) {
+    return new Error(String((err.detail as { message: string }).message));
+  }
+
+  if ('detail' in err && typeof err.detail === 'string') {
+    return new Error(err.detail);
+  }
+
+  if ('error' in err && err.error) {
+    if (typeof err.error === 'string') {
+      return new Error(err.error);
+    }
+
+    if (typeof err.error === 'object' && err.error && 'message' in err.error) {
+      return new Error(String(err.error.message));
+    }
+  }
+
+  return new Error(response.statusText);
 }
 
 // ---------------------------------------------------------------------------
@@ -86,7 +112,8 @@ export async function createWorkspace(
 // Documents
 // ---------------------------------------------------------------------------
 export async function listDocuments(auth: AuthContext): Promise<Document[]> {
-  return apiFetch<Document[]>('/api/documents', { method: 'GET', ...auth });
+  const response = await apiFetch<{ documents: Document[] }>('/api/documents', { method: 'GET', ...auth });
+  return response.documents;
 }
 
 export async function uploadDocument(
@@ -106,11 +133,17 @@ export async function uploadDocument(
   });
 
   if (!response.ok) {
-    const err: ApiError = await response.json().catch(() => ({ error: response.statusText }));
-    throw new Error(err.detail ?? err.error);
+    throw await parseApiError(response);
   }
 
   return response.json() as Promise<Document>;
+}
+
+export async function getDocument(
+  auth: AuthContext,
+  documentId: string,
+): Promise<DocumentDetail> {
+  return apiFetch<DocumentDetail>(`/api/documents/${documentId}`, { method: 'GET', ...auth });
 }
 
 // ---------------------------------------------------------------------------
@@ -153,8 +186,7 @@ export function streamQuery(
       });
 
       if (!response.ok || !response.body) {
-        const err: ApiError = await response.json().catch(() => ({ error: response.statusText }));
-        onError(new Error(err.detail ?? err.error));
+        onError(await parseApiError(response));
         return;
       }
 

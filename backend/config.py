@@ -47,6 +47,10 @@ class Settings(BaseSettings):
     r2_access_key_id: str
     r2_secret_access_key: str
     r2_bucket: str = "clarity-docs"
+    r2_endpoint_url: str | None = None
+
+    # Upload limits
+    max_upload_bytes: int = 50 * 1024 * 1024
 
     # LangSmith
     langchain_tracing_v2: bool = True
