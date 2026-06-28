@@ -11,6 +11,7 @@ import os
 import pytest
 from unittest.mock import MagicMock, patch
 from httpx import AsyncClient, ASGITransport
+from fastapi import APIRouter, Depends, Request
 
 # Patch all required env vars before any app import resolves pydantic-settings
 _env_defaults = {
@@ -48,6 +49,22 @@ async def client(mock_supabase):
     """Async HTTP client pointed at the FastAPI app, with Supabase mocked."""
     with patch("db.client._client", mock_supabase):
         from main import app
+        from api.middleware.auth import require_workspace
+
+        test_router = APIRouter()
+
+        @test_router.get("/api/test/probe")
+        async def auth_probe(request: Request, workspace_id: str = Depends(require_workspace)):
+            return {
+                "user_id": request.state.user_id,
+                "workspace_ids": request.state.workspace_ids,
+                "workspace_id": workspace_id,
+            }
+
+        route_paths = {route.path for route in app.routes}
+        if "/api/test/probe" not in route_paths:
+            app.include_router(test_router)
+
         async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as ac:
             yield ac
 

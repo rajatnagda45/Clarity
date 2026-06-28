@@ -3,8 +3,7 @@ name = "clarity-backend"
 version = "0.1.0"
 description = "Clarity — self-auditing contract intelligence API"
 authors = ["Rajat Nagda <rajatnagda2004@gmail.com>"]
-readme = "README.md"
-packages = [{ include = "." }]
+package-mode = false
 
 [tool.poetry.dependencies]
 python = ">=3.11,<4.0"
