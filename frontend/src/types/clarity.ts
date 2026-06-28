@@ -10,6 +10,12 @@ export type DocumentStatus =
   | 'awaiting_chunking'
   | 'chunking'
   | 'chunked'
+  | 'awaiting_embeddings'
+  | 'embedding'
+  | 'embedded'
+  | 'awaiting_index'
+  | 'indexing'
+  | 'indexed'
   | 'failed';
 export type Plan = 'free' | 'pro' | 'team';
 export type ClauseType =
@@ -71,6 +77,122 @@ export interface DocumentChunk {
   fragmentCount: number;
   crossReferences: string[];
   text: string;
+}
+
+export interface DocumentEmbedding {
+  chunkId: string;
+  chunkIndex: number;
+  status: 'current' | 'stale';
+  embeddingProvider: string;
+  embeddingModel: string;
+  embeddingDimension: number;
+  embeddingVersion: string;
+  parserVersion: string;
+  chunkVersion: string;
+  checksum: string;
+  tokenCount: number;
+  latencyMs: number | null;
+  retryCount: number;
+  estimatedCostUsd: number;
+  vectorPreview: number[];
+  createdAt: string;
+}
+
+export interface DocumentEmbeddingInspector {
+  documentId: string;
+  currentEmbeddingProvider: string | null;
+  currentEmbeddingModel: string | null;
+  currentEmbeddingDimension: number | null;
+  currentEmbeddingVersion: string | null;
+  currentEmbeddingParserVersion: string | null;
+  currentEmbeddingChunkVersion: string | null;
+  embeddings: DocumentEmbedding[];
+}
+
+export interface EmbeddingMetrics {
+  documentsProcessed: number;
+  chunksProcessed: number;
+  averageChunksPerDocument: number;
+  averageTokensPerChunk: number;
+  averageEmbeddingLatencyMs: number;
+  processingSuccessRate: number;
+  processingFailureRate: number;
+  retryCount: number;
+  averageDocumentProcessingTimeMs: number;
+  averageEmbeddingQueueTimeMs: number;
+  estimatedTotalTokens: number;
+  estimatedTotalCostUsd: number;
+  providerUsageCounts: Record<string, number>;
+  modelUsageCounts: Record<string, number>;
+}
+
+export interface DocumentVectorIndex {
+  chunkId: string;
+  chunkIndex: number;
+  chunkText: string;
+  vectorId: string;
+  namespace: string;
+  status: 'current' | 'stale';
+  indexProvider: string;
+  indexName: string;
+  embeddingProvider: string;
+  embeddingModel: string;
+  embeddingDimension: number;
+  embeddingVersion: string;
+  parserVersion: string;
+  chunkVersion: string;
+  checksum: string;
+  sectionTitle: string | null;
+  clauseNumber: string | null;
+  pageStart: number;
+  pageEnd: number;
+  retryCount: number;
+  latencyMs: number | null;
+  indexedAt: string | null;
+}
+
+export interface DocumentVectorIndexInspector {
+  documentId: string;
+  currentIndexProvider: string | null;
+  currentIndexName: string | null;
+  currentIndexNamespace: string | null;
+  vectors: DocumentVectorIndex[];
+}
+
+export interface IndexMetrics {
+  vectorsIndexed: number;
+  averageIndexingLatencyMs: number;
+  indexThroughput: number;
+  failedIndexOperations: number;
+  retryCount: number;
+  namespaceCounts: Record<string, number>;
+  indexSizeEstimateBytes: number;
+  synchronizationLagMs: number;
+  currentEmbeddingVersionCoverage: number;
+  indexedDocuments: number;
+  averageDocumentIndexingTimeMs: number;
+  indexedDimensions: number;
+}
+
+export interface DeveloperDashboardDocument {
+  id: string;
+  filename: string;
+  status: DocumentStatus;
+  sourceType: SourceType;
+  createdAt: string;
+  error: string | null;
+  embeddingQueuedAt: string | null;
+  embeddingStartedAt: string | null;
+  embeddingCompletedAt: string | null;
+  indexQueuedAt: string | null;
+  indexStartedAt: string | null;
+  indexCompletedAt: string | null;
+}
+
+export interface DeveloperDashboard {
+  documents: DeveloperDashboardDocument[];
+  statusCounts: Record<string, number>;
+  failedJobs: DeveloperDashboardDocument[];
 }
 
 export interface SpanRef {

@@ -4,8 +4,14 @@ import type { Document } from '@/types/clarity';
 
 
 function statusTone(status: Document['status']): string {
-  if (status === 'chunked') return 'bg-emerald-100 text-emerald-700';
+  if (status === 'indexed') return 'bg-emerald-100 text-emerald-700';
   if (status === 'failed') return 'bg-red-100 text-red-700';
+  if (status === 'indexing') return 'bg-amber-100 text-amber-700';
+  if (status === 'awaiting_index') return 'bg-yellow-100 text-yellow-700';
+  if (status === 'embedded') return 'bg-lime-100 text-lime-700';
+  if (status === 'embedding') return 'bg-lime-100 text-lime-700';
+  if (status === 'awaiting_embeddings') return 'bg-green-100 text-green-700';
+  if (status === 'chunked') return 'bg-emerald-50 text-emerald-700';
   if (status === 'chunking') return 'bg-teal-100 text-teal-700';
   if (status === 'awaiting_chunking') return 'bg-cyan-100 text-cyan-700';
   if (status === 'metadata_ready') return 'bg-sky-100 text-sky-700';
@@ -21,7 +27,13 @@ function statusMessage(status: Document['status']): string {
   if (status === 'metadata_ready') return 'Metadata and clause-aware preprocessing are complete.';
   if (status === 'awaiting_chunking') return 'Normalized document is queued for clause-aware chunking.';
   if (status === 'chunking') return 'Clause-aware chunks are being generated for retrieval readiness.';
-  if (status === 'chunked') return 'Chunk generation is complete and ready for future embeddings.';
+  if (status === 'chunked') return 'Chunk generation is complete and embedding work is about to begin.';
+  if (status === 'awaiting_embeddings') return 'Embedding generation is queued for the current chunk set.';
+  if (status === 'embedding') return 'Embeddings are being generated for the current document chunks.';
+  if (status === 'embedded') return 'Embeddings are complete and the document is ready to enter vector indexing.';
+  if (status === 'awaiting_index') return 'Vector indexing is queued for the current embedding set.';
+  if (status === 'indexing') return 'The current embedding set is being synchronized into the vector index.';
+  if (status === 'indexed') return 'Vector indexing is complete and the document is retrieval-ready for later milestones.';
   return 'Document ingestion failed before chunking.';
 }
 
@@ -53,13 +65,25 @@ export function DocumentCard({
         <p className="mt-3 text-sm text-slate-600">{statusMessage(document.status)}</p>
       )}
 
-      {workspaceId && document.status === 'chunked' ? (
-        <div className="mt-4">
+      {workspaceId && ['chunked', 'awaiting_embeddings', 'embedding', 'embedded', 'awaiting_index', 'indexing', 'indexed'].includes(document.status) ? (
+        <div className="mt-4 flex flex-wrap gap-2">
           <Link
             href={`/documents/${document.id}/chunks?workspace=${encodeURIComponent(workspaceId)}`}
             className="inline-flex rounded-full border border-slate-300 px-3 py-1 text-xs font-medium text-slate-700 transition hover:border-slate-400 hover:text-slate-900"
           >
             Open chunk inspector
+          </Link>
+          <Link
+            href={`/documents/${document.id}/embeddings?workspace=${encodeURIComponent(workspaceId)}`}
+            className="inline-flex rounded-full border border-slate-300 px-3 py-1 text-xs font-medium text-slate-700 transition hover:border-slate-400 hover:text-slate-900"
+          >
+            Open embedding explorer
+          </Link>
+          <Link
+            href={`/documents/${document.id}/vectors?workspace=${encodeURIComponent(workspaceId)}`}
+            className="inline-flex rounded-full border border-slate-300 px-3 py-1 text-xs font-medium text-slate-700 transition hover:border-slate-400 hover:text-slate-900"
+          >
+            Open vector explorer
           </Link>
         </div>
       ) : null}

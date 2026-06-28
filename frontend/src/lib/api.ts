@@ -8,7 +8,12 @@
 import type {
   Document,
   DocumentChunk,
+  DocumentEmbeddingInspector,
   DocumentDetail,
+  DocumentVectorIndexInspector,
+  DeveloperDashboard,
+  EmbeddingMetrics,
+  IndexMetrics,
   Conversation,
   Message,
   Contradiction,
@@ -156,6 +161,47 @@ export async function listDocumentChunks(
     { method: 'GET', ...auth },
   );
   return response.chunks;
+}
+
+export async function getDocumentEmbeddings(
+  auth: AuthContext,
+  documentId: string,
+): Promise<DocumentEmbeddingInspector> {
+  return apiFetch<DocumentEmbeddingInspector>(`/api/documents/${documentId}/embeddings`, {
+    method: 'GET',
+    ...auth,
+  });
+}
+
+export async function getEmbeddingMetrics(auth: AuthContext): Promise<EmbeddingMetrics> {
+  return apiFetch<EmbeddingMetrics>('/api/developer/metrics/embeddings', {
+    method: 'GET',
+    ...auth,
+  });
+}
+
+export async function getIndexMetrics(auth: AuthContext): Promise<IndexMetrics> {
+  return apiFetch<IndexMetrics>('/api/developer/metrics/indexing', {
+    method: 'GET',
+    ...auth,
+  });
+}
+
+export async function getDeveloperDashboard(auth: AuthContext): Promise<DeveloperDashboard> {
+  return apiFetch<DeveloperDashboard>('/api/developer/dashboard', {
+    method: 'GET',
+    ...auth,
+  });
+}
+
+export async function getDocumentVectorIndex(
+  auth: AuthContext,
+  documentId: string,
+): Promise<DocumentVectorIndexInspector> {
+  return apiFetch<DocumentVectorIndexInspector>(`/api/documents/${documentId}/vectors`, {
+    method: 'GET',
+    ...auth,
+  });
 }
 
 // ---------------------------------------------------------------------------

@@ -463,3 +463,205 @@ async def test_chunk_inspector_is_disabled_in_production(client, token_a, worksp
 
     assert response.status_code == 404
     assert response.json()["detail"]["code"] == "not_found"
+
+
+@pytest.mark.asyncio
+async def test_embedding_explorer_returns_workspace_scoped_embeddings(client, token_a, workspace_id_a):
+    from api.routers import documents as documents_router
+    from api import deps as deps_module
+    from db import client as db_client
+
+    memberships_table = _memberships_query("viewer")
+    documents_query = MagicMock()
+    documents_query.select.return_value = documents_query
+    documents_query.eq.return_value = documents_query
+    documents_query.limit.return_value = documents_query
+    documents_query.execute.return_value = SimpleNamespace(
+        data=[
+            {
+                "id": "doc-1",
+                "current_embedding_provider": "openai",
+                "current_embedding_model": "text-embedding-3-small",
+                "current_embedding_dimension": 1536,
+                "current_embedding_version": "a5.v1",
+                "current_embedding_parser_version": "a3.v1",
+                "current_embedding_chunk_version": "a4.v1",
+            }
+        ]
+    )
+
+    embeddings_query = MagicMock()
+    embeddings_query.select.return_value = embeddings_query
+    embeddings_query.eq.return_value = embeddings_query
+    embeddings_query.order.return_value = embeddings_query
+    embeddings_query.execute.return_value = SimpleNamespace(
+        data=[
+            {
+                "chunk_id": "chk_1",
+                "chunk_index": 0,
+                "embedding_provider": "openai",
+                "embedding_model": "text-embedding-3-small",
+                "embedding_dimension": 1536,
+                "embedding_version": "a5.v1",
+                "parser_version": "a3.v1",
+                "chunk_version": "a4.v1",
+                "checksum": "sum-1",
+                "token_count": 42,
+                "latency_ms": 18,
+                "retry_count": 0,
+                "estimated_cost_usd": 0.00001,
+                "vector_preview": [0.1, 0.2, 0.3],
+                "created_at": "2026-06-28T12:00:00Z",
+            }
+        ]
+    )
+
+    client_mock = MagicMock()
+    client_mock.table.side_effect = lambda name: {
+        "memberships": memberships_table,
+        "documents": documents_query,
+        "chunk_embeddings": embeddings_query,
+    }[name]
+
+    with patch.object(documents_router, "get_client", return_value=client_mock), patch.object(
+        deps_module, "get_client", return_value=client_mock
+    ), patch.object(
+        db_client, "get_client", return_value=client_mock
+    ):
+        response = await client.get(
+            "/api/documents/doc-1/embeddings",
+            headers={
+                "Authorization": f"Bearer {token_a}",
+                "X-Workspace-Id": workspace_id_a,
+            },
+        )
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["currentEmbeddingProvider"] == "openai"
+    assert body["embeddings"][0]["status"] == "current"
+    embeddings_query.eq.assert_any_call("workspace_id", workspace_id_a)
+
+
+@pytest.mark.asyncio
+async def test_embedding_explorer_is_disabled_in_production(client, token_a, workspace_id_a):
+    from api.routers import documents as documents_router
+    from api import deps as deps_module
+    from db import client as db_client
+
+    client_mock = MagicMock()
+    client_mock.table.return_value = _memberships_query("viewer")
+
+    with patch.object(documents_router, "get_client", return_value=client_mock), patch.object(
+        deps_module, "get_client", return_value=client_mock
+    ), patch.object(
+        db_client, "get_client", return_value=client_mock
+    ), patch.object(documents_router.settings, "environment", "production"):
+        response = await client.get(
+            "/api/documents/doc-1/embeddings",
+            headers={
+                "Authorization": f"Bearer {token_a}",
+                "X-Workspace-Id": workspace_id_a,
+            },
+        )
+
+    assert response.status_code == 404
+    assert response.json()["detail"]["code"] == "not_found"
+
+
+@pytest.mark.asyncio
+async def test_vector_explorer_returns_workspace_scoped_index_rows(client, token_a, workspace_id_a):
+    from api.routers import documents as documents_router
+    from api import deps as deps_module
+    from db import client as db_client
+
+    memberships_table = _memberships_query("viewer")
+    documents_query = MagicMock()
+    documents_query.select.return_value = documents_query
+    documents_query.eq.return_value = documents_query
+    documents_query.limit.return_value = documents_query
+    documents_query.execute.return_value = SimpleNamespace(
+        data=[
+            {
+                "id": "doc-1",
+                "current_index_provider": "pinecone",
+                "current_index_name": "clarity",
+                "current_index_namespace": f"ws_{workspace_id_a}",
+                "current_embedding_provider": "openai",
+                "current_embedding_model": "text-embedding-3-small",
+                "current_embedding_dimension": 1536,
+                "current_embedding_version": "a5.v1",
+                "current_embedding_parser_version": "a3.v1",
+                "current_embedding_chunk_version": "a4.v1",
+            }
+        ]
+    )
+
+    index_query = MagicMock()
+    index_query.select.return_value = index_query
+    index_query.eq.return_value = index_query
+    index_query.order.return_value = index_query
+    index_query.execute.return_value = SimpleNamespace(
+        data=[
+            {
+                "chunk_id": "chk_1",
+                "chunk_index": 0,
+                "vector_id": "vec-1",
+                "namespace": f"ws_{workspace_id_a}",
+                "status": "indexed",
+                "index_provider": "pinecone",
+                "index_name": "clarity",
+                "embedding_provider": "openai",
+                "embedding_model": "text-embedding-3-small",
+                "embedding_dimension": 1536,
+                "embedding_version": "a5.v1",
+                "parser_version": "a3.v1",
+                "chunk_version": "a4.v1",
+                "checksum": "sum-1",
+                "section_title": "Confidentiality",
+                "clause_number": "1",
+                "page_start": 1,
+                "page_end": 1,
+                "retry_count": 0,
+                "latency_ms": 14,
+                "indexed_at": "2026-06-28T12:00:00Z",
+            }
+        ]
+    )
+
+    chunks_query = MagicMock()
+    chunks_query.select.return_value = chunks_query
+    chunks_query.eq.return_value = chunks_query
+    chunks_query.order.return_value = chunks_query
+    chunks_query.execute.return_value = SimpleNamespace(
+        data=[{"chunk_id": "chk_1", "text": "Clause text"}]
+    )
+
+    client_mock = MagicMock()
+    client_mock.table.side_effect = lambda name: {
+        "memberships": memberships_table,
+    }[name]
+
+    with patch.object(documents_router, "get_client", return_value=client_mock), patch.object(
+        deps_module, "get_client", return_value=client_mock
+    ), patch.object(
+        db_client, "get_client", return_value=client_mock
+    ), patch.object(documents_router, "tenant_query") as tenant_query_mock:
+        tenant_query_mock.side_effect = lambda table, workspace_id: {
+            "documents": documents_query,
+            "chunk_vector_index_records": index_query,
+            "chunks": chunks_query,
+        }[table]
+        response = await client.get(
+            "/api/documents/doc-1/vectors",
+            headers={
+                "Authorization": f"Bearer {token_a}",
+                "X-Workspace-Id": workspace_id_a,
+            },
+        )
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["currentIndexProvider"] == "pinecone"
+    assert body["vectors"][0]["vectorId"] == "vec-1"
+    assert body["vectors"][0]["status"] == "current"

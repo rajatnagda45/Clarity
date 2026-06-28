@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from types import SimpleNamespace
-from unittest.mock import MagicMock, patch
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import fitz
 import pytest
@@ -50,7 +50,7 @@ async def test_run_document_ingestion_transitions_document_to_chunked():
 
     row = _document_row()
 
-    documents_table = _build_documents_table(row, execute_count=8)
+    documents_table = _build_documents_table(row, execute_count=9)
     artifacts_table = MagicMock()
     artifacts_table.upsert.return_value = artifacts_table
     artifacts_table.execute.return_value = SimpleNamespace(data=[])
@@ -74,7 +74,7 @@ async def test_run_document_ingestion_transitions_document_to_chunked():
 
     with patch.object(ingestion_pipeline, "get_client", return_value=client_mock), patch.object(
         ingestion_pipeline, "fetch_document_source", return_value=_sample_pdf_bytes()
-    ):
+    ), patch.object(ingestion_pipeline, "run_document_embedding_task", new=AsyncMock()) as embedding_task_mock:
         await ingestion_pipeline.run_document_ingestion("doc-1", "ws-1")
 
     statuses = [
@@ -89,12 +89,17 @@ async def test_run_document_ingestion_transitions_document_to_chunked():
         "awaiting_chunking",
         "chunking",
         "chunked",
+        "awaiting_embeddings",
     ]
     assert artifacts_table.upsert.call_count == 3
     chunks_table.delete.assert_called_once()
     chunks_table.insert.assert_called_once()
     assert usage_table.insert.call_count == 1
-    assert documents_table.update.call_args_list[-1].args[0]["ingestion_run_id"] is None
+    embedding_task_mock.assert_awaited_once_with("doc-1", "ws-1")
+    assert any(
+        call.args[0].get("ingestion_run_id") is None
+        for call in documents_table.update.call_args_list
+    )
 
 
 @pytest.mark.asyncio
@@ -166,7 +171,7 @@ async def test_run_document_ingestion_replaces_existing_chunks_idempotently():
     from services.ingestion import pipeline as ingestion_pipeline
 
     row = _document_row(id="doc-4")
-    documents_table = _build_documents_table(row, execute_count=8)
+    documents_table = _build_documents_table(row, execute_count=9)
     artifacts_table = MagicMock()
     artifacts_table.upsert.return_value = artifacts_table
     artifacts_table.execute.return_value = SimpleNamespace(data=[])
@@ -189,7 +194,7 @@ async def test_run_document_ingestion_replaces_existing_chunks_idempotently():
 
     with patch.object(ingestion_pipeline, "get_client", return_value=client_mock), patch.object(
         ingestion_pipeline, "fetch_document_source", return_value=_sample_pdf_bytes()
-    ):
+    ), patch.object(ingestion_pipeline, "run_document_embedding_task", new=AsyncMock()):
         await ingestion_pipeline.run_document_ingestion("doc-4", "ws-1")
 
     chunks_table.delete.assert_called_once()
