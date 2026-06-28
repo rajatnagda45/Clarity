@@ -16,6 +16,7 @@ export default function DocumentChunkInspectorPage() {
   const params = useParams<{ documentId: string }>();
   const searchParams = useSearchParams();
   const workspaceId = searchParams.get('workspace') ?? '';
+  const highlightedChunkId = searchParams.get('highlight') ?? '';
   const { getToken } = useAuth();
 
   const [chunks, setChunks] = useState<DocumentChunk[]>([]);
@@ -113,7 +114,15 @@ export default function DocumentChunkInspectorPage() {
 
       <section className="grid gap-4">
         {chunks.map((chunk) => (
-          <article key={chunk.chunkId} className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
+          <article
+            key={chunk.chunkId}
+            id={`chunk-${chunk.chunkId}`}
+            className={`rounded-3xl border bg-white p-6 shadow-sm ${
+              highlightedChunkId === chunk.chunkId
+                ? 'border-blue-500 ring-2 ring-blue-200'
+                : 'border-slate-200'
+            }`}
+          >
             <div className="flex flex-wrap items-start justify-between gap-3">
               <div className="space-y-2">
                 <div className="flex flex-wrap items-center gap-2">

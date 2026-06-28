@@ -6,12 +6,18 @@ from api.deps import require_workspace_role
 from config import settings
 from db.client import tenant_query
 from schemas import (
+    AnswerExplorerResponse,
+    AnswerExplorerRunResponse,
+    AnswerMetricsResponse,
+    ChunkSourceOffset,
     DeveloperDashboardDocument,
     DeveloperDashboardResponse,
     EmbeddingMetricsResponse,
     IndexMetricsResponse,
+    MessageCitation,
     RetrievalExplorerResponse,
     RetrievalMetricsResponse,
+    RetrievalEvidenceResponse,
     RetrievalSearchRequest,
 )
 from services.embeddings.metrics import build_embedding_metrics
@@ -26,6 +32,48 @@ router = APIRouter(prefix="/api/developer", tags=["developer"])
 
 def _error(status_code: int, code: str, message: str) -> HTTPException:
     return HTTPException(status_code=status_code, detail={"code": code, "message": message})
+
+
+def _build_answer_metrics(answer_rows: list[dict], message_rows: list[dict], conversation_rows: list[dict]) -> dict:
+    completed = [row for row in answer_rows if row.get("status") == "completed"]
+    count = len(completed) or 1
+    return {
+        "conversationsCreated": len(conversation_rows),
+        "messagesCreated": len(message_rows),
+        "answerFailures": sum(1 for row in answer_rows if row.get("status") == "failed"),
+        "answerLatencyMs": sum((row.get("latency_ms") or 0) for row in completed) / count,
+        "firstTokenLatencyMs": sum((row.get("first_token_latency_ms") or 0) for row in completed) / count,
+        "streamingDurationMs": sum((row.get("latency_ms") or 0) for row in completed) / count,
+        "promptTokens": sum((row.get("prompt_tokens") or 0) for row in answer_rows),
+        "completionTokens": sum((row.get("completion_tokens") or 0) for row in answer_rows),
+        "totalTokens": sum((row.get("total_tokens") or 0) for row in answer_rows),
+        "estimatedCostUsd": float(sum(float(row.get("estimated_cost_usd") or 0) for row in answer_rows)),
+        "averageCitationsPerAnswer": sum((row.get("citation_count") or 0) for row in completed) / count,
+        "averageEvidenceChunksPerAnswer": sum((row.get("evidence_chunk_count") or 0) for row in completed) / count,
+    }
+
+
+def _build_message_citation(row: dict) -> MessageCitation:
+    offsets = [
+        ChunkSourceOffset(
+            page=offset["page"],
+            blockOrder=offset["block_order"] if "block_order" in offset else offset["blockOrder"],
+            charStart=offset["char_start"] if "char_start" in offset else offset["charStart"],
+            charEnd=offset["char_end"] if "char_end" in offset else offset["charEnd"],
+        )
+        for offset in (row.get("source_offsets") or [])
+    ]
+    return MessageCitation(
+        citationKey=row["citation_key"],
+        documentId=str(row["document_id"]),
+        chunkId=row["chunk_id"],
+        sectionTitle=row.get("section_title"),
+        clauseNumber=row.get("clause_number"),
+        pageStart=row["page_start"],
+        pageEnd=row["page_end"],
+        checksum=row.get("checksum"),
+        sourceOffsets=offsets,
+    )
 
 
 @router.get("/metrics/embeddings", response_model=EmbeddingMetricsResponse)
@@ -78,6 +126,20 @@ async def get_retrieval_metrics(
     )
 
 
+@router.get("/metrics/answers", response_model=AnswerMetricsResponse)
+async def get_answer_metrics(
+    membership: tuple[str, str] = Depends(require_workspace_role),
+) -> AnswerMetricsResponse:
+    if settings.environment == "production":
+        raise _error(status.HTTP_404_NOT_FOUND, "not_found", "Developer answer metrics unavailable.")
+
+    workspace_id, _ = membership
+    answer_rows = tenant_query("answer_runs", workspace_id).execute().data or []
+    message_rows = tenant_query("messages", workspace_id).execute().data or []
+    conversation_rows = tenant_query("conversations", workspace_id).execute().data or []
+    return AnswerMetricsResponse(**_build_answer_metrics(answer_rows, message_rows, conversation_rows))
+
+
 @router.post("/retrieval/explore", response_model=RetrievalExplorerResponse)
 async def explore_retrieval(
     payload: RetrievalSearchRequest,
@@ -98,6 +160,99 @@ async def explore_retrieval(
     request = RetrievalRequest.model_validate(payload.model_dump())
     _, explorer = await retrieve_evidence(request, workspace_id)
     return RetrievalExplorerResponse(**explorer.model_dump(mode="json", by_alias=True))
+
+
+@router.get("/answers", response_model=AnswerExplorerResponse)
+async def get_answer_explorer(
+    membership: tuple[str, str] = Depends(require_workspace_role),
+) -> AnswerExplorerResponse:
+    if settings.environment == "production":
+        raise _error(status.HTTP_404_NOT_FOUND, "not_found", "Developer answer explorer unavailable.")
+
+    workspace_id, _ = membership
+    answer_rows = (
+        tenant_query("answer_runs", workspace_id)
+        .order("created_at", desc=True)
+        .limit(20)
+        .execute()
+    )
+    retrieval_rows = tenant_query("retrieval_runs", workspace_id).execute().data or []
+    evidence_rows = tenant_query("retrieval_run_evidence", workspace_id).execute().data or []
+    citation_rows = tenant_query("message_citations", workspace_id).execute().data or []
+    event_rows = tenant_query("answer_stream_events", workspace_id).execute().data or []
+
+    retrieval_by_id = {str(row["id"]): row for row in retrieval_rows}
+    evidence_by_run: dict[str, list[RetrievalEvidenceResponse]] = {}
+    for row in evidence_rows:
+        evidence_by_run.setdefault(str(row["retrieval_run_id"]), []).append(
+            RetrievalEvidenceResponse(
+                workspaceId=workspace_id,
+                documentId=str(row["document_id"]),
+                chunkId=row["chunk_id"],
+                chunkIndex=row["chunk_index"],
+                text=row["text"],
+                sectionTitle=row.get("section_title"),
+                clauseNumber=row.get("clause_number"),
+                pageStart=row["page_start"],
+                pageEnd=row["page_end"],
+                chunkKind=row.get("chunk_kind", "clause"),
+                crossReferences=row.get("cross_references") or [],
+                vectorScore=row.get("vector_score"),
+                bm25Score=row.get("bm25_score"),
+                rrfScore=row["rrf_score"],
+                finalScore=row["final_score"],
+                finalRank=row["final_rank"],
+                retrievalReason=row["retrieval_reason"],
+                retrievalSources=row.get("retrieval_sources") or [],
+                parserVersion=row["parser_version"],
+                chunkVersion=row["chunk_version"],
+                embeddingVersion=row.get("embedding_version"),
+            )
+        )
+    citations_by_run: dict[str, list[MessageCitation]] = {}
+    for row in citation_rows:
+        citations_by_run.setdefault(str(row["answer_run_id"]), []).append(_build_message_citation(row))
+    events_by_run: dict[str, list[dict]] = {}
+    for row in sorted(event_rows, key=lambda item: (str(item["answer_run_id"]), item["sequence_number"])):
+        events_by_run.setdefault(str(row["answer_run_id"]), []).append(row["payload"])
+
+    runs = []
+    for row in answer_rows.data or []:
+        retrieval_row = retrieval_by_id.get(str(row["retrieval_run_id"]), {})
+        runs.append(
+            AnswerExplorerRunResponse(
+                answerRunId=str(row["id"]),
+                conversationId=str(row["conversation_id"]),
+                retrievalRunId=str(row["retrieval_run_id"]),
+                userMessageId=str(row["user_message_id"]),
+                assistantMessageId=(
+                    str(row["assistant_message_id"]) if row.get("assistant_message_id") else None
+                ),
+                query=retrieval_row.get("query", ""),
+                normalizedQuery=retrieval_row.get("normalized_query", ""),
+                provider=row["provider"],
+                model=row["model"],
+                promptVersion=row["prompt_version"],
+                writerVersion=row["writer_version"],
+                status=row["status"],
+                promptTokens=row.get("prompt_tokens") or 0,
+                completionTokens=row.get("completion_tokens") or 0,
+                totalTokens=row.get("total_tokens") or 0,
+                estimatedCostUsd=float(row.get("estimated_cost_usd") or 0),
+                latencyMs=row.get("latency_ms"),
+                firstTokenLatencyMs=row.get("first_token_latency_ms"),
+                retryCount=row.get("retry_count") or 0,
+                createdAt=row["created_at"],
+                completedAt=row.get("completed_at"),
+                promptPayload=row.get("prompt_payload") or {},
+                finalAnswer=row.get("answer_markdown"),
+                citations=citations_by_run.get(str(row["id"]), []),
+                retrievedEvidence=evidence_by_run.get(str(row["retrieval_run_id"]), []),
+                streamEvents=events_by_run.get(str(row["id"]), []),
+            )
+        )
+
+    return AnswerExplorerResponse(runs=runs)
 
 
 @router.get("/dashboard", response_model=DeveloperDashboardResponse)

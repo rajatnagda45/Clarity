@@ -417,3 +417,190 @@ async def test_retrieval_explorer_returns_debug_payload(client, token_a, workspa
     body = response.json()
     assert body["denseCandidates"][0]["chunkId"] == "chk-1"
     assert body["results"][0]["finalRank"] == 1
+
+
+@pytest.mark.asyncio
+async def test_answer_metrics_and_explorer_return_developer_summary(client, token_a, workspace_id_a):
+    from api.routers import developer as developer_router
+    from api import deps as deps_module
+    from db import client as db_client
+
+    memberships_table = _memberships_query("viewer")
+    conversations_query = MagicMock()
+    conversations_query.select.return_value = conversations_query
+    conversations_query.eq.return_value = conversations_query
+    conversations_query.execute.return_value = SimpleNamespace(
+        data=[
+            {
+                "id": "conv-1",
+                "workspace_id": workspace_id_a,
+                "title": "Renewal",
+                "created_at": "2026-06-29T10:00:00Z",
+                "last_message_at": "2026-06-29T10:00:10Z",
+            }
+        ]
+    )
+    messages_query = MagicMock()
+    messages_query.select.return_value = messages_query
+    messages_query.eq.return_value = messages_query
+    messages_query.execute.return_value = SimpleNamespace(
+        data=[
+            {
+                "id": "msg-user",
+                "conversation_id": "conv-1",
+                "role": "user",
+                "content": "What is the renewal term?",
+                "created_at": "2026-06-29T10:00:00Z",
+            },
+            {
+                "id": "msg-assistant",
+                "conversation_id": "conv-1",
+                "role": "assistant",
+                "content": "It renews annually.",
+                "created_at": "2026-06-29T10:00:10Z",
+            },
+        ]
+    )
+    answer_runs_query = MagicMock()
+    answer_runs_query.select.return_value = answer_runs_query
+    answer_runs_query.eq.return_value = answer_runs_query
+    answer_runs_query.order.return_value = answer_runs_query
+    answer_runs_query.limit.return_value = answer_runs_query
+    answer_runs_query.execute.return_value = SimpleNamespace(
+        data=[
+            {
+                "id": "answer-1",
+                "conversation_id": "conv-1",
+                "retrieval_run_id": "retrieval-1",
+                "user_message_id": "msg-user",
+                "assistant_message_id": "msg-assistant",
+                "provider": "openai",
+                "model": "gpt-4o-mini",
+                "prompt_version": "a8.writer.v1",
+                "writer_version": "a8.writer.v1",
+                "status": "completed",
+                "prompt_tokens": 100,
+                "completion_tokens": 50,
+                "total_tokens": 150,
+                "estimated_cost_usd": 0.0003,
+                "latency_ms": 200,
+                "first_token_latency_ms": 200,
+                "citation_count": 1,
+                "evidence_chunk_count": 2,
+                "retry_count": 0,
+                "created_at": "2026-06-29T10:00:00Z",
+                "completed_at": "2026-06-29T10:00:01Z",
+                "prompt_payload": {"systemPrompt": "prompt"},
+                "answer_markdown": "It renews annually.",
+            }
+        ]
+    )
+    retrieval_runs_query = MagicMock()
+    retrieval_runs_query.select.return_value = retrieval_runs_query
+    retrieval_runs_query.eq.return_value = retrieval_runs_query
+    retrieval_runs_query.execute.return_value = SimpleNamespace(
+        data=[
+            {
+                "id": "retrieval-1",
+                "query": "What is the renewal term?",
+                "normalized_query": "what is the renewal term",
+            }
+        ]
+    )
+    evidence_query = MagicMock()
+    evidence_query.select.return_value = evidence_query
+    evidence_query.eq.return_value = evidence_query
+    evidence_query.execute.return_value = SimpleNamespace(
+        data=[
+            {
+                "retrieval_run_id": "retrieval-1",
+                "document_id": "doc-1",
+                "chunk_id": "chunk-1",
+                "chunk_index": 0,
+                "text": "Renews annually.",
+                "section_title": "Renewal",
+                "clause_number": "9.2",
+                "page_start": 4,
+                "page_end": 4,
+                "retrieval_reason": "Semantic vector match.",
+                "retrieval_sources": ["dense"],
+                "vector_score": 0.8,
+                "bm25_score": 1.2,
+                "rrf_score": 0.05,
+                "final_score": 0.05,
+                "final_rank": 1,
+                "parser_version": "a3.v1",
+                "chunk_version": "a4.v1",
+                "embedding_version": "a5.v1",
+            }
+        ]
+    )
+    citations_query = MagicMock()
+    citations_query.select.return_value = citations_query
+    citations_query.eq.return_value = citations_query
+    citations_query.execute.return_value = SimpleNamespace(
+        data=[
+            {
+                "answer_run_id": "answer-1",
+                "citation_key": "E1",
+                "document_id": "doc-1",
+                "chunk_id": "chunk-1",
+                "section_title": "Renewal",
+                "clause_number": "9.2",
+                "page_start": 4,
+                "page_end": 4,
+                "checksum": "abc",
+                "source_offsets": [],
+            }
+        ]
+    )
+    events_query = MagicMock()
+    events_query.select.return_value = events_query
+    events_query.eq.return_value = events_query
+    events_query.execute.return_value = SimpleNamespace(
+        data=[
+            {"answer_run_id": "answer-1", "sequence_number": 1, "payload": {"type": "meta"}},
+            {"answer_run_id": "answer-1", "sequence_number": 2, "payload": {"type": "done"}},
+        ]
+    )
+
+    client_mock = MagicMock()
+    client_mock.table.side_effect = lambda name: {"memberships": memberships_table}[name]
+
+    with patch.object(developer_router, "tenant_query") as tenant_query_mock, patch.object(
+        deps_module, "get_client", return_value=client_mock
+    ), patch.object(
+        db_client, "get_client", return_value=client_mock
+    ):
+        tenant_query_mock.side_effect = lambda table, workspace_id: {
+            "answer_runs": answer_runs_query,
+            "messages": messages_query,
+            "conversations": conversations_query,
+            "retrieval_runs": retrieval_runs_query,
+            "retrieval_run_evidence": evidence_query,
+            "message_citations": citations_query,
+            "answer_stream_events": events_query,
+        }[table]
+
+        metrics_response = await client.get(
+            "/api/developer/metrics/answers",
+            headers={
+                "Authorization": f"Bearer {token_a}",
+                "X-Workspace-Id": workspace_id_a,
+            },
+        )
+        explorer_response = await client.get(
+            "/api/developer/answers",
+            headers={
+                "Authorization": f"Bearer {token_a}",
+                "X-Workspace-Id": workspace_id_a,
+            },
+        )
+
+    assert metrics_response.status_code == 200
+    assert metrics_response.json()["totalTokens"] == 150
+
+    assert explorer_response.status_code == 200
+    explorer_body = explorer_response.json()
+    assert explorer_body["runs"][0]["answerRunId"] == "answer-1"
+    assert explorer_body["runs"][0]["citations"][0]["citationKey"] == "E1"

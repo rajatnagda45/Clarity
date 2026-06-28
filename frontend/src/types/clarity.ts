@@ -356,28 +356,102 @@ export interface Message {
   role: 'user' | 'assistant';
   content: string;
   createdAt: string;
-  claims?: Claim[];
-  trustScore?: TrustScore;
-  abstention?: Abstention;
+  answerRunId?: string | null;
+  retrievalRunId?: string | null;
+  citations: Citation[];
 }
 
 export interface Conversation {
   id: string;
   workspaceId: string;
-  title?: string;
+  title?: string | null;
   createdAt: string;
+  lastMessageAt: string;
+  messageCount: number;
+}
+
+export interface Citation {
+  citationKey: string;
+  documentId: string;
+  chunkId: string;
+  sectionTitle?: string | null;
+  clauseNumber?: string | null;
+  pageStart: number;
+  pageEnd: number;
+  checksum?: string | null;
+  sourceOffsets: ChunkSourceOffset[];
 }
 
 // SSE event union — every event the backend can emit on the query stream
 export type StreamEvent =
-  | { type: 'meta'; conversationId: string; messageId: string }
+  | {
+      type: 'meta';
+      conversationId: string;
+      userMessageId: string;
+      assistantMessageId?: string;
+      retrievalRunId: string;
+      answerRunId: string;
+    }
   | { type: 'graph_node'; node: string; status: 'started' | 'finished'; summary?: string }
-  | { type: 'debate_turn'; round: number; actor: 'writer' | 'critic'; action: string; claimId?: string; note?: string }
-  | { type: 'token'; claimId: string; text: string }
-  | { type: 'claim'; claim: Claim }
-  | { type: 'trust'; score: TrustScore }
-  | { type: 'abstention'; abstention: Abstention }
+  | { type: 'retrieval'; normalizedQuery: RetrievalNormalizedQuery; resultCount: number }
+  | { type: 'token'; text: string }
+  | { type: 'citation'; citation: Citation }
+  | { type: 'message'; message: Message }
+  | { type: 'error'; code: string; message: string }
   | { type: 'done' };
+
+export interface ConversationDetail {
+  conversation: Conversation;
+  messages: Message[];
+}
+
+export interface AnswerMetrics {
+  conversationsCreated: number;
+  messagesCreated: number;
+  answerFailures: number;
+  answerLatencyMs: number;
+  firstTokenLatencyMs: number;
+  streamingDurationMs: number;
+  promptTokens: number;
+  completionTokens: number;
+  totalTokens: number;
+  estimatedCostUsd: number;
+  averageCitationsPerAnswer: number;
+  averageEvidenceChunksPerAnswer: number;
+}
+
+export interface AnswerExplorerRun {
+  answerRunId: string;
+  conversationId: string;
+  retrievalRunId: string;
+  userMessageId: string;
+  assistantMessageId?: string | null;
+  query: string;
+  normalizedQuery: string;
+  provider: string;
+  model: string;
+  promptVersion: string;
+  writerVersion: string;
+  status: string;
+  promptTokens: number;
+  completionTokens: number;
+  totalTokens: number;
+  estimatedCostUsd: number;
+  latencyMs?: number | null;
+  firstTokenLatencyMs?: number | null;
+  retryCount: number;
+  createdAt: string;
+  completedAt?: string | null;
+  promptPayload: Record<string, unknown>;
+  finalAnswer?: string | null;
+  citations: Citation[];
+  retrievedEvidence: RetrievalEvidence[];
+  streamEvents: StreamEvent[];
+}
+
+export interface AnswerExplorerResponse {
+  runs: AnswerExplorerRun[];
+}
 
 export interface EvalMetrics {
   faithfulness: number;

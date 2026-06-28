@@ -54,3 +54,15 @@ def test_retrieval_migration_is_safe_to_reapply():
     assert "create table if not exists retrieval_events" in sql
     assert "create index if not exists retrieval_events_workspace_created_idx" in sql
     assert "drop policy if exists retrieval_events_tenant_isolation" in sql
+
+
+def test_answer_generation_migration_is_safe_to_reapply():
+    migration = Path(__file__).resolve().parents[2] / "migrations" / "007_answer_generation_platform.sql"
+    sql = migration.read_text(encoding="utf-8")
+
+    assert "add column if not exists last_message_at timestamptz" in sql
+    assert "create table if not exists retrieval_runs" in sql
+    assert "create table if not exists retrieval_run_evidence" in sql
+    assert "create unique index if not exists answer_runs_workspace_request_idx" in sql
+    assert "create table if not exists answer_stream_events" in sql
+    assert "drop policy if exists message_citations_tenant_isolation" in sql

@@ -21,7 +21,7 @@ from config import settings
 # (prefix, window_seconds, max_requests)
 _ROUTE_LIMITS: list[tuple[str, int, int]] = [
     ("/api/ingest", 60, 10),
-    ("/api/query", 60, 60),
+    ("/api/chat", 60, 60),
     ("/api/", 60, 120),
 ]
 

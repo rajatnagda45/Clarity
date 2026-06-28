@@ -1,5 +1,5 @@
-from typing import Annotated, Literal
-from pydantic import BaseModel, Field
+from typing import Literal
+from pydantic import BaseModel, Field, model_validator
 
 
 class SpanRef(BaseModel):
@@ -307,9 +307,17 @@ class RetrievalFiltersRequest(BaseModel):
 
 class RetrievalSearchRequest(BaseModel):
     query: str = Field(min_length=1)
-    document_ids: Annotated[list[str], Field(alias="documentIds")] = Field(default_factory=list)
+    document_ids: list[str] = Field(default_factory=list)
     filters: RetrievalFiltersRequest | None = None
     limit: int | None = Field(default=None, ge=1, le=20)
+
+    @model_validator(mode="before")
+    @classmethod
+    def _normalize_aliases(cls, value: object) -> object:
+        if isinstance(value, dict) and "documentIds" in value and "document_ids" not in value:
+            value = dict(value)
+            value["document_ids"] = value.pop("documentIds")
+        return value
 
     model_config = {"populate_by_name": True}
 
@@ -420,6 +428,133 @@ class DeveloperDashboardResponse(BaseModel):
     documents: list[DeveloperDashboardDocument]
     status_counts: dict[str, int] = Field(alias="statusCounts")
     failed_jobs: list[DeveloperDashboardDocument] = Field(alias="failedJobs")
+
+    model_config = {"populate_by_name": True}
+
+
+class MessageCitation(BaseModel):
+    citation_key: str = Field(alias="citationKey")
+    document_id: str = Field(alias="documentId")
+    chunk_id: str = Field(alias="chunkId")
+    section_title: str | None = Field(default=None, alias="sectionTitle")
+    clause_number: str | None = Field(default=None, alias="clauseNumber")
+    page_start: int = Field(alias="pageStart")
+    page_end: int = Field(alias="pageEnd")
+    checksum: str | None = None
+    source_offsets: list[ChunkSourceOffset] = Field(default_factory=list, alias="sourceOffsets")
+
+    model_config = {"populate_by_name": True}
+
+
+class ConversationSummary(BaseModel):
+    id: str
+    workspace_id: str = Field(alias="workspaceId")
+    title: str | None = None
+    created_at: str = Field(alias="createdAt")
+    last_message_at: str = Field(alias="lastMessageAt")
+    message_count: int = Field(alias="messageCount")
+
+    model_config = {"populate_by_name": True}
+
+
+class ConversationListResponse(BaseModel):
+    conversations: list[ConversationSummary]
+
+
+class ChatMessage(BaseModel):
+    id: str
+    workspace_id: str = Field(alias="workspaceId")
+    conversation_id: str = Field(alias="conversationId")
+    role: Literal["user", "assistant"]
+    content: str
+    created_at: str = Field(alias="createdAt")
+    answer_run_id: str | None = Field(default=None, alias="answerRunId")
+    retrieval_run_id: str | None = Field(default=None, alias="retrievalRunId")
+    citations: list[MessageCitation] = Field(default_factory=list)
+
+    model_config = {"populate_by_name": True}
+
+
+class ConversationDetailResponse(BaseModel):
+    conversation: ConversationSummary
+    messages: list[ChatMessage]
+
+    model_config = {"populate_by_name": True}
+
+
+class ChatRequest(BaseModel):
+    conversation_id: str | None = None
+    query: str = Field(min_length=1)
+    document_ids: list[str] = Field(default_factory=list)
+    request_id: str | None = None
+
+    @model_validator(mode="before")
+    @classmethod
+    def _normalize_aliases(cls, value: object) -> object:
+        if not isinstance(value, dict):
+            return value
+        value = dict(value)
+        if "conversationId" in value and "conversation_id" not in value:
+            value["conversation_id"] = value.pop("conversationId")
+        if "documentIds" in value and "document_ids" not in value:
+            value["document_ids"] = value.pop("documentIds")
+        if "requestId" in value and "request_id" not in value:
+            value["request_id"] = value.pop("requestId")
+        return value
+
+    model_config = {"populate_by_name": True}
+
+
+class AnswerMetricsResponse(BaseModel):
+    conversations_created: int = Field(alias="conversationsCreated")
+    messages_created: int = Field(alias="messagesCreated")
+    answer_failures: int = Field(alias="answerFailures")
+    answer_latency_ms: float = Field(alias="answerLatencyMs")
+    first_token_latency_ms: float = Field(alias="firstTokenLatencyMs")
+    streaming_duration_ms: float = Field(alias="streamingDurationMs")
+    prompt_tokens: int = Field(alias="promptTokens")
+    completion_tokens: int = Field(alias="completionTokens")
+    total_tokens: int = Field(alias="totalTokens")
+    estimated_cost_usd: float = Field(alias="estimatedCostUsd")
+    average_citations_per_answer: float = Field(alias="averageCitationsPerAnswer")
+    average_evidence_chunks_per_answer: float = Field(alias="averageEvidenceChunksPerAnswer")
+
+    model_config = {"populate_by_name": True}
+
+
+class AnswerExplorerRunResponse(BaseModel):
+    answer_run_id: str = Field(alias="answerRunId")
+    conversation_id: str = Field(alias="conversationId")
+    retrieval_run_id: str = Field(alias="retrievalRunId")
+    user_message_id: str = Field(alias="userMessageId")
+    assistant_message_id: str | None = Field(default=None, alias="assistantMessageId")
+    query: str
+    normalized_query: str = Field(alias="normalizedQuery")
+    provider: str
+    model: str
+    prompt_version: str = Field(alias="promptVersion")
+    writer_version: str = Field(alias="writerVersion")
+    status: str
+    prompt_tokens: int = Field(alias="promptTokens")
+    completion_tokens: int = Field(alias="completionTokens")
+    total_tokens: int = Field(alias="totalTokens")
+    estimated_cost_usd: float = Field(alias="estimatedCostUsd")
+    latency_ms: int | None = Field(default=None, alias="latencyMs")
+    first_token_latency_ms: int | None = Field(default=None, alias="firstTokenLatencyMs")
+    retry_count: int = Field(alias="retryCount")
+    created_at: str = Field(alias="createdAt")
+    completed_at: str | None = Field(default=None, alias="completedAt")
+    prompt_payload: dict = Field(alias="promptPayload")
+    final_answer: str | None = Field(default=None, alias="finalAnswer")
+    citations: list[MessageCitation]
+    retrieved_evidence: list[RetrievalEvidenceResponse] = Field(alias="retrievedEvidence")
+    stream_events: list[dict] = Field(alias="streamEvents")
+
+    model_config = {"populate_by_name": True}
+
+
+class AnswerExplorerResponse(BaseModel):
+    runs: list[AnswerExplorerRunResponse]
 
     model_config = {"populate_by_name": True}
 

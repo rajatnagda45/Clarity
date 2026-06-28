@@ -18,6 +18,7 @@ import type {
   RetrievalFilters,
   RetrievalMetrics,
   RetrievalResponse,
+  ConversationDetail,
   Conversation,
   Message,
   Contradiction,
@@ -26,6 +27,9 @@ import type {
   ApiError,
   MeResponse,
   Workspace,
+  AnswerExplorerResponse,
+  AnswerMetrics,
+  Citation,
 } from '@/types/clarity';
 
 const BACKEND_URL = process.env.NEXT_PUBLIC_BACKEND_URL ?? 'http://localhost:8000';
@@ -198,6 +202,13 @@ export async function getRetrievalMetrics(auth: AuthContext): Promise<RetrievalM
   });
 }
 
+export async function getAnswerMetrics(auth: AuthContext): Promise<AnswerMetrics> {
+  return apiFetch<AnswerMetrics>('/api/developer/metrics/answers', {
+    method: 'GET',
+    ...auth,
+  });
+}
+
 export async function getDeveloperDashboard(auth: AuthContext): Promise<DeveloperDashboard> {
   return apiFetch<DeveloperDashboard>('/api/developer/dashboard', {
     method: 'GET',
@@ -241,14 +252,29 @@ export async function exploreRetrieval(
 // Conversations + Messages
 // ---------------------------------------------------------------------------
 export async function listConversations(auth: AuthContext): Promise<Conversation[]> {
-  return apiFetch<Conversation[]>('/api/conversations', { method: 'GET', ...auth });
+  const response = await apiFetch<{ conversations: Conversation[] }>('/api/conversations', {
+    method: 'GET',
+    ...auth,
+  });
+  return response.conversations;
 }
 
 export async function getConversation(
   auth: AuthContext,
   conversationId: string,
-): Promise<{ conversation: Conversation; messages: Message[] }> {
+): Promise<ConversationDetail> {
   return apiFetch(`/api/conversations/${conversationId}`, { method: 'GET', ...auth });
+}
+
+export async function getMessageCitations(
+  auth: AuthContext,
+  messageId: string,
+): Promise<Citation[]> {
+  return apiFetch<Citation[]>(`/api/messages/${messageId}/citations`, { method: 'GET', ...auth });
+}
+
+export async function getAnswerExplorer(auth: AuthContext): Promise<AnswerExplorerResponse> {
+  return apiFetch<AnswerExplorerResponse>('/api/developer/answers', { method: 'GET', ...auth });
 }
 
 // ---------------------------------------------------------------------------
@@ -256,7 +282,7 @@ export async function getConversation(
 // ---------------------------------------------------------------------------
 export function streamQuery(
   auth: AuthContext,
-  payload: { question: string; documentIds: string[]; conversationId?: string },
+  payload: { query: string; documentIds?: string[]; conversationId?: string; requestId: string },
   onEvent: (event: StreamEvent) => void,
   onError: (err: Error) => void,
 ): () => void {
@@ -264,7 +290,7 @@ export function streamQuery(
 
   (async () => {
     try {
-      const response = await fetch(`${BACKEND_URL}/api/query`, {
+      const response = await fetch(`${BACKEND_URL}/api/chat`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -302,6 +328,68 @@ export function streamQuery(
             onEvent(event);
           } catch {
             // Malformed SSE frame — skip, don't crash
+          }
+        }
+      }
+    } catch (err) {
+      if ((err as Error).name !== 'AbortError') {
+        onError(err as Error);
+      }
+    }
+  })();
+
+  return () => controller.abort();
+}
+
+export function resumeAnswerStream(
+  auth: AuthContext,
+  payload: { conversationId: string; answerRunId: string; after?: number },
+  onEvent: (event: StreamEvent) => void,
+  onError: (err: Error) => void,
+): () => void {
+  const controller = new AbortController();
+  const afterQuery = payload.after ? `?after=${payload.after}` : '';
+
+  (async () => {
+    try {
+      const response = await fetch(
+        `${BACKEND_URL}/api/chat/conversations/${payload.conversationId}/answers/${payload.answerRunId}/stream${afterQuery}`,
+        {
+          method: 'GET',
+          headers: {
+            Authorization: `Bearer ${auth.token}`,
+            ...(auth.workspaceId ? { 'X-Workspace-Id': auth.workspaceId } : {}),
+            Accept: 'text/event-stream',
+          },
+          signal: controller.signal,
+        },
+      );
+
+      if (!response.ok || !response.body) {
+        onError(await parseApiError(response));
+        return;
+      }
+
+      const reader = response.body.getReader();
+      const decoder = new TextDecoder();
+      let buffer = '';
+
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        buffer += decoder.decode(value, { stream: true });
+        const lines = buffer.split('\n');
+        buffer = lines.pop() ?? '';
+
+        for (const line of lines) {
+          if (!line.startsWith('data: ')) continue;
+          const raw = line.slice(6).trim();
+          if (!raw || raw === '[DONE]') continue;
+          try {
+            const event: StreamEvent = JSON.parse(raw);
+            onEvent(event);
+          } catch {
+            // Ignore malformed frames during replay.
           }
         }
       }

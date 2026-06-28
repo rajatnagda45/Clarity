@@ -5,8 +5,8 @@ import { useAuth } from '@clerk/nextjs';
 import { useEffect, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
 
-import { getDeveloperDashboard, getEmbeddingMetrics, getIndexMetrics, getRetrievalMetrics } from '@/lib/api';
-import type { DeveloperDashboard, EmbeddingMetrics, IndexMetrics, RetrievalMetrics } from '@/types/clarity';
+import { getAnswerMetrics, getDeveloperDashboard, getEmbeddingMetrics, getIndexMetrics, getRetrievalMetrics } from '@/lib/api';
+import type { AnswerMetrics, DeveloperDashboard, EmbeddingMetrics, IndexMetrics, RetrievalMetrics } from '@/types/clarity';
 
 
 type LoadState = 'idle' | 'loading' | 'loaded' | 'error';
@@ -31,6 +31,7 @@ export default function DeveloperDashboardPage() {
   const [embeddingMetrics, setEmbeddingMetrics] = useState<EmbeddingMetrics | null>(null);
   const [indexMetrics, setIndexMetrics] = useState<IndexMetrics | null>(null);
   const [retrievalMetrics, setRetrievalMetrics] = useState<RetrievalMetrics | null>(null);
+  const [answerMetrics, setAnswerMetrics] = useState<AnswerMetrics | null>(null);
   const [loadState, setLoadState] = useState<LoadState>('idle');
   const [errorMessage, setErrorMessage] = useState('');
 
@@ -53,11 +54,12 @@ export default function DeveloperDashboardPage() {
           throw new Error('Clerk session token unavailable.');
         }
 
-        const [nextDashboard, nextEmbeddingMetrics, nextIndexMetrics, nextRetrievalMetrics] = await Promise.all([
+        const [nextDashboard, nextEmbeddingMetrics, nextIndexMetrics, nextRetrievalMetrics, nextAnswerMetrics] = await Promise.all([
           getDeveloperDashboard({ token, workspaceId }),
           getEmbeddingMetrics({ token, workspaceId }),
           getIndexMetrics({ token, workspaceId }),
           getRetrievalMetrics({ token, workspaceId }),
+          getAnswerMetrics({ token, workspaceId }),
         ]);
 
         if (cancelled) return;
@@ -65,6 +67,7 @@ export default function DeveloperDashboardPage() {
         setEmbeddingMetrics(nextEmbeddingMetrics);
         setIndexMetrics(nextIndexMetrics);
         setRetrievalMetrics(nextRetrievalMetrics);
+        setAnswerMetrics(nextAnswerMetrics);
         setLoadState('loaded');
       } catch (error) {
         if (cancelled) return;
@@ -144,6 +147,8 @@ export default function DeveloperDashboardPage() {
                 <p>Sparse recall: <span className="font-mono text-slate-900">{retrievalMetrics ? formatRate(retrievalMetrics.sparseRecall) : 'n/a'}</span></p>
                 <p>Fusion latency: <span className="font-mono text-slate-900">{retrievalMetrics?.fusionLatencyMs.toFixed(2) ?? '0.00'} ms</span></p>
                 <p>Cache hits: <span className="font-mono text-slate-900">{retrievalMetrics?.retrievalCacheHits ?? 0}</span></p>
+                <p>Answer latency: <span className="font-mono text-slate-900">{answerMetrics?.answerLatencyMs.toFixed(2) ?? '0.00'} ms</span></p>
+                <p>Answer cost: <span className="font-mono text-slate-900">${answerMetrics?.estimatedCostUsd.toFixed(4) ?? '0.0000'}</span></p>
               </div>
               <div className="mt-4 flex flex-wrap gap-2">
                 <Link
@@ -157,6 +162,12 @@ export default function DeveloperDashboardPage() {
                   className="inline-flex rounded-full border border-slate-300 px-3 py-1 text-xs font-medium text-slate-700"
                 >
                   Retrieval Explorer
+                </Link>
+                <Link
+                  href={`/developer/answers?workspace=${encodeURIComponent(workspaceId)}`}
+                  className="inline-flex rounded-full border border-slate-300 px-3 py-1 text-xs font-medium text-slate-700"
+                >
+                  Answer Explorer
                 </Link>
               </div>
             </article>

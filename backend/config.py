@@ -76,6 +76,12 @@ class Settings(BaseSettings):
     retrieval_rrf_k: int = 60
     retrieval_cross_reference_limit: int = 2
     retrieval_cache_ttl_seconds: int = 60
+    writer_prompt_version: str = "a8.writer.v1"
+    writer_version: str = "a8.writer.v1"
+    answer_stream_token_batch_size: int = 12
+    answer_max_history_messages: int = 8
+    llm_prompt_cost_per_1k_tokens_usd: float = 0.0
+    llm_completion_cost_per_1k_tokens_usd: float = 0.0
 
     # LangSmith
     langchain_tracing_v2: bool = True

@@ -3,7 +3,7 @@
 > **An AI contract auditor that catches its own hallucinations, proves every claim against the exact source text, and shows you a measured trust score for each answer.**
 
 [![CI](https://github.com/rajatnagda45/Clarity/actions/workflows/ci.yml/badge.svg)](https://github.com/rajatnagda45/Clarity/actions/workflows/ci.yml)
-![Phase](https://img.shields.io/badge/phase-A7%20hybrid%20retrieval-blue)
+![Phase](https://img.shields.io/badge/phase-A8%20answer%20generation-blue)
 ![Stack](https://img.shields.io/badge/stack-Next.js%2015%20%2B%20FastAPI%20%2B%20LangGraph-informational)
 ![License](https://img.shields.io/badge/license-MIT-green)
 
@@ -11,7 +11,7 @@
 
 ## Current Status
 
-Milestone **A7** is complete.
+Milestone **A8** is complete.
 
 Implemented today:
 - Clerk-backed protected app shell for `/dashboard`, `/documents`, and `/chat`
@@ -36,12 +36,22 @@ Implemented today:
 - hybrid retrieval engine with deterministic query normalization, dense retrieval, BM25 retrieval, reciprocal-rank fusion, metadata filters, and bounded cross-reference expansion
 - developer-only retrieval explorer showing normalized queries, dense/sparse/fused ranks, score explanations, retrieval reasons, and final evidence ordering
 - developer retrieval metrics for latency, retrieved chunk counts, dense/sparse contribution, fusion timing, filter usage, cache hits, and failures
+- conversation persistence with workspace-scoped history and replay-safe request ids
+- grounded answer generation from A7 retrieval evidence only
+- versioned prompt builder and writer runtime
+- streaming SSE chat responses with persisted stream events for replay
+- structured citation mapping with citation chips linked to exact chunk evidence
+- developer-only Answer Explorer with prompt payloads, evidence, stream timelines, token usage, latency, and cost
+- answer-generation metrics for latency, tokens, citations, and evidence coverage
 - deterministic document lifecycle through `uploaded → extracted → normalized → metadata_ready → awaiting_chunking → chunking → chunked → awaiting_embeddings → embedding → embedded → awaiting_index → indexing → indexed`
 - resumable artifact persistence for ingestion stages
 - backend and frontend test baseline still green after the milestone
 
 Not implemented yet in Phase A:
-- SSE chat
+- critic / verifier loop
+- trust scoring
+- debate loop
+- evaluation and Phase B verification surfaces
 
 A6 technical debt notes recorded for retrieval-adjacent parsing hardening:
 - add file signature validation before parser execution
