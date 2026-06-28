@@ -47,3 +47,14 @@ backend/services/calibrator.pkl
 
 # Eval fixtures are source-committed; results are not
 backend/services/eval/results/
+
+# Private internal docs — never publish
+03_DATA_MODEL.md
+05_AGENT_LOGIC.md
+07_TECH_DECISIONS.md
+08_NEXT_LEVEL_PLAN.md
+09_EVAL_SYSTEM.md
+10_VERIFICATION.md
+11_AI_ENGINEERING_RULES.md
+12_EXECUTION_ROADMAP.md
+13_DEPENDENCY_GRAPH.md
