@@ -11,6 +11,7 @@ from config import settings
 from db.client import get_client
 from services.ingestion.extractors.docx import DocxExtractionError, extract_docx_document
 from services.ingestion.extractors.pdf import PdfExtractionError, extract_pdf_document
+from services.embeddings.pipeline import run_document_embedding_task
 from services.ingestion.chunker import generate_chunks
 from services.ingestion.fetcher import fetch_document_source
 from services.ingestion.models import ExtractedDocument, GeneratedChunk, NormalizedDocument, PreprocessingResult
@@ -28,6 +29,9 @@ DocumentStage = Literal[
     "awaiting_chunking",
     "chunking",
     "chunked",
+    "awaiting_embeddings",
+    "embedding",
+    "embedded",
     "failed",
 ]
 
@@ -75,7 +79,7 @@ def _claim_ingestion_lease(document_id: str, workspace_id: str) -> tuple[dict[st
     if document is None:
         return None, None
 
-    if document["status"] == "chunked" and _document_has_current_chunks(document_id, workspace_id):
+    if document["status"] in {"chunked", "awaiting_embeddings", "embedding", "embedded"} and _document_has_current_chunks(document_id, workspace_id):
         return document, None
 
     lease_started_at = _parse_timestamp(document.get("ingestion_started_at"))
@@ -241,6 +245,23 @@ def _record_usage_event(workspace_id: str) -> None:
     ).execute()
 
 
+def _queue_document_for_embeddings(document_id: str, workspace_id: str) -> None:
+    payload = {
+        "status": "awaiting_embeddings",
+        "error": None,
+        "embedding_queued_at": _now_utc().isoformat(),
+    }
+    (
+        get_client()
+        .table("documents")
+        .update(payload)
+        .eq("id", document_id)
+        .eq("workspace_id", workspace_id)
+        .eq("status", "chunked")
+        .execute()
+    )
+
+
 def _persist_chunks(document_id: str, workspace_id: str, chunks: list[GeneratedChunk]) -> None:
     chunk_rows = [
         {
@@ -401,6 +422,14 @@ async def run_document_ingestion(document_id: str, workspace_id: str) -> None:
             error=None,
         )
         _record_usage_event(workspace_id)
+        _queue_document_for_embeddings(document_id, workspace_id)
+        try:
+            await run_document_embedding_task(document_id, workspace_id)
+        except Exception:
+            logger.exception(
+                "document_embedding_task_failed_after_ingestion",
+                extra={"document_id": document_id, "workspace_id": workspace_id},
+            )
     except IngestionOwnershipLost:
         logger.info(
             "document_ingestion_stopped_after_lease_loss",

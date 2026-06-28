@@ -123,20 +123,30 @@ export default function DocumentsPage() {
   return (
     <div className="mx-auto flex w-full max-w-5xl flex-col gap-6 px-6 py-10">
       <div className="flex flex-col gap-2">
-        <p className="text-sm font-medium uppercase tracking-[0.2em] text-blue-600">Phase A4</p>
+        <p className="text-sm font-medium uppercase tracking-[0.2em] text-blue-600">Phase A6</p>
         <h1 className="text-3xl font-semibold text-slate-900">Documents</h1>
         <p className="text-sm text-slate-600">
-          Uploads now move through extraction, normalization, metadata preparation, and
-          clause-aware chunk generation. Embeddings, retrieval, and AI reasoning start in later
-          milestones.
+          Uploads now move through extraction, normalization, metadata preparation, clause-aware
+          chunk generation, embedding generation, and vector indexing. Retrieval and AI reasoning
+          still begin in later milestones.
         </p>
       </div>
 
       <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
-        <p className="text-sm text-slate-500">
-          Active workspace:{' '}
-          <span className="font-mono text-slate-800">{workspaceId || 'not selected'}</span>
-        </p>
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <p className="text-sm text-slate-500">
+            Active workspace:{' '}
+            <span className="font-mono text-slate-800">{workspaceId || 'not selected'}</span>
+          </p>
+          {workspaceId ? (
+            <Link
+              href={`/developer/dashboard?workspace=${encodeURIComponent(workspaceId)}`}
+              className="inline-flex rounded-full border border-slate-300 px-4 py-2 text-sm font-medium text-slate-700"
+            >
+              Open developer dashboard
+            </Link>
+          ) : null}
+        </div>
         {!workspaceId ? (
           <Link
             href="/dashboard"

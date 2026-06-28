@@ -23,3 +23,25 @@ def test_chunking_migration_is_safe_to_reapply():
     assert "add column if not exists chunk_version text" in sql
     assert "create unique index if not exists chunks_chunk_id_idx" in sql
     assert "create unique index if not exists chunks_document_version_index_idx" in sql
+
+
+def test_embedding_migration_is_safe_to_reapply():
+    migration = Path(__file__).resolve().parents[2] / "migrations" / "004_embedding_pipeline.sql"
+    sql = migration.read_text(encoding="utf-8")
+
+    assert "drop constraint if exists documents_status_check" in sql
+    assert "add column if not exists embedding_run_id text" in sql
+    assert "create table if not exists chunk_embeddings" in sql
+    assert "create unique index if not exists chunk_embeddings_identity_idx" in sql
+    assert "drop policy if exists chunk_embeddings_tenant_isolation" in sql
+
+
+def test_vector_indexing_migration_is_safe_to_reapply():
+    migration = Path(__file__).resolve().parents[2] / "migrations" / "005_vector_indexing_pipeline.sql"
+    sql = migration.read_text(encoding="utf-8")
+
+    assert "drop constraint if exists documents_status_check" in sql
+    assert "add column if not exists index_run_id text" in sql
+    assert "create table if not exists chunk_vector_index_records" in sql
+    assert "create unique index if not exists chunk_vector_index_records_identity_idx" in sql
+    assert "drop policy if exists chunk_vector_index_records_tenant_isolation" in sql

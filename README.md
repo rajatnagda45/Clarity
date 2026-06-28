@@ -3,7 +3,7 @@
 > **An AI contract auditor that catches its own hallucinations, proves every claim against the exact source text, and shows you a measured trust score for each answer.**
 
 [![CI](https://github.com/rajatnagda45/Clarity/actions/workflows/ci.yml/badge.svg)](https://github.com/rajatnagda45/Clarity/actions/workflows/ci.yml)
-![Phase](https://img.shields.io/badge/phase-A4%20chunking%20pipeline-blue)
+![Phase](https://img.shields.io/badge/phase-A6%20vector%20indexing-blue)
 ![Stack](https://img.shields.io/badge/stack-Next.js%2015%20%2B%20FastAPI%20%2B%20LangGraph-informational)
 ![License](https://img.shields.io/badge/license-MIT-green)
 
@@ -11,7 +11,7 @@
 
 ## Current Status
 
-Milestone **A4** is complete.
+Milestone **A6** is complete.
 
 Implemented today:
 - Clerk-backed protected app shell for `/dashboard`, `/documents`, and `/chat`
@@ -25,17 +25,23 @@ Implemented today:
 - deterministic clause-aware chunk generation with `tiktoken` as the primary token counter
 - definition-section preservation, cross-reference extraction, and deterministic chunk identifiers
 - developer-only chunk inspector for validating chunk ordering, metadata, token counts, and checksums
-- deterministic document lifecycle through `uploaded → extracted → normalized → metadata_ready → awaiting_chunking → chunking → chunked`
+- provider-agnostic embedding pipeline with OpenAI as the first implementation
+- adaptive embedding batching with retry handling, resumable per-batch persistence, and version-aware reruns
+- developer-only embedding explorer with safe vector previews and current/stale version visibility
+- developer-only embedding metrics dashboard for throughput, latency, retry behavior, provider/model usage, and estimated cost
+- provider-agnostic vector indexing pipeline with Pinecone as the first implementation
+- deterministic vector synchronization with version-aware reruns, stale-vector cleanup, and workspace namespace isolation
+- developer-only vector index explorer for namespace, vector id, sync status, and version metadata inspection
+- consolidated developer dashboard for documents, pipeline status, chunk inspection, embeddings, vector indexing, metrics, timeline, and failed jobs
+- deterministic document lifecycle through `uploaded → extracted → normalized → metadata_ready → awaiting_chunking → chunking → chunked → awaiting_embeddings → embedding → embedded → awaiting_index → indexing → indexed`
 - resumable artifact persistence for ingestion stages
 - backend and frontend test baseline still green after the milestone
 
 Not implemented yet in Phase A:
-- embeddings
-- Pinecone indexing
 - retrieval
 - SSE chat
 
-A5 technical debt notes recorded for retrieval-adjacent parsing hardening:
+A6 technical debt notes recorded for retrieval-adjacent parsing hardening:
 - add file signature validation before parser execution
 - add malware scanning before downstream document processing
 - harden parser handling for untrusted and malformed documents

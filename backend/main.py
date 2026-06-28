@@ -18,6 +18,7 @@ import sentry_sdk
 from config import settings
 from api.middleware.auth import AuthMiddleware
 from api.middleware.rate_limit import RateLimitMiddleware
+from api.routers import developer
 from api.routers import documents
 from api.routers import health
 from api.routers import workspaces
@@ -77,3 +78,4 @@ app.add_middleware(RateLimitMiddleware)
 app.include_router(health.router)
 app.include_router(workspaces.router)
 app.include_router(documents.router)
+app.include_router(developer.router)
