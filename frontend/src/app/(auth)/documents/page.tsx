@@ -123,13 +123,12 @@ export default function DocumentsPage() {
   return (
     <div className="mx-auto flex w-full max-w-5xl flex-col gap-6 px-6 py-10">
       <div className="flex flex-col gap-2">
-        <p className="text-sm font-medium uppercase tracking-[0.2em] text-blue-600">Phase A6</p>
+        <p className="text-sm font-medium uppercase tracking-[0.2em] text-blue-600">Phase A</p>
         <h1 className="text-3xl font-semibold text-slate-900">Documents</h1>
         <p className="text-sm text-slate-600">
-          Uploads now move through extraction, normalization, metadata preparation, clause-aware
-          chunk generation, embedding generation, and vector indexing. Retrieval evidence inspection
-          is now available through the developer dashboard, while answer generation and AI reasoning
-          still begin in later milestones.
+          Uploads now move through extraction, clause mapping, chunk generation, embedding generation,
+          and vector indexing. Open any document to review its clause map, then use chat and
+          provenance links to inspect exact evidence.
         </p>
       </div>
 

@@ -15,9 +15,11 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 import sentry_sdk
+from api.errors import install_error_handlers
 from config import settings
 from api.middleware.auth import AuthMiddleware
 from api.middleware.rate_limit import RateLimitMiddleware
+from api.routers import claims
 from api.routers import developer
 from api.routers import documents
 from api.routers import health
@@ -59,6 +61,7 @@ app = FastAPI(
     docs_url="/docs" if settings.environment != "production" else None,
     redoc_url="/redoc" if settings.environment != "production" else None,
 )
+install_error_handlers(app)
 
 # CORS — tighten origins in production via env
 _allowed_origins = os.getenv(
@@ -74,9 +77,9 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Auth must run before rate-limit so user_id is set on request.state
-app.add_middleware(AuthMiddleware)
+# Starlette runs the most recently added middleware first, so auth is added last.
 app.add_middleware(RateLimitMiddleware)
+app.add_middleware(AuthMiddleware)
 
 # Routers
 app.include_router(health.router)
@@ -86,4 +89,5 @@ app.include_router(retrieval.router)
 app.include_router(chat.router)
 app.include_router(conversations.router)
 app.include_router(messages.router)
+app.include_router(claims.router)
 app.include_router(developer.router)

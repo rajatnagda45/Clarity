@@ -53,6 +53,13 @@ export interface DocumentDetail extends Document {
   clauses: Clause[];
 }
 
+export interface DocumentFile {
+  documentId: string;
+  filename: string;
+  signedUrl: string;
+  expiresInSeconds: number;
+}
+
 export interface ChunkSourceOffset {
   page: number;
   blockOrder: number;
@@ -197,6 +204,7 @@ export interface RetrievalEvidence {
   vectorScore: number | null;
   bm25Score: number | null;
   rrfScore: number;
+  rerankScore: number | null;
   finalScore: number;
   finalRank: number;
   retrievalReason: string;

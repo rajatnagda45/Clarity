@@ -9,21 +9,23 @@ Free-tier defaults:
   - ingest endpoints: 10 requests / minute
 """
 
+import logging
 import time
 from typing import Callable
 from fastapi import Request
-from fastapi.responses import JSONResponse
 from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.types import ASGIApp
 import httpx
+from api.errors import error_response
 from config import settings
 
-# (prefix, window_seconds, max_requests)
-_ROUTE_LIMITS: list[tuple[str, int, int]] = [
-    ("/api/ingest", 60, 10),
-    ("/api/chat", 60, 60),
-    ("/api/", 60, 120),
+# (methods, prefix, window_seconds, max_requests)
+_ROUTE_LIMITS: list[tuple[frozenset[str] | None, str, int, int]] = [
+    (frozenset({"POST"}), "/api/documents", 60, 10),
+    (None, "/api/chat", 60, 60),
+    (None, "/api/", 60, 120),
 ]
+logger = logging.getLogger(__name__)
 
 
 class RateLimitMiddleware(BaseHTTPMiddleware):
@@ -35,14 +37,22 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
         if not user_id:
             return await call_next(request)
 
-        window_seconds, max_requests = _match_limit(request.url.path)
-        key = f"rl:{user_id}:{request.url.path}:{int(time.time()) // window_seconds}"
+        window_seconds, max_requests = _match_limit(request.method, request.url.path)
+        key = f"rl:{user_id}:{request.method}:{request.url.path}:{int(time.time()) // window_seconds}"
 
-        count = await _increment(key, window_seconds)
+        try:
+            count = await _increment(key, window_seconds)
+        except httpx.HTTPError:
+            logger.warning(
+                "rate_limit_provider_unavailable",
+                extra={"path": request.url.path, "user_id": user_id},
+            )
+            return await call_next(request)
         if count > max_requests:
-            return JSONResponse(
-                status_code=429,
-                content={"error": "Rate limit exceeded", "retry_after": window_seconds},
+            return error_response(
+                429,
+                "rate_limit_exceeded",
+                "Rate limit exceeded.",
                 headers={"Retry-After": str(window_seconds)},
             )
 
@@ -52,9 +62,9 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
         return response
 
 
-def _match_limit(path: str) -> tuple[int, int]:
-    for prefix, window, max_req in _ROUTE_LIMITS:
-        if path.startswith(prefix):
+def _match_limit(method: str, path: str) -> tuple[int, int]:
+    for methods, prefix, window, max_req in _ROUTE_LIMITS:
+        if path.startswith(prefix) and (methods is None or method in methods):
             return window, max_req
     return 60, 120
 

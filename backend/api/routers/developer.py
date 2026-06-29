@@ -2,8 +2,7 @@ from __future__ import annotations
 
 from fastapi import APIRouter, Depends, HTTPException, status
 
-from api.deps import require_workspace_role
-from config import settings
+from api.deps import require_developer, require_workspace_role
 from db.client import tenant_query
 from schemas import (
     AnswerExplorerResponse,
@@ -78,11 +77,9 @@ def _build_message_citation(row: dict) -> MessageCitation:
 
 @router.get("/metrics/embeddings", response_model=EmbeddingMetricsResponse)
 async def get_embedding_metrics(
+    _: str = Depends(require_developer),
     membership: tuple[str, str] = Depends(require_workspace_role),
 ) -> EmbeddingMetricsResponse:
-    if settings.environment == "production":
-        raise _error(status.HTTP_404_NOT_FOUND, "not_found", "Developer metrics unavailable.")
-
     workspace_id, _ = membership
     documents = (
         tenant_query("documents", workspace_id)
@@ -99,11 +96,9 @@ async def get_embedding_metrics(
 
 @router.get("/metrics/indexing", response_model=IndexMetricsResponse)
 async def get_index_metrics(
+    _: str = Depends(require_developer),
     membership: tuple[str, str] = Depends(require_workspace_role),
 ) -> IndexMetricsResponse:
-    if settings.environment == "production":
-        raise _error(status.HTTP_404_NOT_FOUND, "not_found", "Developer metrics unavailable.")
-
     workspace_id, _ = membership
     documents = tenant_query("documents", workspace_id).execute()
     index_rows = tenant_query("chunk_vector_index_records", workspace_id).execute()
@@ -114,11 +109,9 @@ async def get_index_metrics(
 
 @router.get("/metrics/retrieval", response_model=RetrievalMetricsResponse)
 async def get_retrieval_metrics(
+    _: str = Depends(require_developer),
     membership: tuple[str, str] = Depends(require_workspace_role),
 ) -> RetrievalMetricsResponse:
-    if settings.environment == "production":
-        raise _error(status.HTTP_404_NOT_FOUND, "not_found", "Developer metrics unavailable.")
-
     workspace_id, _ = membership
     event_rows = tenant_query("retrieval_events", workspace_id).execute()
     return RetrievalMetricsResponse(
@@ -128,11 +121,9 @@ async def get_retrieval_metrics(
 
 @router.get("/metrics/answers", response_model=AnswerMetricsResponse)
 async def get_answer_metrics(
+    _: str = Depends(require_developer),
     membership: tuple[str, str] = Depends(require_workspace_role),
 ) -> AnswerMetricsResponse:
-    if settings.environment == "production":
-        raise _error(status.HTTP_404_NOT_FOUND, "not_found", "Developer answer metrics unavailable.")
-
     workspace_id, _ = membership
     answer_rows = tenant_query("answer_runs", workspace_id).execute().data or []
     message_rows = tenant_query("messages", workspace_id).execute().data or []
@@ -143,11 +134,9 @@ async def get_answer_metrics(
 @router.post("/retrieval/explore", response_model=RetrievalExplorerResponse)
 async def explore_retrieval(
     payload: RetrievalSearchRequest,
+    _: str = Depends(require_developer),
     membership: tuple[str, str] = Depends(require_workspace_role),
 ) -> RetrievalExplorerResponse:
-    if settings.environment == "production":
-        raise _error(status.HTTP_404_NOT_FOUND, "not_found", "Developer retrieval explorer unavailable.")
-
     workspace_id, _ = membership
     if payload.filters and payload.filters.page_start and payload.filters.page_end:
         if payload.filters.page_start > payload.filters.page_end:
@@ -164,11 +153,9 @@ async def explore_retrieval(
 
 @router.get("/answers", response_model=AnswerExplorerResponse)
 async def get_answer_explorer(
+    _: str = Depends(require_developer),
     membership: tuple[str, str] = Depends(require_workspace_role),
 ) -> AnswerExplorerResponse:
-    if settings.environment == "production":
-        raise _error(status.HTTP_404_NOT_FOUND, "not_found", "Developer answer explorer unavailable.")
-
     workspace_id, _ = membership
     answer_rows = (
         tenant_query("answer_runs", workspace_id)
@@ -200,6 +187,7 @@ async def get_answer_explorer(
                 vectorScore=row.get("vector_score"),
                 bm25Score=row.get("bm25_score"),
                 rrfScore=row["rrf_score"],
+                rerankScore=row.get("final_score"),
                 finalScore=row["final_score"],
                 finalRank=row["final_rank"],
                 retrievalReason=row["retrieval_reason"],
@@ -257,11 +245,9 @@ async def get_answer_explorer(
 
 @router.get("/dashboard", response_model=DeveloperDashboardResponse)
 async def get_developer_dashboard(
+    _: str = Depends(require_developer),
     membership: tuple[str, str] = Depends(require_workspace_role),
 ) -> DeveloperDashboardResponse:
-    if settings.environment == "production":
-        raise _error(status.HTTP_404_NOT_FOUND, "not_found", "Developer dashboard unavailable.")
-
     workspace_id, _ = membership
     documents = (
         tenant_query("documents", workspace_id)

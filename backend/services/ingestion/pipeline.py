@@ -51,6 +51,31 @@ class IngestionOwnershipLost(Exception):
     pass
 
 
+_CLAUSE_TYPE_RULES: list[tuple[str, tuple[str, ...]]] = [
+    ("termination", ("terminate", "termination", "survival")),
+    ("renewal", ("renew", "renewal", "auto-renew", "expiration")),
+    ("liability", ("liability", "indemn", "damages", "warranty disclaimer", "limitation of liability")),
+    ("payment", ("payment", "fees", "invoice", "pricing", "amount due")),
+    ("ip", ("intellectual property", "license", "ownership", "copyright", "trademark")),
+    ("confidentiality", ("confidential", "non-disclosure", "proprietary", "privacy")),
+]
+
+_FLAGGED_RISK_MARKERS = (
+    "sole discretion",
+    "automatic renewal",
+    "irrevocable",
+    "unlimited liability",
+    "indemnify",
+)
+_NON_STANDARD_RISK_MARKERS = (
+    "material breach",
+    "convenience",
+    "penalty",
+    "liquidated damages",
+    "exclusive remedy",
+)
+
+
 def _now_utc() -> datetime:
     return datetime.now(UTC)
 
@@ -245,6 +270,25 @@ def _record_usage_event(workspace_id: str) -> None:
     ).execute()
 
 
+def _classify_clause_type(text: str, section_title: str | None) -> str:
+    haystack = f"{section_title or ''}\n{text}".lower()
+    for clause_type, markers in _CLAUSE_TYPE_RULES:
+        if any(marker in haystack for marker in markers):
+            return clause_type
+    return "other"
+
+
+def _classify_risk_flag(text: str, clause_type: str) -> tuple[str, str | None, float]:
+    lowered = text.lower()
+    if any(marker in lowered for marker in _FLAGGED_RISK_MARKERS):
+        return "flagged", "Contains language that often warrants manual review.", 0.9
+    if clause_type in {"liability", "termination", "renewal"} or any(
+        marker in lowered for marker in _NON_STANDARD_RISK_MARKERS
+    ):
+        return "non_standard", "Core contract clause with terms that merit verification.", 0.6
+    return "normal", None, 0.2
+
+
 def _queue_document_for_embeddings(document_id: str, workspace_id: str) -> None:
     payload = {
         "status": "awaiting_embeddings",
@@ -301,6 +345,39 @@ def _persist_chunks(document_id: str, workspace_id: str, chunks: list[GeneratedC
         .execute()
     )
     get_client().table("chunks").insert(chunk_rows).execute()
+
+
+def _persist_clauses(document_id: str, workspace_id: str, chunks: list[GeneratedChunk]) -> None:
+    clause_rows = []
+    for chunk in chunks:
+        if chunk.chunk_kind not in {"clause", "definition"} and not chunk.clause_number:
+            continue
+        clause_type = _classify_clause_type(chunk.text, chunk.section_title)
+        risk_flag, rationale, risk_score = _classify_risk_flag(chunk.text, clause_type)
+        clause_rows.append(
+            {
+                "id": str(uuid4()),
+                "workspace_id": workspace_id,
+                "document_id": document_id,
+                "clause_type": clause_type,
+                "text": chunk.text,
+                "page": chunk.page_start,
+                "risk_flag": risk_flag,
+                "rationale": rationale,
+                "risk_score": risk_score,
+            }
+        )
+
+    (
+        get_client()
+        .table("clauses")
+        .delete()
+        .eq("document_id", document_id)
+        .eq("workspace_id", workspace_id)
+        .execute()
+    )
+    if clause_rows:
+        get_client().table("clauses").insert(clause_rows).execute()
 
 
 def _extract_document(source_type: str, payload: bytes) -> ExtractedDocument:
@@ -413,6 +490,7 @@ async def run_document_ingestion(document_id: str, workspace_id: str) -> None:
             error=None,
         )
         await asyncio.to_thread(_persist_chunks, document_id, workspace_id, chunks)
+        await asyncio.to_thread(_persist_clauses, document_id, workspace_id, chunks)
         _finalize_document(
             document_id,
             workspace_id,

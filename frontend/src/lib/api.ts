@@ -20,6 +20,7 @@ import type {
   RetrievalResponse,
   ConversationDetail,
   Conversation,
+  DocumentFile,
   Message,
   Contradiction,
   EvalMetrics,
@@ -30,6 +31,7 @@ import type {
   AnswerExplorerResponse,
   AnswerMetrics,
   Citation,
+  SpanRef,
 } from '@/types/clarity';
 
 const BACKEND_URL = process.env.NEXT_PUBLIC_BACKEND_URL ?? 'http://localhost:8000';
@@ -160,6 +162,17 @@ export async function getDocument(
   return apiFetch<DocumentDetail>(`/api/documents/${documentId}`, { method: 'GET', ...auth });
 }
 
+export async function getDocumentFile(
+  auth: AuthContext,
+  documentId: string,
+): Promise<DocumentFile> {
+  return apiFetch<DocumentFile>(`/api/documents/${documentId}/file`, { method: 'GET', ...auth });
+}
+
+export async function deleteDocument(auth: AuthContext, documentId: string): Promise<void> {
+  await apiFetch<void>(`/api/documents/${documentId}`, { method: 'DELETE', ...auth });
+}
+
 export async function listDocumentChunks(
   auth: AuthContext,
   documentId: string,
@@ -271,6 +284,17 @@ export async function getMessageCitations(
   messageId: string,
 ): Promise<Citation[]> {
   return apiFetch<Citation[]>(`/api/messages/${messageId}/citations`, { method: 'GET', ...auth });
+}
+
+export async function getClaimSpans(
+  auth: AuthContext,
+  claimId: string,
+): Promise<SpanRef[]> {
+  const response = await apiFetch<{ spans: SpanRef[] }>(`/api/claims/${claimId}/spans`, {
+    method: 'GET',
+    ...auth,
+  });
+  return response.spans;
 }
 
 export async function getAnswerExplorer(auth: AuthContext): Promise<AnswerExplorerResponse> {

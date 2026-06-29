@@ -63,6 +63,16 @@ class FakeVectorProvider:
         ]
 
 
+class FakeReranker:
+    async def rerank(self, query: str, rows: list[dict], *, top_n: int):
+        from services.retrieval.reranker import RerankResult
+
+        return [
+            RerankResult(chunk_id=rows[1]["chunk_id"], score=0.99),
+            RerankResult(chunk_id=rows[0]["chunk_id"], score=0.80),
+        ][:top_n]
+
+
 @pytest.mark.asyncio
 async def test_retrieve_evidence_returns_deterministic_hybrid_results():
     from services.retrieval import service as retrieval_service
@@ -79,6 +89,8 @@ async def test_retrieve_evidence_returns_deterministic_hybrid_results():
     ), patch.object(
         retrieval_service, "get_vector_search_provider", return_value=FakeVectorProvider()
     ), patch.object(
+        retrieval_service, "get_reranker", return_value=FakeReranker()
+    ), patch.object(
         retrieval_service, "get_retrieval_cache", return_value=RetrievalCache()
     ), patch.object(
         retrieval_service, "_record_retrieval_event"
@@ -90,7 +102,8 @@ async def test_retrieve_evidence_returns_deterministic_hybrid_results():
 
     assert response.retrieval_mode == "hybrid"
     assert len(response.results) >= 2
-    assert response.results[0].chunk_id == "chk-1"
+    assert response.results[0].chunk_id == "chk-2"
+    assert response.results[0].rerank_score == 0.99
     assert response.results[0].retrieval_sources == ["dense", "sparse"]
     assert explorer.dense_candidates[0].chunk_id == "chk-1"
     assert explorer.sparse_candidates[0].chunk_id in {"chk-1", "chk-2"}
@@ -113,6 +126,8 @@ async def test_retrieve_evidence_applies_metadata_filters():
         retrieval_service, "get_query_embedding_provider", return_value=FakeQueryEmbedder()
     ), patch.object(
         retrieval_service, "get_vector_search_provider", return_value=FakeVectorProvider()
+    ), patch.object(
+        retrieval_service, "get_reranker", return_value=FakeReranker()
     ), patch.object(
         retrieval_service, "get_retrieval_cache", return_value=RetrievalCache()
     ), patch.object(
@@ -155,6 +170,8 @@ async def test_retrieve_evidence_expands_cross_references():
     ), patch.object(
         retrieval_service, "get_vector_search_provider", return_value=DenseOnlyVectorProvider()
     ), patch.object(
+        retrieval_service, "get_reranker", return_value=FakeReranker()
+    ), patch.object(
         retrieval_service, "get_retrieval_cache", return_value=RetrievalCache()
     ), patch.object(
         retrieval_service, "_record_retrieval_event"
@@ -184,6 +201,8 @@ async def test_retrieve_evidence_falls_back_to_sparse_when_dense_fails():
     ), patch.object(
         retrieval_service, "get_vector_search_provider", return_value=FakeVectorProvider(fail=True)
     ), patch.object(
+        retrieval_service, "get_reranker", return_value=FakeReranker()
+    ), patch.object(
         retrieval_service, "get_retrieval_cache", return_value=RetrievalCache()
     ), patch.object(
         retrieval_service, "_record_retrieval_event"
@@ -212,6 +231,8 @@ async def test_retrieve_evidence_is_concurrency_safe():
         retrieval_service, "get_query_embedding_provider", return_value=FakeQueryEmbedder()
     ), patch.object(
         retrieval_service, "get_vector_search_provider", return_value=FakeVectorProvider()
+    ), patch.object(
+        retrieval_service, "get_reranker", return_value=FakeReranker()
     ), patch.object(
         retrieval_service, "get_retrieval_cache", return_value=RetrievalCache()
     ), patch.object(

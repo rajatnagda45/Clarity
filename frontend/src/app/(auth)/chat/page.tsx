@@ -17,7 +17,7 @@ type LoadState = 'idle' | 'loading' | 'loaded' | 'error';
 function CitationChip({ citation, workspaceId }: { citation: Citation; workspaceId: string }) {
   return (
     <Link
-      href={`/documents/${citation.documentId}/chunks?workspace=${encodeURIComponent(workspaceId)}&highlight=${encodeURIComponent(citation.chunkId)}`}
+      href={`/documents/${citation.documentId}/provenance/${citation.chunkId}?workspace=${encodeURIComponent(workspaceId)}`}
       className="inline-flex rounded-full border border-blue-200 bg-blue-50 px-3 py-1 text-xs font-medium text-blue-700"
       title={`${citation.sectionTitle ?? 'Evidence'} • pages ${citation.pageStart}-${citation.pageEnd}`}
     >

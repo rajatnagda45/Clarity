@@ -111,29 +111,31 @@ async def test_embedding_metrics_returns_developer_summary(client, token_a, work
 
 
 @pytest.mark.asyncio
-async def test_embedding_metrics_is_disabled_in_production(client, token_a, workspace_id_a):
+async def test_embedding_metrics_requires_developer_access(client, workspace_id_a):
     from api.routers import developer as developer_router
     from api import deps as deps_module
     from db import client as db_client
+    from tests.conftest import _make_jwt
 
     client_mock = MagicMock()
     client_mock.table.return_value = _memberships_query("viewer")
+    token = _make_jwt([workspace_id_a], user_id="user_non_developer")
 
     with patch.object(developer_router, "tenant_query"), patch.object(
         deps_module, "get_client", return_value=client_mock
     ), patch.object(
         db_client, "get_client", return_value=client_mock
-    ), patch.object(developer_router.settings, "environment", "production"):
+    ):
         response = await client.get(
             "/api/developer/metrics/embeddings",
             headers={
-                "Authorization": f"Bearer {token_a}",
+                "Authorization": f"Bearer {token}",
                 "X-Workspace-Id": workspace_id_a,
             },
         )
 
-    assert response.status_code == 404
-    assert response.json()["detail"]["code"] == "not_found"
+    assert response.status_code == 403
+    assert response.json()["error"]["code"] == "developer_access_required"
 
 
 @pytest.mark.asyncio

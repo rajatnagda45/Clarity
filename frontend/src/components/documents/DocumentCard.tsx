@@ -33,7 +33,7 @@ function statusMessage(status: Document['status']): string {
   if (status === 'embedded') return 'Embeddings are complete and the document is ready to enter vector indexing.';
   if (status === 'awaiting_index') return 'Vector indexing is queued for the current embedding set.';
   if (status === 'indexing') return 'The current embedding set is being synchronized into the vector index.';
-  if (status === 'indexed') return 'Vector indexing is complete and the document is retrieval-ready for later milestones.';
+      if (status === 'indexed') return 'Vector indexing is complete and the document is retrieval-ready.';
   return 'Document ingestion failed before chunking.';
 }
 
@@ -65,8 +65,16 @@ export function DocumentCard({
         <p className="mt-3 text-sm text-slate-600">{statusMessage(document.status)}</p>
       )}
 
-      {workspaceId && ['chunked', 'awaiting_embeddings', 'embedding', 'embedded', 'awaiting_index', 'indexing', 'indexed'].includes(document.status) ? (
+      {workspaceId ? (
         <div className="mt-4 flex flex-wrap gap-2">
+          <Link
+            href={`/documents/${document.id}?workspace=${encodeURIComponent(workspaceId)}`}
+            className="inline-flex rounded-full border border-slate-300 px-3 py-1 text-xs font-medium text-slate-700 transition hover:border-slate-400 hover:text-slate-900"
+          >
+            Open clause map
+          </Link>
+          {['chunked', 'awaiting_embeddings', 'embedding', 'embedded', 'awaiting_index', 'indexing', 'indexed'].includes(document.status) ? (
+            <>
           <Link
             href={`/documents/${document.id}/chunks?workspace=${encodeURIComponent(workspaceId)}`}
             className="inline-flex rounded-full border border-slate-300 px-3 py-1 text-xs font-medium text-slate-700 transition hover:border-slate-400 hover:text-slate-900"
@@ -85,6 +93,8 @@ export function DocumentCard({
           >
             Open vector explorer
           </Link>
+            </>
+          ) : null}
         </div>
       ) : null}
     </article>

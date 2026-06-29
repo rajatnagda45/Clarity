@@ -104,6 +104,8 @@ class CreateWorkspaceResponse(BaseModel):
 
 class ClauseSummary(BaseModel):
     id: str
+    workspace_id: str = Field(alias="workspaceId")
+    document_id: str = Field(alias="documentId")
     clause_type: str = Field(alias="clauseType")
     text: str
     page: int
@@ -112,6 +114,7 @@ class ClauseSummary(BaseModel):
     benchmark_match_id: str | None = Field(default=None, alias="benchmarkMatchId")
     deviation_note: str | None = Field(default=None, alias="deviationNote")
     risk_score: float | None = Field(default=None, alias="riskScore")
+    created_at: str = Field(alias="createdAt")
 
     model_config = {"populate_by_name": True}
 
@@ -337,6 +340,7 @@ class RetrievalEvidenceResponse(BaseModel):
     vector_score: float | None = Field(default=None, alias="vectorScore")
     bm25_score: float | None = Field(default=None, alias="bm25Score")
     rrf_score: float = Field(alias="rrfScore")
+    rerank_score: float | None = Field(default=None, alias="rerankScore")
     final_score: float = Field(alias="finalScore")
     final_rank: int = Field(alias="finalRank")
     retrieval_reason: str = Field(alias="retrievalReason")
@@ -444,6 +448,31 @@ class MessageCitation(BaseModel):
     source_offsets: list[ChunkSourceOffset] = Field(default_factory=list, alias="sourceOffsets")
 
     model_config = {"populate_by_name": True}
+
+
+class DocumentFileResponse(BaseModel):
+    document_id: str = Field(alias="documentId")
+    filename: str
+    signed_url: str = Field(alias="signedUrl")
+    expires_in_seconds: int = Field(alias="expiresInSeconds")
+
+    model_config = {"populate_by_name": True}
+
+
+class ClaimSpanResponse(BaseModel):
+    chunk_id: str = Field(alias="chunkId")
+    document_id: str = Field(alias="documentId")
+    page: int
+    char_start: int = Field(alias="charStart")
+    char_end: int = Field(alias="charEnd")
+    text: str
+    rerank_score: float = Field(alias="rerankScore")
+
+    model_config = {"populate_by_name": True}
+
+
+class ClaimSpanListResponse(BaseModel):
+    spans: list[ClaimSpanResponse]
 
 
 class ConversationSummary(BaseModel):

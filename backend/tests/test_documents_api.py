@@ -283,7 +283,7 @@ async def test_upload_url_stub_returns_501(client, token_a, workspace_id_a):
         )
 
     assert response.status_code == 501
-    assert response.json()["detail"]["code"] == "url_ingestion_not_implemented"
+    assert response.json()["error"]["code"] == "url_ingestion_not_implemented"
 
 
 @pytest.mark.asyncio
@@ -371,6 +371,172 @@ async def test_get_document_not_found_inside_workspace_returns_404(client, token
 
 
 @pytest.mark.asyncio
+async def test_get_document_returns_clause_map(client, token_a, workspace_id_a):
+    from api.routers import documents as documents_router
+    from api import deps as deps_module
+    from db import client as db_client
+
+    memberships_table = _memberships_query("viewer")
+    detail_query = MagicMock()
+    detail_query.select.return_value = detail_query
+    detail_query.eq.return_value = detail_query
+    detail_query.limit.return_value = detail_query
+    detail_query.execute.return_value = SimpleNamespace(
+        data=[
+            {
+                "id": "doc-1",
+                "filename": "msa.pdf",
+                "status": "indexed",
+                "source_type": "pdf",
+                "page_count": 9,
+                "created_at": "2026-06-28T12:00:00Z",
+                "error": None,
+            }
+        ]
+    )
+    clauses_query = MagicMock()
+    clauses_query.select.return_value = clauses_query
+    clauses_query.eq.return_value = clauses_query
+    clauses_query.order.return_value = clauses_query
+    clauses_query.execute.return_value = SimpleNamespace(
+        data=[
+            {
+                "id": "clause-1",
+                "workspace_id": workspace_id_a,
+                "document_id": "doc-1",
+                "clause_type": "termination",
+                "text": "Either party may terminate for convenience.",
+                "page": 4,
+                "risk_flag": "non_standard",
+                "rationale": "Core contract clause with terms that merit verification.",
+                "benchmark_match_id": None,
+                "deviation_note": None,
+                "risk_score": 0.6,
+                "created_at": "2026-06-28T12:00:00Z",
+            }
+        ]
+    )
+    client_mock = MagicMock()
+    client_mock.table.side_effect = lambda name: {"memberships": memberships_table}[name]
+
+    with patch.object(documents_router, "get_client", return_value=client_mock), patch.object(
+        deps_module, "get_client", return_value=client_mock
+    ), patch.object(
+        db_client, "get_client", return_value=client_mock
+    ), patch.object(
+        documents_router, "_schedule_embedding_refresh"
+    ), patch.object(
+        documents_router, "_schedule_index_refresh"
+    ), patch.object(documents_router, "tenant_query") as tenant_query_mock:
+        tenant_query_mock.side_effect = lambda table, workspace_id: {
+            "documents": detail_query,
+            "clauses": clauses_query,
+        }[table]
+        response = await client.get(
+            "/api/documents/doc-1",
+            headers={"Authorization": f"Bearer {token_a}", "X-Workspace-Id": workspace_id_a},
+        )
+
+    assert response.status_code == 200
+    assert response.json()["clauses"][0]["clauseType"] == "termination"
+
+
+@pytest.mark.asyncio
+async def test_get_document_file_returns_signed_url(client, token_a, workspace_id_a):
+    from api.routers import documents as documents_router
+    from api import deps as deps_module
+    from db import client as db_client
+
+    memberships_table = _memberships_query("viewer")
+    detail_query = MagicMock()
+    detail_query.select.return_value = detail_query
+    detail_query.eq.return_value = detail_query
+    detail_query.limit.return_value = detail_query
+    detail_query.execute.return_value = SimpleNamespace(
+        data=[{"id": "doc-1", "filename": "msa.pdf", "r2_key": "workspaces/ws/documents/doc-1/msa.pdf"}]
+    )
+    client_mock = MagicMock()
+    client_mock.table.side_effect = lambda name: {"memberships": memberships_table}[name]
+
+    with patch.object(documents_router, "get_client", return_value=client_mock), patch.object(
+        deps_module, "get_client", return_value=client_mock
+    ), patch.object(
+        db_client, "get_client", return_value=client_mock
+    ), patch.object(documents_router, "tenant_query", return_value=detail_query), patch.object(
+        documents_router, "build_signed_document_url", return_value="https://signed.example/doc-1"
+    ):
+        response = await client.get(
+            "/api/documents/doc-1/file",
+            headers={"Authorization": f"Bearer {token_a}", "X-Workspace-Id": workspace_id_a},
+        )
+
+    assert response.status_code == 200
+    assert response.json()["signedUrl"] == "https://signed.example/doc-1"
+
+
+@pytest.mark.asyncio
+async def test_delete_document_removes_storage_and_metadata(client, token_a, workspace_id_a):
+    from api.routers import documents as documents_router
+    from api import deps as deps_module
+    from db import client as db_client
+
+    memberships_table = _memberships_query("editor")
+    detail_query = MagicMock()
+    detail_query.select.return_value = detail_query
+    detail_query.eq.return_value = detail_query
+    detail_query.limit.return_value = detail_query
+    detail_query.execute.return_value = SimpleNamespace(
+        data=[
+            {
+                "id": "doc-1",
+                "workspace_id": workspace_id_a,
+                "filename": "msa.pdf",
+                "r2_key": "workspaces/ws/documents/doc-1/msa.pdf",
+                "current_embedding_provider": "openai",
+                "current_embedding_model": "text-embedding-3-small",
+                "current_embedding_dimension": 1536,
+                "current_embedding_version": "a5.v1",
+                "current_embedding_parser_version": "a3.v1",
+                "current_embedding_chunk_version": "a4.v1",
+            }
+        ]
+    )
+    index_query = MagicMock()
+    index_query.select.return_value = index_query
+    index_query.eq.return_value = index_query
+    index_query.execute.return_value = SimpleNamespace(data=[])
+    delete_table = MagicMock()
+    delete_table.delete.return_value = delete_table
+    delete_table.eq.return_value = delete_table
+    delete_table.execute.return_value = SimpleNamespace(data=[{"id": "doc-1"}])
+
+    client_mock = MagicMock()
+    client_mock.table.side_effect = lambda name: {
+        "memberships": memberships_table,
+        "documents": delete_table,
+    }[name]
+
+    with patch.object(documents_router, "get_client", return_value=client_mock), patch.object(
+        deps_module, "get_client", return_value=client_mock
+    ), patch.object(
+        db_client, "get_client", return_value=client_mock
+    ), patch.object(documents_router, "tenant_query") as tenant_query_mock, patch.object(
+        documents_router, "delete_document_object"
+    ) as delete_object_mock:
+        tenant_query_mock.side_effect = lambda table, workspace_id: {
+            "documents": detail_query,
+            "chunk_vector_index_records": index_query,
+        }[table]
+        response = await client.delete(
+            "/api/documents/doc-1",
+            headers={"Authorization": f"Bearer {token_a}", "X-Workspace-Id": workspace_id_a},
+        )
+
+    assert response.status_code == 204
+    delete_object_mock.assert_called_once()
+
+
+@pytest.mark.asyncio
 async def test_chunk_inspector_returns_workspace_scoped_chunks(client, token_a, workspace_id_a):
     from api.routers import documents as documents_router
     from api import deps as deps_module
@@ -440,29 +606,31 @@ async def test_chunk_inspector_returns_workspace_scoped_chunks(client, token_a, 
 
 
 @pytest.mark.asyncio
-async def test_chunk_inspector_is_disabled_in_production(client, token_a, workspace_id_a):
+async def test_chunk_inspector_requires_developer_access(client, workspace_id_a):
     from api.routers import documents as documents_router
     from api import deps as deps_module
     from db import client as db_client
+    from tests.conftest import _make_jwt
 
     client_mock = MagicMock()
     client_mock.table.return_value = _memberships_query("viewer")
+    token = _make_jwt([workspace_id_a], user_id="user_non_developer")
 
     with patch.object(documents_router, "get_client", return_value=client_mock), patch.object(
         deps_module, "get_client", return_value=client_mock
     ), patch.object(
         db_client, "get_client", return_value=client_mock
-    ), patch.object(documents_router.settings, "environment", "production"):
+    ):
         response = await client.get(
             "/api/documents/doc-1/chunks",
             headers={
-                "Authorization": f"Bearer {token_a}",
+                "Authorization": f"Bearer {token}",
                 "X-Workspace-Id": workspace_id_a,
             },
         )
 
-    assert response.status_code == 404
-    assert response.json()["detail"]["code"] == "not_found"
+    assert response.status_code == 403
+    assert response.json()["error"]["code"] == "developer_access_required"
 
 
 @pytest.mark.asyncio
@@ -544,29 +712,31 @@ async def test_embedding_explorer_returns_workspace_scoped_embeddings(client, to
 
 
 @pytest.mark.asyncio
-async def test_embedding_explorer_is_disabled_in_production(client, token_a, workspace_id_a):
+async def test_embedding_explorer_requires_developer_access(client, workspace_id_a):
     from api.routers import documents as documents_router
     from api import deps as deps_module
     from db import client as db_client
+    from tests.conftest import _make_jwt
 
     client_mock = MagicMock()
     client_mock.table.return_value = _memberships_query("viewer")
+    token = _make_jwt([workspace_id_a], user_id="user_non_developer")
 
     with patch.object(documents_router, "get_client", return_value=client_mock), patch.object(
         deps_module, "get_client", return_value=client_mock
     ), patch.object(
         db_client, "get_client", return_value=client_mock
-    ), patch.object(documents_router.settings, "environment", "production"):
+    ):
         response = await client.get(
             "/api/documents/doc-1/embeddings",
             headers={
-                "Authorization": f"Bearer {token_a}",
+                "Authorization": f"Bearer {token}",
                 "X-Workspace-Id": workspace_id_a,
             },
         )
 
-    assert response.status_code == 404
-    assert response.json()["detail"]["code"] == "not_found"
+    assert response.status_code == 403
+    assert response.json()["error"]["code"] == "developer_access_required"
 
 
 @pytest.mark.asyncio

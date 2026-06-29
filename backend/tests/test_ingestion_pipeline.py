@@ -59,6 +59,11 @@ async def test_run_document_ingestion_transitions_document_to_chunked():
     chunks_table.eq.return_value = chunks_table
     chunks_table.insert.return_value = chunks_table
     chunks_table.execute.side_effect = [SimpleNamespace(data=[]), SimpleNamespace(data=[])]
+    clauses_table = MagicMock()
+    clauses_table.delete.return_value = clauses_table
+    clauses_table.eq.return_value = clauses_table
+    clauses_table.insert.return_value = clauses_table
+    clauses_table.execute.side_effect = [SimpleNamespace(data=[]), SimpleNamespace(data=[])]
 
     usage_table = MagicMock()
     usage_table.insert.return_value = usage_table
@@ -69,6 +74,7 @@ async def test_run_document_ingestion_transitions_document_to_chunked():
         "documents": documents_table,
         "document_ingestion_artifacts": artifacts_table,
         "chunks": chunks_table,
+        "clauses": clauses_table,
         "usage_events": usage_table,
     }[name]
 
@@ -180,6 +186,11 @@ async def test_run_document_ingestion_replaces_existing_chunks_idempotently():
     chunks_table.eq.return_value = chunks_table
     chunks_table.insert.return_value = chunks_table
     chunks_table.execute.side_effect = [SimpleNamespace(data=[]), SimpleNamespace(data=[])]
+    clauses_table = MagicMock()
+    clauses_table.delete.return_value = clauses_table
+    clauses_table.eq.return_value = clauses_table
+    clauses_table.insert.return_value = clauses_table
+    clauses_table.execute.side_effect = [SimpleNamespace(data=[]), SimpleNamespace(data=[])]
     usage_table = MagicMock()
     usage_table.insert.return_value = usage_table
     usage_table.execute.return_value = SimpleNamespace(data=[])
@@ -189,6 +200,7 @@ async def test_run_document_ingestion_replaces_existing_chunks_idempotently():
         "documents": documents_table,
         "document_ingestion_artifacts": artifacts_table,
         "chunks": chunks_table,
+        "clauses": clauses_table,
         "usage_events": usage_table,
     }[name]
 

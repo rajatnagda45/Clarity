@@ -22,6 +22,7 @@ from services.retrieval.models import (
 )
 from services.retrieval.normalize import normalize_query, tokenize_text
 from services.retrieval.query_embedder import get_query_embedding_provider
+from services.retrieval.reranker import get_reranker
 from services.retrieval.rrf import fuse_rankings
 from services.retrieval.vector_provider import VectorSearchProviderError, get_vector_search_provider
 
@@ -420,6 +421,37 @@ async def retrieve_evidence(
                 row.get("chunk_id", ""),
             ),
         )
+        rerank_candidates = []
+        for row in fused_rows[: settings.rerank_candidate_count]:
+            chunk = chunks.get(row["chunk_id"])
+            if not chunk:
+                continue
+            rerank_candidates.append(
+                {
+                    "chunk_id": row["chunk_id"],
+                    "document_id": row["document_id"],
+                    "text": chunk.row["text"],
+                }
+            )
+        rerank_scores: dict[str, float] = {}
+        if rerank_candidates:
+            try:
+                rerank_results = await get_reranker().rerank(
+                    normalized_query.normalized_query,
+                    rerank_candidates,
+                    top_n=min(limit, len(rerank_candidates)),
+                )
+                rerank_scores = {result.chunk_id: result.score for result in rerank_results}
+                fused_rows = sorted(
+                    fused_rows,
+                    key=lambda row: (
+                        -rerank_scores.get(row["chunk_id"], row["rrf_score"]),
+                        -(row["rrf_score"] + (0.02 if "cross_reference" in row["sources"] else 0.0)),
+                        row.get("chunk_id", ""),
+                    ),
+                )
+            except Exception:
+                rerank_scores = {}
         fusion_latency_ms = int(_now_ms() - fusion_started)
 
         results: list[RetrievalEvidence] = []
@@ -455,7 +487,8 @@ async def retrieve_evidence(
                         else None
                     ),
                     rrfScore=fused_row["rrf_score"],
-                    finalScore=fused_row["rrf_score"] + bonus,
+                    rerankScore=rerank_scores.get(fused_row["chunk_id"]),
+                    finalScore=rerank_scores.get(fused_row["chunk_id"], fused_row["rrf_score"] + bonus),
                     finalRank=final_rank,
                     retrievalReason=_build_reason(sources, expanded_from=fused_row.get("expanded_from")),
                     retrievalSources=sorted(sources),

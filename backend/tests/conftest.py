@@ -22,6 +22,7 @@ _env_defaults = {
     "SUPABASE_SERVICE_ROLE_KEY": "test-service-key",
     "SUPABASE_JWT_SECRET": "test-jwt-secret-at-least-32-chars-long",
     "CLERK_SECRET_KEY": "sk_test_clerk",
+    "DEVELOPER_USER_IDS": "user_a",
     "UPSTASH_REDIS_REST_URL": "https://test.upstash.io",
     "UPSTASH_REDIS_REST_TOKEN": "test-upstash-token",
     "R2_ACCOUNT_ID": "test-r2-account",

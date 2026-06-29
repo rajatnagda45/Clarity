@@ -103,4 +103,4 @@ async def test_retrieval_search_rejects_invalid_page_range(client, token_a, work
         )
 
     assert response.status_code == 422
-    assert response.json()["detail"]["code"] == "invalid_page_range"
+    assert response.json()["error"]["code"] == "invalid_page_range"

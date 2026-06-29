@@ -11,7 +11,7 @@
 
 ## Current Status
 
-Milestone **A8** is complete.
+Phase **A** is functionally complete through the **A8.1 security and completion patch**.
 
 Implemented today:
 - Clerk-backed protected app shell for `/dashboard`, `/documents`, and `/chat`
@@ -41,17 +41,26 @@ Implemented today:
 - versioned prompt builder and writer runtime
 - streaming SSE chat responses with persisted stream events for replay
 - structured citation mapping with citation chips linked to exact chunk evidence
+- signed document access via `GET /api/documents/{id}/file`
+- document deletion via `DELETE /api/documents/{id}`
+- claim span resolution via `GET /api/claims/{id}/spans`
+- Clerk JWKS-based RS256 verification with issuer, audience, key rotation, and cache support
+- explicit developer authorization for all internal dashboards, explorers, and debug APIs
+- unified backend error contract across JSON and multipart flows
+- upload rate limiting applied to the real upload endpoint
+- workspace-safe provenance viewer with signed PDF access, page navigation, and exact extracted span text
+- Cohere reranking with cached rerank results in the retrieval pipeline
 - developer-only Answer Explorer with prompt payloads, evidence, stream timelines, token usage, latency, and cost
 - answer-generation metrics for latency, tokens, citations, and evidence coverage
 - deterministic document lifecycle through `uploaded → extracted → normalized → metadata_ready → awaiting_chunking → chunking → chunked → awaiting_embeddings → embedding → embedded → awaiting_index → indexing → indexed`
 - resumable artifact persistence for ingestion stages
 - backend and frontend test baseline still green after the milestone
 
-Not implemented yet in Phase A:
-- critic / verifier loop
-- trust scoring
-- debate loop
-- evaluation and Phase B verification surfaces
+Not implemented yet:
+- live Phase B verifier runtime in the user-facing answer path
+- trust badge / calibrated confidence UI
+- debate panel / abstention UI
+- offline calibration workflow and Phase B evaluation surfaces
 
 A6 technical debt notes recorded for retrieval-adjacent parsing hardening:
 - add file signature validation before parser execution
@@ -62,9 +71,9 @@ A6 technical debt notes recorded for retrieval-adjacent parsing hardening:
 
 Most AI document tools answer questions confidently — even when wrong. In a legal context, a confident wrong answer is the worst possible outcome.
 
-Clarity is built around a different principle: **every claim must prove itself before it reaches you.** A Critic agent checks every assertion against the retrieved source text. An independent NLI entailment model cross-verifies the Critic's verdict. A claim is marked `supported` only when **both signals agree**. When evidence is thin, the system abstains rather than guessing.
+Clarity is built around a different principle: **every claim must prove itself before it reaches you.** Phase A delivers the document pipeline, retrieval system, answer generation, citations, and provenance plumbing. Phase B adds the Critic, independent NLI verification, calibrated confidence, and abstention.
 
-This is not a document-Q&A clone. The self-critique loop, the two-signal verifier, the calibrated trust score, and the pixel-accurate provenance view are core requirements — not nice-to-haves.
+This is not a document-Q&A clone. The self-critique loop, the two-signal verifier, the calibrated trust score, and exact provenance are core requirements — not nice-to-haves.
 
 ---
 
@@ -87,7 +96,7 @@ Clarity solves both. Every answer is verified before it leaves the system, and e
 |---|---------|---------------|
 | 1 | **Two-signal verifier** — Critic LLM + independent NLI entailment; a claim passes only if both agree | Eliminates the "Critic hallucinating its own approval" failure mode — no model judges itself |
 | 2 | **Calibrated trust score + eval-as-CI** — every answer ships a faithfulness score calibrated against a golden dataset; quality regressions fail the CI build | Turns "it feels accurate" into a measurable, gated guarantee |
-| 3 | **Bounding-box provenance** — clicking any claim draws a pixel-accurate highlight on the rendered PDF | The visual proof moment — users see the exact sentence, not a vague page reference |
+| 3 | **Workspace-safe provenance viewer** — clicking any claim opens the source PDF at the right page with the exact extracted span beside it | The proof moment — users can verify the cited text without leaving the app |
 | 4 | **Persistent contradiction graph** — cross-document conflicts are detected on ingest and browsable without asking a question | Reasoning beyond retrieval; finds "Doc A says 30 days, Doc C says 60 days" automatically |
 | 5 | **Live reasoning graph + Writer↔Critic debate** — the LangGraph execution animates live; the draft→critique→revision exchange streams in real time | Trust through transparency — users watch the system catch its own errors |
 | 6 | **Abstention** — when evidence is thin, the system says "I can't verify this from the documents" and shows what it would need | Knowing when *not* to answer is the correct behavior in a legal context |
@@ -100,9 +109,9 @@ Clarity solves both. Every answer is verified before it leaves the system, and e
 1. Upload a PDF contract
 2. Ask: "Does this auto-renew and how do I cancel?"
 3. Watch the reasoning graph light up: Supervisor → Retriever → Writer → Critic → NLI
-4. Receive a streaming, cited answer with a calibrated trust score
-5. Click any claim → the original PDF renders with a bounding-box highlight on the exact supporting sentence
-6. Browse the cross-document contradiction graph for conflicts across your corpus
+4. Receive a streaming, cited answer grounded in retrieved evidence
+5. Click any claim → the original PDF opens at the cited page with the exact extracted support span
+6. Phase B adds calibrated trust, abstention, and verifier debate
 ```
 
 ---
@@ -114,23 +123,19 @@ Clarity solves both. Every answer is verified before it leaves the system, and e
 │  Browser (Next.js 15, App Router, TypeScript, Tailwind, shadcn/ui)  │
 │  · Upload UI + clause map                                            │
 │  · Chat — streaming answer + clickable claims                        │
-│  · Live reasoning graph (LangGraph node states)                      │
-│  · Provenance panel (PDF canvas + bounding-box highlight)            │
-│  · Eval dashboard (trust trend, calibration curve, catch rate)       │
+│  · Provenance panel (signed PDF + extracted cited span)              │
+│  · Internal developer dashboard and explorers                        │
 └────────────────────────┬────────────────────────────────────────────┘
                          │ HTTPS · REST + SSE · Clerk JWT on every call
 ┌────────────────────────▼────────────────────────────────────────────┐
 │  FastAPI (Python, async)                                             │
-│  · Auth middleware — Clerk JWT → workspace_id (from token, never body)│
+│  · Auth middleware — Clerk JWKS JWT verification → workspace_id       │
 │  · Rate limiting — Upstash Redis (sliding window, per user)         │
 │  · Ingestion service — extract → chunk → embed → upsert             │
 │  · Hybrid retrieval — semantic + BM25 → RRF → Cohere rerank → top-5 │
-│  · LangGraph agents — Supervisor / Retriever / Writer / Critic /    │
-│    NLI / Calibrate / Conflict / Abstain                             │
-│  · Verification service — Critic + NLI ensemble + calibration       │
-│  · Eval service — golden suite, async judge, CI gate, drift rollups │
-│  · Benchmark service — clause vs. market-standard reference library │
-│  · Semantic cache — (query, document_set) → Upstash Redis           │
+│  · Answer generation runtime — retrieval-backed streaming writer     │
+│  · Developer-only debug APIs for chunks, embeddings, vectors,       │
+│    retrieval, answers, and metrics                                  │
 └──┬──────┬──────┬───────┬──────────┬───────────┬────────────────────┘
    │      │      │       │          │           │
    ▼      ▼      ▼       ▼          ▼           ▼
@@ -142,26 +147,18 @@ per ns   + RLS           embed
 ### Ingestion pipeline
 
 ```
-Upload → R2 storage → PyMuPDF text/layout extraction → clause-aware chunking
-→ embed (text-embedding-3-small, cache by hash) → Pinecone upsert (ws_{id} namespace)
-→ structured clause map → benchmark against reference library
-→ rebuild contradiction graph for workspace
-→ document status: ready
+Upload → R2 storage → PDF/DOCX extraction → normalization → clause-aware chunking
+→ deterministic clause persistence → embed (text-embedding-3-small, cache by hash)
+→ Pinecone upsert (ws_{id} namespace) → document status: indexed
 ```
 
 ### Query pipeline (the core loop)
 
 ```
-Request → semantic cache check → Supervisor classifies
-→ hybrid retrieval (semantic + BM25 → RRF → Cohere rerank → top-5 spans)
-→ Writer drafts claims linked to span IDs
-→ Critic verifies each claim against cited spans
-→ NLI entailment cross-checks the Critic's verdict
-→ claim supported only if BOTH agree; else re-retrieve (max 2 loops) or mark uncertain
-→ confidence calibration → abstention if below threshold
-→ stream: graph_node events + debate_turn events + answer tokens + trust badge
-→ async eval judge (non-blocking)
-→ semantic cache write
+Request → hybrid retrieval (semantic + BM25 → RRF → Cohere rerank → top evidence)
+→ answer writer builds a grounded response from cited chunks only
+→ stream tokens and citations over SSE
+→ persist conversation, answer run, citations, retrieval evidence, and replay events
 ```
 
 ### Multi-tenancy (three layers, all required)
@@ -187,10 +184,10 @@ Request → semantic cache check → Supervisor classifies
 | Vector DB | Pinecone | Managed, namespace-per-workspace |
 | Reranking | Cohere Rerank | Free tier; big RAG accuracy gain |
 | Primary DB | Supabase (Postgres + RLS) | Tenancy enforced at the DB layer |
-| Auth | Clerk | JWT carries workspace claims |
+| Auth | Clerk | JWKS-based JWT verification with issuer/audience validation |
 | Cache / rate limits | Upstash Redis | Semantic cache + per-tier rate limiting |
 | File storage | Cloudflare R2 | Free egress, S3-compatible, signed URLs |
-| Observability | LangSmith + Sentry | Every agent step traced |
+| Observability | LangSmith + Sentry | Request, ingestion, retrieval, and answer runtime visibility |
 | Billing | Stripe | Test-mode during development |
 | Deploy | Vercel (frontend) + Railway (backend) | Public live demo |
 | CI/CD | GitHub Actions | pytest + tsc + vitest on every PR |
