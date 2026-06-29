@@ -72,15 +72,22 @@ def _match_limit(method: str, path: str) -> tuple[int, int]:
 async def _increment(key: str, ttl: int) -> int:
     """
     Calls Upstash Redis REST API to INCR the key and set TTL on first write.
-    Returns the new count.
+    Returns the new count. Fails open (returns 0) on any Upstash error so a
+    Redis outage never blocks legitimate requests.
     """
+    import logging
+    logger = logging.getLogger(__name__)
+
     url = f"{settings.upstash_redis_rest_url}/pipeline"
     headers = {"Authorization": f"Bearer {settings.upstash_redis_rest_token}"}
     pipeline = [["INCR", key], ["EXPIRE", key, ttl]]
 
-    async with httpx.AsyncClient(timeout=1.0) as client:
-        resp = await client.post(url, json=pipeline, headers=headers)
-        resp.raise_for_status()
-        results = resp.json()
-        # pipeline returns list of [{"result": value}, ...]
-        return int(results[0]["result"])
+    try:
+        async with httpx.AsyncClient(timeout=1.0) as client:
+            resp = await client.post(url, json=pipeline, headers=headers)
+            resp.raise_for_status()
+            results = resp.json()
+            return int(results[0]["result"])
+    except Exception as exc:
+        logger.warning("Upstash rate-limit check failed (fail-open): %s", exc)
+        return 0  # fail open — do not block the request

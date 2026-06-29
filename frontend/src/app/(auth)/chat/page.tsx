@@ -1,70 +1,26 @@
 'use client';
 
 import Link from 'next/link';
-import dynamic from 'next/dynamic';
 import { useAuth } from '@clerk/nextjs';
 import { FormEvent, useEffect, useMemo, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
 
-import { AbstentionCard } from '@/components/chat/AbstentionCard';
-import { TrustBadge } from '@/components/chat/TrustBadge';
-import { TrustBreakdown } from '@/components/chat/TrustBreakdown';
-import { VerifiedClaimChip } from '@/components/chat/VerifiedClaimChip';
-import { applyStreamEvent, createStreamingAnswerState, type StreamingAnswerState } from '@/lib/chatStream';
-import { getConversation, listContradictions, listConversations, resumeAnswerStream, streamQuery } from '@/lib/api';
+import { applyStreamEvent, createStreamingAnswerState } from '@/lib/chatStream';
+import { getConversation, listConversations, resumeAnswerStream, streamQuery } from '@/lib/api';
 import { parseMarkdownBlocks } from '@/lib/markdown';
-import { buildProvenanceHref, buildVerificationTimeline, getRelatedContradictions } from '@/lib/verifiedAnswer';
-import type { Citation, Contradiction, Conversation, Message, StreamEvent } from '@/types/clarity';
+import type { Citation, Conversation, Message, StreamEvent } from '@/types/clarity';
+import { TrustBadge } from '@/components/chat/TrustBadge';
+import { DebatePanel, type DebateTurn } from '@/components/chat/DebatePanel';
+import { AbstentionCard } from '@/components/chat/AbstentionCard';
 
-
-const DebatePanel = dynamic(
-  () => import('@/components/chat/DebatePanel').then((module) => module.DebatePanel),
-  { ssr: false },
-);
-
-const VerificationTimeline = dynamic(
-  () => import('@/components/chat/VerificationTimeline').then((module) => module.VerificationTimeline),
-  { ssr: false },
-);
-
-const ContradictionViewer = dynamic(
-  () => import('@/components/chat/ContradictionViewer').then((module) => module.ContradictionViewer),
-  { ssr: false },
-);
 
 type LoadState = 'idle' | 'loading' | 'loaded' | 'error';
 
 
-function CitationChip({
-  citation,
-  workspaceId,
-  claimId,
-  claimText,
-  criticStatus,
-  confidence,
-  supportProbability,
-}: {
-  citation: Citation;
-  workspaceId: string;
-  claimId?: string | null;
-  claimText?: string | null;
-  criticStatus?: string | null;
-  confidence?: number | null;
-  supportProbability?: number | null;
-}) {
+function CitationChip({ citation, workspaceId }: { citation: Citation; workspaceId: string }) {
   return (
     <Link
-      href={buildProvenanceHref({
-        workspaceId,
-        documentId: citation.documentId,
-        claimId,
-        chunkId: citation.chunkId,
-        citationKey: citation.citationKey,
-        claimText,
-        criticStatus,
-        confidence,
-        supportProbability,
-      })}
+      href={`/documents/${citation.documentId}/chunks?workspace=${encodeURIComponent(workspaceId)}&highlight=${encodeURIComponent(citation.chunkId)}`}
       className="inline-flex rounded-full border border-blue-200 bg-blue-50 px-3 py-1 text-xs font-medium text-blue-700"
       title={`${citation.sectionTitle ?? 'Evidence'} • pages ${citation.pageStart}-${citation.pageEnd}`}
     >
@@ -97,104 +53,28 @@ function MessageBody({ content }: { content: string }) {
 }
 
 
-function AssistantAnswerCard({
-  message,
-  workspaceId,
-  contradictions,
-  onRefineQuestion,
-}: {
-  message: Message;
-  workspaceId: string;
-  contradictions: Contradiction[];
-  onRefineQuestion?: (question: string) => void;
-}) {
-  const relatedContradictions = getRelatedContradictions(message, contradictions);
-  const timeline = buildVerificationTimeline(message, false);
-
-  return (
-    <article className="space-y-4 rounded-3xl border border-slate-200 bg-slate-50 px-5 py-4 text-slate-900">
-      {message.trust ? (
-        <TrustBadge trust={message.trust} claims={message.claims} debateTurns={message.debateTurns} />
-      ) : null}
-
-      {message.abstention ? (
-        <AbstentionCard abstention={message.abstention} trust={message.trust} onRefineQuestion={onRefineQuestion} />
-      ) : (
-        <MessageBody content={message.content} />
-      )}
-
-      {message.claims.length > 0 ? (
-        <section className="space-y-3">
-          <h3 className="text-sm font-semibold text-slate-900">Verified Claims</h3>
-          <div className="grid gap-3">
-            {message.claims.map((claim) => (
-              <VerifiedClaimChip
-                key={claim.id}
-                claim={claim}
-                citations={message.citations}
-                workspaceId={workspaceId}
-              />
-            ))}
-          </div>
-        </section>
-      ) : null}
-
-      {message.citations.length > 0 ? (
-        <div className="flex flex-wrap gap-2">
-          {message.citations.map((citation) => (
-            <CitationChip key={`${message.id}-${citation.citationKey}`} citation={citation} workspaceId={workspaceId} />
-          ))}
-        </div>
-      ) : null}
-
-      <VerificationTimeline steps={timeline} />
-      <TrustBreakdown trust={message.trust} claims={message.claims} retrievedEvidence={message.retrievedEvidence} />
-      <DebatePanel debateTurns={message.debateTurns} />
-      <ContradictionViewer contradictions={relatedContradictions} workspaceId={workspaceId} />
-    </article>
-  );
-}
-
-
-function streamingMessageFromState(workspaceId: string, state: StreamingAnswerState): Message {
-  return {
-    id: state.assistantMessageId ?? 'streaming',
-    workspaceId,
-    conversationId: state.conversationId ?? 'streaming',
-    role: 'assistant',
-    content: state.content,
-    createdAt: new Date().toISOString(),
-    answerRunId: state.answerRunId,
-    retrievalRunId: state.retrievalRunId,
-    trust: state.trust,
-    abstention: state.abstention,
-    claims: state.claims,
-    debateTurns: state.debateTurns,
-    retrievedEvidence: state.retrievedEvidence,
-    citations: state.citations,
-  };
-}
-
-
 export default function ChatPage() {
   const searchParams = useSearchParams();
   const workspaceId = searchParams.get('workspace') ?? '';
   const { getToken } = useAuth();
 
   const [conversations, setConversations] = useState<Conversation[]>([]);
-  const [contradictions, setContradictions] = useState<Contradiction[]>([]);
   const [selectedConversationId, setSelectedConversationId] = useState<string | null>(null);
   const [messages, setMessages] = useState<Message[]>([]);
   const [composer, setComposer] = useState('');
   const [loadState, setLoadState] = useState<LoadState>('idle');
   const [isStreaming, setIsStreaming] = useState(false);
   const [errorMessage, setErrorMessage] = useState('');
-  const [streamingState, setStreamingState] = useState<StreamingAnswerState>(createStreamingAnswerState());
+  const [streamingText, setStreamingText] = useState('');
+  const [streamingCitations, setStreamingCitations] = useState<Citation[]>([]);
+  const [streamingTrust, setStreamingTrust] = useState<{ raw: number; calibrated: number; components: Record<string, number> } | null>(null);
+  const [streamingDebateTurns, setStreamingDebateTurns] = useState<DebateTurn[]>([]);
+  const [streamingAbstention, setStreamingAbstention] = useState<{ reason: string; trustScore: number; threshold: number; missingEvidenceQuery?: string } | null>(null);
 
   useEffect(() => {
     let cancelled = false;
 
-    async function loadWorkspaceData() {
+    async function loadConversations() {
       if (!workspaceId) {
         setLoadState('error');
         setErrorMessage('Choose a workspace before opening chat.');
@@ -207,23 +87,19 @@ export default function ChatPage() {
       try {
         const token = await getToken();
         if (!token) throw new Error('Clerk session token unavailable.');
-        const [nextConversations, nextContradictions] = await Promise.all([
-          listConversations({ token, workspaceId }),
-          listContradictions({ token, workspaceId }),
-        ]);
+        const nextConversations = await listConversations({ token, workspaceId });
         if (cancelled) return;
         setConversations(nextConversations);
-        setContradictions(nextContradictions);
         setSelectedConversationId((current) => current ?? nextConversations[0]?.id ?? null);
         setLoadState('loaded');
       } catch (error) {
         if (cancelled) return;
         setLoadState('error');
-        setErrorMessage(error instanceof Error ? error.message : 'Failed to load chat workspace.');
+        setErrorMessage(error instanceof Error ? error.message : 'Failed to load conversations.');
       }
     }
 
-    void loadWorkspaceData();
+    void loadConversations();
     return () => {
       cancelled = true;
     };
@@ -269,17 +145,16 @@ export default function ChatPage() {
       content: userText,
       createdAt: new Date().toISOString(),
       citations: [],
-      claims: [],
-      debateTurns: [],
-      retrievedEvidence: [],
-      trust: null,
-      abstention: null,
     };
 
     setMessages((current) => [...current, temporaryUserMessage]);
     setComposer('');
     setErrorMessage('');
-    setStreamingState(createStreamingAnswerState());
+    setStreamingText('');
+    setStreamingCitations([]);
+    setStreamingTrust(null);
+    setStreamingDebateTurns([]);
+    setStreamingAbstention(null);
     setIsStreaming(true);
 
     const token = await getToken();
@@ -290,22 +165,48 @@ export default function ChatPage() {
     }
 
     const streamState = createStreamingAnswerState();
-    let resumed = false;
     const requestId = crypto.randomUUID();
+    let resumed = false;
 
     const handleStreamEvent = async (streamEvent: StreamEvent) => {
       const next = applyStreamEvent(streamState, streamEvent);
       Object.assign(streamState, next);
-      setStreamingState({ ...next });
 
       if (streamEvent.type === 'meta') {
         setSelectedConversationId(streamEvent.conversationId);
       }
 
+      if (streamEvent.type === 'token') {
+        setStreamingText(next.content);
+      }
+
+      if (streamEvent.type === 'citation') {
+        setStreamingCitations(next.citations);
+      }
+
+      if (streamEvent.type === 'debate_turn') {
+        setStreamingDebateTurns((prev) => [...prev, streamEvent]);
+      }
+
+      if (streamEvent.type === 'trust') {
+        setStreamingTrust({ raw: streamEvent.raw, calibrated: streamEvent.calibrated, components: streamEvent.components });
+      }
+
+      if (streamEvent.type === 'abstention') {
+        setStreamingAbstention({
+          reason: streamEvent.reason,
+          trustScore: streamEvent.trustScore,
+          threshold: streamEvent.threshold,
+          missingEvidenceQuery: streamEvent.missingEvidenceQuery,
+        });
+      }
+
       if (streamEvent.type === 'message') {
+        setStreamingText('');
+        setStreamingCitations([]);
         const detail = await getConversation({ token, workspaceId }, streamEvent.message.conversationId);
-        const nextConversations = await listConversations({ token, workspaceId });
         setMessages(detail.messages);
+        const nextConversations = await listConversations({ token, workspaceId });
         setConversations(nextConversations);
       }
 
@@ -350,19 +251,14 @@ export default function ChatPage() {
     );
   }
 
-  const activeStreamingMessage = useMemo(
-    () => streamingMessageFromState(workspaceId, streamingState),
-    [streamingState, workspaceId],
-  );
-
   return (
     <div className="mx-auto flex h-[calc(100vh-4rem)] w-full max-w-7xl gap-6 px-6 py-8">
       <aside className="flex w-80 shrink-0 flex-col rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
         <div className="space-y-2">
-          <p className="text-sm font-medium uppercase tracking-[0.2em] text-emerald-700">Phase B2</p>
-          <h1 className="text-2xl font-semibold text-slate-900">Verified Conversations</h1>
+          <p className="text-sm font-medium uppercase tracking-[0.2em] text-blue-600">Phase A8</p>
+          <h1 className="text-2xl font-semibold text-slate-900">Conversations</h1>
           <p className="text-sm text-slate-600">
-            Answers now explain why they should be trusted, not just where they came from.
+            Grounded answers stream from retrieval evidence only, with structured citations for every response.
           </p>
         </div>
 
@@ -376,10 +272,9 @@ export default function ChatPage() {
               key={conversation.id}
               type="button"
               onClick={() => setSelectedConversationId(conversation.id)}
-              aria-label={`Open conversation ${conversation.title || 'Untitled conversation'}`}
               className={`w-full rounded-2xl border p-4 text-left ${
                 selectedConversationId === conversation.id
-                  ? 'border-emerald-300 bg-emerald-50'
+                  ? 'border-blue-300 bg-blue-50'
                   : 'border-slate-200 bg-white'
               }`}
             >
@@ -390,7 +285,7 @@ export default function ChatPage() {
 
           {conversations.length === 0 && loadState === 'loaded' ? (
             <div className="rounded-2xl border border-dashed border-slate-300 bg-slate-50 p-4 text-sm text-slate-600">
-              Start the first conversation by asking about a contract term, obligation, or contradiction.
+              Start the first conversation by asking about a contract term, obligation, or clause.
             </div>
           ) : null}
         </div>
@@ -399,7 +294,7 @@ export default function ChatPage() {
           href={workspaceId ? `/developer/answers?workspace=${encodeURIComponent(workspaceId)}` : '/developer/dashboard'}
           className="mt-5 inline-flex rounded-full border border-slate-300 px-4 py-2 text-sm font-medium text-slate-700"
         >
-          Open Verification Explorer
+          Open Answer Explorer
         </Link>
       </aside>
 
@@ -407,101 +302,95 @@ export default function ChatPage() {
         <div className="border-b border-slate-200 px-6 py-5">
           <h2 className="text-2xl font-semibold text-slate-900">Ask Clarity</h2>
           <p className="mt-1 text-sm text-slate-600">
-            Token streaming stays live while verification, calibrated trust, debate, and abstention state update in parallel.
+            Responses stream live and stay grounded in the retrieval evidence already indexed for this workspace.
           </p>
         </div>
 
         <div className="flex-1 space-y-4 overflow-y-auto px-6 py-6">
           {messages.map((message) => (
-            message.role === 'assistant' ? (
-              <AssistantAnswerCard
-                key={message.id}
-                message={message}
-                workspaceId={workspaceId}
-                contradictions={contradictions}
-                onRefineQuestion={setComposer}
-              />
-            ) : (
-              <article
-                key={message.id}
-                className="ml-auto max-w-4xl rounded-3xl bg-slate-900 px-5 py-4 text-white"
-              >
-                <p className="whitespace-pre-wrap text-sm leading-7">{message.content}</p>
-              </article>
-            )
-          ))}
-
-          {isStreaming ? (
-            <article className="space-y-4 rounded-3xl border border-blue-200 bg-blue-50 px-5 py-4 text-slate-900">
-              <div className="flex items-center gap-2 text-xs font-medium uppercase tracking-[0.2em] text-blue-700">
-                <span className="inline-flex h-2 w-2 rounded-full bg-blue-500" />
-                Streaming verified answer
-              </div>
-              <MessageBody content={streamingState.content || 'Thinking…'} />
-              {streamingState.claims.length > 0 ? (
-                <div className="grid gap-3">
-                  {streamingState.claims.map((claim) => (
-                    <VerifiedClaimChip
-                      key={claim.id}
-                      claim={claim}
-                      citations={streamingState.citations}
-                      workspaceId={workspaceId}
-                    />
+            <article
+              key={message.id}
+              className={`max-w-4xl rounded-3xl px-5 py-4 ${
+                message.role === 'user'
+                  ? 'ml-auto bg-slate-900 text-white'
+                  : 'border border-slate-200 bg-slate-50 text-slate-900'
+              }`}
+            >
+              {message.role === 'assistant' ? <MessageBody content={message.content} /> : <p className="whitespace-pre-wrap text-sm leading-7">{message.content}</p>}
+              {message.citations.length > 0 ? (
+                <div className="mt-4 flex flex-wrap gap-2">
+                  {message.citations.map((citation) => (
+                    <CitationChip key={`${message.id}-${citation.citationKey}`} citation={citation} workspaceId={workspaceId} />
                   ))}
                 </div>
               ) : null}
-              {streamingState.citations.length > 0 ? (
-                <div className="flex flex-wrap gap-2">
-                  {streamingState.citations.map((citation) => (
+            </article>
+          ))}
+
+          {isStreaming ? (
+            <article className="max-w-4xl rounded-3xl border border-blue-200 bg-blue-50 px-5 py-4 text-slate-900">
+              <div className="mb-3 flex items-center gap-2 text-xs font-medium uppercase tracking-[0.2em] text-blue-700">
+                <span className="inline-flex h-2 w-2 rounded-full bg-blue-500" />
+                Writing
+                {streamingTrust && (
+                  <span className="ml-2">
+                    <TrustBadge
+                      calibrated={streamingTrust.calibrated}
+                      raw={streamingTrust.raw}
+                      components={streamingTrust.components}
+                    />
+                  </span>
+                )}
+              </div>
+              {streamingAbstention ? (
+                <AbstentionCard
+                  reason={streamingAbstention.reason}
+                  trustScore={streamingAbstention.trustScore}
+                  threshold={streamingAbstention.threshold}
+                  missingEvidenceQuery={streamingAbstention.missingEvidenceQuery}
+                />
+              ) : (
+                <MessageBody content={streamingText || 'Thinking…'} />
+              )}
+              {streamingCitations.length > 0 ? (
+                <div className="mt-4 flex flex-wrap gap-2">
+                  {streamingCitations.map((citation) => (
                     <CitationChip key={citation.citationKey} citation={citation} workspaceId={workspaceId} />
                   ))}
                 </div>
               ) : null}
-              <VerificationTimeline steps={buildVerificationTimeline(activeStreamingMessage, true)} />
-              <TrustBreakdown
-                trust={streamingState.trust}
-                claims={streamingState.claims}
-                retrievedEvidence={activeStreamingMessage.retrievedEvidence}
-              />
-              <DebatePanel debateTurns={streamingState.debateTurns} />
-              {streamingState.trust ? (
-                <TrustBadge trust={streamingState.trust} claims={streamingState.claims} debateTurns={streamingState.debateTurns} />
-              ) : null}
-              {streamingState.abstention ? (
-                <AbstentionCard abstention={streamingState.abstention} trust={streamingState.trust} onRefineQuestion={setComposer} />
-              ) : null}
+              {streamingDebateTurns.length > 0 && (
+                <DebatePanel turns={streamingDebateTurns} />
+              )}
             </article>
           ) : null}
 
-          {loadState === 'loading' ? (
-            <div className="rounded-3xl border border-dashed border-slate-300 bg-slate-50 p-5 text-sm text-slate-600">
-              Loading conversation history…
+          {!isStreaming && messages.length === 0 ? (
+            <div className="rounded-3xl border border-dashed border-slate-300 bg-slate-50 p-8 text-sm text-slate-600">
+              Ask a focused contract question like “What are the termination notice requirements?” or “Does this agreement auto-renew?”
             </div>
           ) : null}
         </div>
 
-        <form onSubmit={handleSubmit} className="border-t border-slate-200 px-6 py-5" aria-label="Send a verified contract question">
-          <label className="block text-sm font-medium text-slate-700" htmlFor="clarity-chat-composer">
-            Ask a contract question
-          </label>
-          <div className="mt-3 flex gap-3">
+        <div className="border-t border-slate-200 px-6 py-5">
+          {errorMessage ? <p className="mb-3 text-sm text-red-600">{errorMessage}</p> : null}
+          <form onSubmit={handleSubmit} className="flex gap-3">
             <textarea
-              id="clarity-chat-composer"
               value={composer}
               onChange={(event) => setComposer(event.target.value)}
-              placeholder="Example: Does this agreement auto-renew, and what notice is required to stop it?"
-              className="min-h-[6rem] flex-1 rounded-3xl border border-slate-300 px-4 py-3 text-sm text-slate-900 outline-none ring-0 placeholder:text-slate-400"
+              placeholder="Ask about obligations, risks, termination, renewal, pricing, or any cited contract detail…"
+              className="min-h-24 flex-1 rounded-3xl border border-slate-300 px-4 py-3 text-sm text-slate-900 outline-none ring-0"
+              disabled={!workspaceId || isStreaming}
             />
             <button
               type="submit"
-              disabled={!workspaceId || !composer.trim() || isStreaming}
+              disabled={!workspaceId || isStreaming || !composer.trim()}
               className="self-end rounded-full bg-slate-900 px-5 py-3 text-sm font-medium text-white disabled:cursor-not-allowed disabled:bg-slate-300"
             >
-              {isStreaming ? 'Verifying…' : 'Send'}
+              {isStreaming ? 'Streaming…' : 'Send'}
             </button>
-          </div>
-          {errorMessage ? <p className="mt-3 text-sm text-red-600">{errorMessage}</p> : null}
-        </form>
+          </form>
+        </div>
       </section>
     </div>
   );

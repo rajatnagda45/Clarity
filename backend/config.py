@@ -28,7 +28,6 @@ class Settings(BaseSettings):
 
     # Cohere
     cohere_api_key: str
-    rerank_model: str = "rerank-v3.5"
 
     # Supabase
     supabase_url: str
@@ -38,10 +37,7 @@ class Settings(BaseSettings):
     # Clerk
     clerk_secret_key: str
     next_public_clerk_publishable_key: str = ""
-    clerk_jwks_url: str = "https://clerk.example.com/.well-known/jwks.json"
-    clerk_jwt_issuer: str = ""
-    clerk_jwt_audience: str = ""
-    developer_user_ids: str = ""
+    clerk_jwks_url: str = ""  # override JWKS URL; auto-derived from clerk_secret_key if blank
 
     # Upstash Redis
     upstash_redis_rest_url: str
@@ -81,18 +77,12 @@ class Settings(BaseSettings):
     retrieval_rrf_k: int = 60
     retrieval_cross_reference_limit: int = 2
     retrieval_cache_ttl_seconds: int = 60
-    rerank_cache_ttl_seconds: int = 300
-    rerank_candidate_count: int = 20
     writer_prompt_version: str = "a8.writer.v1"
-    writer_revision_prompt_version: str = "b1.writer.revision.v1"
     writer_version: str = "a8.writer.v1"
-    verification_runtime_version: str = "b1.runtime.v1"
-    claim_extractor_version: str = "b1.claims.v1"
     answer_stream_token_batch_size: int = 12
     answer_max_history_messages: int = 8
     llm_prompt_cost_per_1k_tokens_usd: float = 0.0
     llm_completion_cost_per_1k_tokens_usd: float = 0.0
-    signed_document_url_ttl_seconds: int = 300
 
     # B3 Evaluation platform
     judge_provider: str = "openai"

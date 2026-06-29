@@ -5,30 +5,25 @@ from tempfile import SpooledTemporaryFile
 from pathlib import Path
 from uuid import uuid4
 
-from fastapi import APIRouter, BackgroundTasks, Depends, File, HTTPException, Request, UploadFile, status
+from fastapi import APIRouter, BackgroundTasks, Depends, File, HTTPException, Request, Response, UploadFile, status
 
-from api.deps import require_developer, require_workspace_role
-from api.errors import api_error
+from api.deps import require_workspace_role
 from config import settings
 from db.client import tenant_query, get_client
 from schemas import (
-    ClauseSummary,
     DocumentChunkListResponse,
     DocumentChunkSummary,
     DocumentDetailResponse,
     DocumentEmbeddingListResponse,
     DocumentEmbeddingSummary,
-    DocumentFileResponse,
     DocumentListResponse,
     DocumentSummary,
     DocumentVectorIndexListResponse,
     DocumentVectorIndexSummary,
 )
-from services.indexing.factory import get_index_provider
 from services.embeddings.inspector import is_current_embedding_row
 from services.embeddings.pipeline import run_document_embedding_task
 from services.ingestion.pipeline import run_document_ingestion_task
-from services.indexing.models import IndexingTarget
 from services.indexing.inspector import build_index_namespace, is_current_index_row
 from services.indexing.pipeline import queue_document_for_indexing, run_document_indexing_task
 from services.ingestion.url import (
@@ -36,13 +31,7 @@ from services.ingestion.url import (
     enqueue_url_ingestion,
     validate_url_ingestion_request,
 )
-from services.storage.r2 import (
-    build_document_storage_key,
-    build_signed_document_url,
-    sanitize_filename,
-    upload_document_file,
-    delete_document_object,
-)
+from services.storage.r2 import build_document_storage_key, generate_presigned_url, sanitize_filename, upload_document_file, delete_document_object
 
 
 router = APIRouter(prefix="/api/documents", tags=["documents"])
@@ -59,7 +48,7 @@ UPLOAD_CHUNK_BYTES = 1024 * 1024
 
 
 def _error(status_code: int, code: str, message: str) -> HTTPException:
-    return api_error(status_code, code, message)
+    return HTTPException(status_code=status_code, detail={"code": code, "message": message})
 
 
 def _document_summary_from_row(row: dict) -> DocumentSummary:
@@ -71,23 +60,6 @@ def _document_summary_from_row(row: dict) -> DocumentSummary:
         pageCount=row.get("page_count"),
         createdAt=row["created_at"],
         error=row.get("error"),
-    )
-
-
-def _clause_summary_from_row(row: dict) -> ClauseSummary:
-    return ClauseSummary(
-        id=str(row["id"]),
-        workspaceId=str(row["workspace_id"]),
-        documentId=str(row["document_id"]),
-        clauseType=row["clause_type"],
-        text=row["text"],
-        page=row["page"],
-        riskFlag=row["risk_flag"],
-        rationale=row.get("rationale"),
-        benchmarkMatchId=str(row["benchmark_match_id"]) if row.get("benchmark_match_id") else None,
-        deviationNote=row.get("deviation_note"),
-        riskScore=float(row["risk_score"]) if row.get("risk_score") is not None else None,
-        createdAt=row["created_at"],
     )
 
 
@@ -257,9 +229,11 @@ async def list_documents(
 @router.get("/{document_id}/chunks", response_model=DocumentChunkListResponse)
 async def inspect_document_chunks(
     document_id: str,
-    _: str = Depends(require_developer),
     membership: tuple[str, str] = Depends(require_workspace_role),
 ) -> DocumentChunkListResponse:
+    if settings.environment == "production":
+        raise _error(status.HTTP_404_NOT_FOUND, "not_found", "Developer chunk inspector unavailable.")
+
     workspace_id, _ = membership
     document = (
         tenant_query("documents", workspace_id)
@@ -311,9 +285,11 @@ async def inspect_document_chunks(
 @router.get("/{document_id}/embeddings", response_model=DocumentEmbeddingListResponse)
 async def inspect_document_embeddings(
     document_id: str,
-    _: str = Depends(require_developer),
     membership: tuple[str, str] = Depends(require_workspace_role),
 ) -> DocumentEmbeddingListResponse:
+    if settings.environment == "production":
+        raise _error(status.HTTP_404_NOT_FOUND, "not_found", "Developer embedding explorer unavailable.")
+
     workspace_id, _ = membership
     document_result = (
         tenant_query("documents", workspace_id)
@@ -368,9 +344,11 @@ async def inspect_document_embeddings(
 @router.get("/{document_id}/vectors", response_model=DocumentVectorIndexListResponse)
 async def inspect_document_vectors(
     document_id: str,
-    _: str = Depends(require_developer),
     membership: tuple[str, str] = Depends(require_workspace_role),
 ) -> DocumentVectorIndexListResponse:
+    if settings.environment == "production":
+        raise _error(status.HTTP_404_NOT_FOUND, "not_found", "Developer vector explorer unavailable.")
+
     workspace_id, _ = membership
     document_result = (
         tenant_query("documents", workspace_id)
@@ -452,39 +430,10 @@ async def get_document(
 
     _schedule_embedding_refresh(background_tasks, row, workspace_id)
     _schedule_index_refresh(background_tasks, row, workspace_id)
-    clauses_result = (
-        tenant_query("clauses", workspace_id)
-        .eq("document_id", document_id)
-        .order("page")
-        .execute()
-    )
 
     return DocumentDetailResponse(
         **_document_summary_from_row(row).model_dump(),
-        clauses=[_clause_summary_from_row(clause_row) for clause_row in clauses_result.data or []],
-    )
-
-
-@router.get("/{document_id}/file", response_model=DocumentFileResponse)
-async def get_document_file(
-    document_id: str,
-    membership: tuple[str, str] = Depends(require_workspace_role),
-) -> DocumentFileResponse:
-    workspace_id, _ = membership
-    result = (
-        tenant_query("documents", workspace_id)
-        .eq("id", document_id)
-        .limit(1)
-        .execute()
-    )
-    row = (result.data or [None])[0]
-    if not row:
-        raise _error(status.HTTP_404_NOT_FOUND, "document_not_found", "Document was not found.")
-    return DocumentFileResponse(
-        documentId=document_id,
-        filename=row["filename"],
-        signedUrl=build_signed_document_url(row["r2_key"]),
-        expiresInSeconds=settings.signed_document_url_ttl_seconds,
+        clauses=[],
     )
 
 
@@ -572,48 +521,40 @@ async def upload_document(
     return _document_summary_from_row(created_row)
 
 
-@router.delete("/{document_id}", status_code=status.HTTP_204_NO_CONTENT)
-async def delete_document(
+@router.get("/{document_id}/file")
+def get_document_file(
     document_id: str,
-    membership: tuple[str, str] = Depends(require_editor_workspace),
+    membership: tuple[str, str] = Depends(require_workspace_role),
 ):
-    workspace_id, _role = membership
-    result = (
-        tenant_query("documents", workspace_id)
-        .eq("id", document_id)
-        .limit(1)
-        .execute()
-    )
+    """Returns a short-lived presigned URL for direct R2 download (5 min TTL)."""
+    workspace_id, _ = membership
+    result = tenant_query("documents", workspace_id).eq("id", document_id).limit(1).execute()
     row = (result.data or [None])[0]
     if not row:
-        raise _error(status.HTTP_404_NOT_FOUND, "document_not_found", "Document was not found.")
+        raise _error(status.HTTP_404_NOT_FOUND, "document_not_found", "Document not found.")
+    try:
+        url = generate_presigned_url(row["r2_key"], expires_in=300)
+    except Exception as exc:
+        raise _error(status.HTTP_502_BAD_GATEWAY, "presigned_url_failed", "Could not generate download URL.") from exc
+    return {"url": url, "expires_in": 300, "filename": row["filename"]}
 
-    index_rows = (
-        tenant_query("chunk_vector_index_records", workspace_id)
-        .eq("document_id", document_id)
-        .execute()
-    )
-    vector_ids = [index_row["vector_id"] for index_row in index_rows.data or []]
-    if vector_ids:
-        target = IndexingTarget(
-            provider=settings.index_provider,
-            index_name=settings.pinecone_index,
-            namespace=build_index_namespace(workspace_id),
-            embedding_provider=row.get("current_embedding_provider") or settings.embedding_provider,
-            embedding_model=row.get("current_embedding_model") or settings.embed_model,
-            embedding_dimension=row.get("current_embedding_dimension") or settings.embed_dim,
-            embedding_version=row.get("current_embedding_version") or settings.embedding_version,
-            parser_version=row.get("current_embedding_parser_version") or settings.parser_version,
-            chunk_version=row.get("current_embedding_chunk_version") or settings.chunk_version,
-        )
-        await get_index_provider().delete(target, vector_ids)
 
-    delete_document_object(row["r2_key"])
-    (
-        get_client()
-        .table("documents")
-        .delete()
-        .eq("id", document_id)
-        .eq("workspace_id", workspace_id)
-        .execute()
-    )
+@router.delete("/{document_id}")
+def delete_document(
+    document_id: str,
+    membership: tuple[str, str] = Depends(require_workspace_role),
+) -> Response:
+    """Deletes a document and its R2 object. Cascades to all derived artifacts via FK."""
+    workspace_id, role = membership
+    if role not in ("owner", "editor"):
+        raise _error(status.HTTP_403_FORBIDDEN, "insufficient_role", "Editor or owner role required to delete documents.")
+    result = tenant_query("documents", workspace_id).eq("id", document_id).limit(1).execute()
+    row = (result.data or [None])[0]
+    if not row:
+        raise _error(status.HTTP_404_NOT_FOUND, "document_not_found", "Document not found.")
+    try:
+        delete_document_object(row["r2_key"])
+    except Exception:
+        pass  # Best-effort; DB cascade still proceeds
+    get_client().table("documents").delete().eq("id", document_id).eq("workspace_id", workspace_id).execute()
+    return Response(status_code=status.HTTP_204_NO_CONTENT)

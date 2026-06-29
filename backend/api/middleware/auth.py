@@ -5,28 +5,32 @@ Validates the Bearer token on every request, extracts workspace_id,
 and injects both into request.state so route handlers never touch raw headers.
 
 workspace_id is derived from the verified JWT — never from the request body.
+
+RS256 (production Clerk tokens): fetches RSA public key from Clerk's JWKS endpoint
+and caches it for the process lifetime. Falls back to HS256 for dev/test environments.
 """
 
-from __future__ import annotations
-
-import base64
 import json
-import time
-from typing import Any, Callable
-
+import base64
+import logging
+import threading
+from typing import Callable
 import httpx
 import jwt as pyjwt
-from fastapi import Request
+from fastapi import Request, HTTPException, status
+from fastapi.responses import JSONResponse
 from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.types import ASGIApp
-
-from api.errors import error_response, api_error
 from config import settings
+
+logger = logging.getLogger(__name__)
+
+# Module-level JWKS cache — populated on first RS256 request, never changes
+_jwks_cache: dict[str, str] = {}  # kid → PEM public key
+_jwks_lock = threading.Lock()
 
 # Paths that don't require authentication
 _PUBLIC_PATHS = {"/", "/health", "/api/health", "/docs", "/openapi.json", "/redoc"}
-_JWKS_CACHE_TTL_SECONDS = 300
-_jwks_cache: dict[str, Any] = {"keys": {}, "expires_at": 0.0}
 
 
 class AuthMiddleware(BaseHTTPMiddleware):
@@ -39,106 +43,136 @@ class AuthMiddleware(BaseHTTPMiddleware):
 
         auth_header = request.headers.get("Authorization", "")
         if not auth_header.startswith("Bearer "):
-            return error_response(401, "missing_authorization_header", "Missing or malformed Authorization header.")
+            return JSONResponse(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                content={"error": "Missing or malformed Authorization header"},
+            )
 
         token = auth_header.removeprefix("Bearer ").strip()
         try:
-            payload = await _verify_clerk_token(token)
+            payload = _verify_clerk_token(token)
         except pyjwt.ExpiredSignatureError:
-            return error_response(401, "token_expired", "Token expired.")
+            return JSONResponse(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                content={"error": "Token expired"},
+            )
         except pyjwt.PyJWTError as exc:
-            return error_response(401, "invalid_token", f"Invalid token: {exc}")
-        except httpx.HTTPError:
-            return error_response(503, "jwks_unavailable", "Unable to verify Clerk JWT right now.")
+            return JSONResponse(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                content={"error": f"Invalid token: {exc}"},
+            )
 
         workspace_ids: list[str] = payload.get("workspace_ids", [])
         user_id: str = payload.get("sub", "")
 
         if not user_id:
-            return error_response(401, "missing_sub_claim", "Token missing sub claim.")
+            return JSONResponse(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                content={"error": "Token missing sub claim"},
+            )
 
         request.state.user_id = user_id
         request.state.workspace_ids = workspace_ids
-
+        # Convenience: active workspace from header (validated against token's list)
         requested_ws = request.headers.get("X-Workspace-Id", "")
         if requested_ws and requested_ws not in workspace_ids:
-            return error_response(403, "workspace_not_in_token", "Workspace not in token claims.")
+            return JSONResponse(
+                status_code=status.HTTP_403_FORBIDDEN,
+                content={"error": "Workspace not in token claims"},
+            )
         request.state.workspace_id = requested_ws or (workspace_ids[0] if workspace_ids else "")
 
         return await call_next(request)
 
 
-async def _verify_clerk_token(token: str) -> dict[str, Any]:
+def _verify_clerk_token(token: str) -> dict:
+    """
+    Verifies a Clerk-issued JWT.
+    - RS256 (Clerk production): fetches the RSA public key from Clerk JWKS, caches by kid.
+    - HS256 (dev/test): uses SUPABASE_JWT_SECRET directly.
+    """
     header = _decode_header(token)
     algorithm = header.get("alg", "HS256")
 
     if algorithm.startswith("RS"):
-        key = await _resolve_jwks_public_key(header.get("kid"))
-        decode_kwargs: dict[str, Any] = {
-            "algorithms": [algorithm],
-            "issuer": settings.clerk_jwt_issuer or None,
-            "options": {
-                "verify_exp": True,
-                "verify_iss": bool(settings.clerk_jwt_issuer),
-                "verify_aud": bool(settings.clerk_jwt_audience),
-            },
-        }
-        if settings.clerk_jwt_audience:
-            decode_kwargs["audience"] = settings.clerk_jwt_audience
-        return pyjwt.decode(token, key=key, **decode_kwargs)
-
-    return pyjwt.decode(
-        token,
-        settings.supabase_jwt_secret,
-        algorithms=["HS256"],
-        options={"verify_exp": True},
-    )
+        kid = header.get("kid", "")
+        public_key = _get_jwks_key(kid)
+        return pyjwt.decode(token, public_key, algorithms=["RS256"], options={"verify_exp": True})
+    else:
+        return pyjwt.decode(
+            token,
+            settings.supabase_jwt_secret,
+            algorithms=["HS256"],
+            options={"verify_exp": True},
+        )
 
 
-async def _resolve_jwks_public_key(kid: str | None) -> Any:
-    keys = await _get_jwks_keys(force_refresh=False)
-    key_data = keys.get(kid or "")
-    if key_data is None:
-        keys = await _get_jwks_keys(force_refresh=True)
-        key_data = keys.get(kid or "")
-    if key_data is None:
-        raise pyjwt.PyJWTError("No matching Clerk JWKS key found for token.")
-    return pyjwt.algorithms.RSAAlgorithm.from_jwk(json.dumps(key_data))
+def _get_jwks_key(kid: str) -> str:
+    """Fetch and cache the RSA public key for the given kid from Clerk's JWKS endpoint."""
+    with _jwks_lock:
+        if kid in _jwks_cache:
+            return _jwks_cache[kid]
+
+    # Derive JWKS URL from clerk_secret_key domain or use env override
+    jwks_url = getattr(settings, "clerk_jwks_url", "") or _infer_jwks_url()
+    try:
+        with httpx.Client(timeout=5.0) as client:
+            resp = client.get(jwks_url)
+            resp.raise_for_status()
+            keys = resp.json().get("keys", [])
+    except Exception as exc:
+        logger.error("Failed to fetch Clerk JWKS from %s: %s", jwks_url, exc)
+        raise pyjwt.PyJWTError(f"JWKS fetch failed: {exc}") from exc
+
+    from jwt.algorithms import RSAAlgorithm
+    for key_data in keys:
+        key_kid = key_data.get("kid", "")
+        public_key = RSAAlgorithm.from_jwk(json.dumps(key_data))
+        with _jwks_lock:
+            _jwks_cache[key_kid] = public_key  # type: ignore[assignment]
+
+    with _jwks_lock:
+        if kid in _jwks_cache:
+            return _jwks_cache[kid]  # type: ignore[return-value]
+
+    raise pyjwt.PyJWTError(f"No JWKS key found for kid={kid!r}")
 
 
-async def _get_jwks_keys(*, force_refresh: bool) -> dict[str, dict[str, Any]]:
-    now = time.time()
-    if not force_refresh and _jwks_cache["keys"] and _jwks_cache["expires_at"] > now:
-        return _jwks_cache["keys"]
-
-    async with httpx.AsyncClient(timeout=2.0) as client:
-        response = await client.get(settings.clerk_jwks_url)
-        response.raise_for_status()
-        payload = response.json()
-
-    keys = {
-        str(key.get("kid")): key
-        for key in payload.get("keys", [])
-        if isinstance(key, dict) and key.get("kid")
-    }
-    _jwks_cache["keys"] = keys
-    _jwks_cache["expires_at"] = now + _JWKS_CACHE_TTL_SECONDS
-    return keys
+def _infer_jwks_url() -> str:
+    """
+    Infer the Clerk JWKS URL from CLERK_SECRET_KEY.
+    Clerk secret keys follow the pattern sk_live_<base64-encoded-domain>.
+    Falls back to a well-known URL if inference fails.
+    """
+    try:
+        key = settings.clerk_secret_key
+        if key.startswith(("sk_live_", "sk_test_")):
+            encoded = key.split("_", 2)[2]
+            padding = "=" * (4 - len(encoded) % 4)
+            domain = base64.b64decode(encoded + padding).decode().rstrip("\x00").rstrip("$")
+            return f"https://{domain}/.well-known/jwks.json"
+    except Exception:
+        pass
+    return "https://clerk.com/.well-known/jwks.json"
 
 
-def _decode_header(token: str) -> dict[str, Any]:
+def _decode_header(token: str) -> dict:
     header_segment = token.split(".")[0]
-    padding = "=" * (-len(header_segment) % 4)
+    padding = "=" * (4 - len(header_segment) % 4)
     decoded = base64.urlsafe_b64decode(header_segment + padding)
     return json.loads(decoded)
 
 
 def require_workspace(request: Request) -> str:
+    """
+    FastAPI dependency: returns the validated workspace_id for the current request.
+    Raises 403 if no workspace is set (e.g., endpoint called without X-Workspace-Id
+    and the user belongs to multiple workspaces).
+    """
     workspace_id: str = getattr(request.state, "workspace_id", "")
     if not workspace_id:
-        raise api_error(
-            403,
-            "workspace_header_required",
-            "X-Workspace-Id header required when user belongs to multiple workspaces.",
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="X-Workspace-Id header required when user belongs to multiple workspaces",
         )
     return workspace_id

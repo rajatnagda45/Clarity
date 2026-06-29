@@ -431,6 +431,35 @@ export type StreamEvent =
   | { type: 'citation'; citation: Citation }
   | { type: 'message'; message: Message }
   | { type: 'error'; code: string; message: string }
+  | {
+      type: 'claim';
+      claim: string;
+      verdict: 'supported' | 'unsupported' | 'uncertain';
+      criticVerdict: string;
+      nliLabel: string;
+      nliScore: number;
+      evidenceSpans: string[];
+    }
+  | {
+      type: 'debate_turn';
+      turn: number;
+      claim: string;
+      verdict: 'supported' | 'unsupported' | 'uncertain';
+      reasoning: string;
+    }
+  | {
+      type: 'trust';
+      raw: number;
+      calibrated: number;
+      components: Record<string, number>;
+    }
+  | {
+      type: 'abstention';
+      reason: string;
+      trustScore: number;
+      threshold: number;
+      missingEvidenceQuery?: string;
+    }
   | { type: 'done' };
 
 export interface ConversationDetail {

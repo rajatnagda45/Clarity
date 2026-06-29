@@ -20,6 +20,7 @@ class EvidenceBlock(BaseModel):
     retrieval_sources: list[str] = Field(alias="retrievalSources")
     checksum: str | None = None
     source_offsets: list[dict] = Field(default_factory=list, alias="sourceOffsets")
+    rerank_score: float | None = Field(default=None, alias="rerankScore")
 
     model_config = {"populate_by_name": True}
 
