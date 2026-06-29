@@ -3,8 +3,8 @@
 > **An AI contract auditor that measures, tracks, and continuously improves answer quality — with a two-signal verifier, calibrated trust, and a full quality improvement platform.**
 
 [![CI](https://github.com/rajatnagda45/Clarity/actions/workflows/ci.yml/badge.svg)](https://github.com/rajatnagda45/Clarity/actions/workflows/ci.yml)
-![Phase](https://img.shields.io/badge/phase-B4%20quality%20improvement-blue)
-![Tests](https://img.shields.io/badge/tests-169%20backend%20%7C%206%20frontend-brightgreen)
+![Phase](https://img.shields.io/badge/phase-RC2%20verification%20complete-blue)
+![Tests](https://img.shields.io/badge/tests-191%20backend%20%7C%206%20frontend-brightgreen)
 ![Stack](https://img.shields.io/badge/stack-Next.js%2015%20%2B%20FastAPI%20%2B%20Supabase-informational)
 ![License](https://img.shields.io/badge/license-MIT-green)
 
@@ -12,7 +12,7 @@
 
 ## Current Status
 
-**Phases A through B4 are complete.** The repository is undergoing a Principal Engineer architecture review before Phase C begins.
+**Phases A through B4 + RC2 are complete.** The two-signal verification pipeline, Cohere rerank, RLS hardening, and security fixes are all shipped. The repository is ready for Phase C review.
 
 ### What was built across all phases
 
@@ -24,14 +24,14 @@
 - Clause-aware chunking with `tiktoken`, definition-section preservation, cross-reference extraction, deterministic chunk IDs
 - Provider-agnostic embedding pipeline (OpenAI `text-embedding-3-small`, versioned, batch-retry, cache-by-hash)
 - Pinecone vector indexing with workspace namespace isolation (`ws_{workspace_id}`), stale-vector cleanup, version-aware reruns
-- Hybrid retrieval engine: dense (Pinecone) + BM25 (rank-bm25) + RRF fusion + cross-reference expansion + semantic cache (Upstash)
+- Hybrid retrieval engine: dense (Pinecone) + BM25 (rank-bm25) + RRF fusion + Cohere rerank + cross-reference expansion + semantic cache (Upstash)
 - Streaming SSE answer generation from retrieval evidence only; versioned prompt builder
 - Conversation persistence with replay-safe `request_id` idempotency; `Last-Event-ID` reconnect support
 - Structured citation mapping — every answer cites exact chunk evidence
 - Upstash Redis sliding-window rate limiting per user ID
 - LangSmith tracing wired; Sentry error tracking
 
-#### Phase B — Evaluation, Quality Improvement (B1–B4)
+#### Phase B — Evaluation, Quality Improvement + RC2 (B1–B4 + RC2)
 
 **B3 — Continuous Evaluation & Self-Improvement Platform**
 - LLM-as-judge eval engine (7 dimensions: faithfulness, grounding, completeness, correctness, clarity, citation quality, hallucination risk) on a 0–100 scale
@@ -51,6 +51,20 @@
 - 7 new developer dashboard pages for all quality improvement workflows
 - Migration 010: 6 new tables, all workspace-isolated with cascade delete
 
+**RC2 — Verification, Security & Hardening**
+- **Two-signal verifier (complete)** — `services/verification/`: Critic LLM (`critic.py`) extracts claims and checks each against evidence spans; NLI cross-checker (`nli.py`) independently classifies each claim as entail/neutral/contradict; a claim is `supported` only when **both** agree (`ensemble.py`)
+- **Calibrated trust score** — 4-signal blend: `0.45·frac_supported + 0.25·entailment_margin + 0.20·min_rerank + 0.10·agreement`; isotonic-regression calibrator with passthrough fallback (`confidence.py`, `calibrator.py`)
+- **Abstention** — when calibrated trust < `ABSTAIN_THRESHOLD` (default 0.55), system emits an `abstention` SSE event instead of a confident answer
+- **Debate loop** — Critic re-evaluates unsupported claims in a second pass (hard cap 2 turns); `debate_turn` events replay the Writer↔Critic exchange
+- **Cohere rerank** — live in the retrieval pipeline after RRF fusion; `rerankScore` field added to `RetrievalEvidence` and `EvidenceBlock`; used as 3rd signal in trust computation
+- **RS256 JWT fix** — `auth.py` now fetches the RSA public key from Clerk's JWKS endpoint (`/.well-known/jwks.json`) and caches it by `kid`; prior code incorrectly used the `sk_live_...` API key string as an RSA key
+- **Rate limiter fail-open** — Upstash Redis outage returns `0` (never blocks users)
+- **R2 presigned URLs** — `generate_presigned_url()` + `GET /documents/:id/file` route
+- **DELETE /documents/:id** — proper FastAPI 0.115.5 fix (`-> Response`, `return Response(204)`)
+- **Migration 011** — RLS policies for all 8 B4 tables (missing from 010); `claims`, `debate_turns`, `abstentions` tables with RLS; `rerank_score` column on `retrieval_run_evidence`
+- **Frontend verification UI** — `TrustBadge` (color-coded with score breakdown tooltip), `DebatePanel` (collapsible Critic timeline), `AbstentionCard` (amber warning with threshold); all rendered from SSE stream in chat page
+- **22 new verification tests** — NLI, Critic, ensemble, confidence, calibrator all patched; no live API keys required
+
 #### Developer Dashboard (all phases)
 - Document pipeline status, per-document processing timeline, failed jobs
 - Chunk Inspector, Embedding Explorer, Vector Index Explorer (per-document)
@@ -59,13 +73,11 @@
 - Embedding metrics, retrieval metrics, answer metrics dashboards
 - Experiments, Prompt Versions, Optimization Recommendations, Quality Gates, Release Notes, Model Comparisons, Benchmark Suggestions
 
-### What is NOT yet implemented (Phase B RC2 pending)
-- Two-signal verifier (Critic + NLI entailment) — `services/verification/` scaffolded but empty
-- LangGraph agent graph — installed dependency, not yet wired
-- Cohere rerank — configured, not yet called in retrieval pipeline
-- Chat UI trust badge, debate panel, claim verification states, abstention card
-- PDF bounding-box provenance viewer
-- Contradiction graph (cross-document conflict detection)
+### What is NOT yet implemented (Phase C scope)
+- LangGraph agent graph — installed dependency, not yet wired (deferred to Phase D)
+- PDF bounding-box provenance viewer (Phase E)
+- Contradiction graph — cross-document conflict detection (Phase D)
+- `calibrator.pkl` — the isotonic regression calibrator must be trained against a golden dataset; system passes through raw scores with a warning until this is generated
 
 ---
 
@@ -146,10 +158,10 @@ Upload → R2 storage → PyMuPDF text/layout extraction → clause-aware chunki
 
 ```
 Request → semantic cache check
-→ hybrid retrieval (dense Pinecone + BM25 → RRF fusion → cross-reference expansion → top-k)
+→ hybrid retrieval (dense Pinecone + BM25 → RRF fusion → Cohere rerank → cross-reference expansion → top-k)
 → Writer drafts answer from evidence
-→ [Two-signal verification: Critic → NLI entailment → calibration → abstention — Phase RC2]
-→ stream: graph_node events + answer tokens + citations
+→ Two-signal verification: extract claims → Critic LLM → NLI entailment cross-check → ensemble verdict → trust blend → calibration → abstention if below threshold
+→ stream: graph_node events + answer tokens + citations + claim/debate_turn/trust/abstention events
 → async eval judge (non-blocking, persists 7-dimension scores)
 → regression detection (10-eval window baseline)
 ```
@@ -173,7 +185,7 @@ Request → semantic cache check
 | LLM | OpenAI GPT-4o-mini | Budget-first; centralized config, one flag to swap |
 | Embeddings | OpenAI text-embedding-3-small (1536d) | Cost-optimized; Pinecone index = 1536d |
 | Vector DB | Pinecone | Managed, namespace-per-workspace |
-| Reranking | Cohere Rerank | Configured; wiring in RC2 |
+| Reranking | Cohere Rerank | Live after RRF fusion; score used as trust signal |
 | Primary DB | Supabase (Postgres + RLS) | Tenancy enforced at the DB layer |
 | Auth | Clerk | JWT carries workspace claims |
 | Cache / rate limits | Upstash Redis | Semantic cache + per-tier rate limiting |
@@ -198,7 +210,8 @@ clarity-docs/
 │   │   ├── components/
 │   │   │   ├── documents/                 # DocumentCard, DocumentList
 │   │   │   ├── upload/                    # Dropzone
-│   │   │   └── workspace/                 # WorkspaceDashboard
+│   │   │   ├── workspace/                 # WorkspaceDashboard
+│   │   │   └── chat/                      # TrustBadge, DebatePanel, AbstentionCard
 │   │   └── app/
 │   │       ├── layout.tsx                 # Clerk provider
 │   │       ├── page.tsx                   # Landing page
@@ -239,20 +252,26 @@ clarity-docs/
 │   │   ├── ingestion/                     # Extract → normalize → chunk pipeline
 │   │   ├── embeddings/                    # Provider-agnostic embedding pipeline
 │   │   ├── indexing/                      # Pinecone vector sync pipeline
-│   │   ├── retrieval/                     # Hybrid dense+BM25+RRF+cache
-│   │   ├── answer_generation/             # Streaming SSE answer writer
+│   │   ├── retrieval/                     # Hybrid dense+BM25+RRF+Cohere rerank+cache
+│   │   │   └── rerank.py                  # Cohere rerank (RC2)
+│   │   ├── answer_generation/             # Streaming SSE answer writer + verification wiring
 │   │   ├── eval/                          # Judge, benchmarks, regression, experiments
 │   │   ├── prompts/                       # Prompt version manager
 │   │   ├── optimization/                  # LLM optimization engine
 │   │   ├── quality_gates/                 # Configurable pass/fail runner
 │   │   ├── release_notes/                 # AI-generated release notes
 │   │   ├── benchmark_growth/              # Weak-answer suggestion scanner
-│   │   ├── verification/                  # [Scaffolded — two-signal verifier in RC2]
-│   │   └── storage/r2.py                  # Cloudflare R2 integration
+│   │   ├── verification/                  # Two-signal verifier (RC2 — complete)
+│   │   │   ├── critic.py                  # Claim extraction + per-claim LLM verdict
+│   │   │   ├── nli.py                     # Independent NLI entailment cross-check
+│   │   │   ├── ensemble.py                # Both-signal agreement rule
+│   │   │   ├── confidence.py              # 4-signal trust blend + abstention
+│   │   │   └── calibrator.py              # Isotonic regression calibration
+│   │   └── storage/r2.py                  # Cloudflare R2 + presigned URLs
 │   ├── scripts/
 │   │   ├── verify_live_db_foundation.sql
 │   │   └── verify_migration_contract.py
-│   └── tests/                             # 169 tests across 26 files
+│   └── tests/                             # 191 tests across 27 files
 │       ├── conftest.py                    # Async client, JWT helpers, mock Supabase
 │       ├── test_rls.py                    # Workspace isolation (3-layer)
 │       ├── test_documents_api.py          # Document CRUD + pipeline
@@ -270,7 +289,8 @@ clarity-docs/
 │       ├── test_optimization.py           # Optimization engine
 │       ├── test_quality_gates.py          # Quality gate runner
 │       ├── test_release_notes.py          # Release note generator
-│       └── test_benchmark_suggestions.py  # Benchmark growth scanner
+│       ├── test_benchmark_suggestions.py  # Benchmark growth scanner
+│       └── test_verification.py           # Two-signal verifier — 22 tests (RC2)
 │
 ├── migrations/
 │   ├── 001_initial_schema.sql             # 18 tables, RLS policies, FK ordering
@@ -281,7 +301,8 @@ clarity-docs/
 │   ├── 006_hybrid_retrieval_engine.sql
 │   ├── 007_answer_generation_platform.sql
 │   ├── 009_eval_platform.sql              # B3: eval, benchmarks, experiments
-│   └── 010_quality_improvement.sql        # B4: prompts, gates, optimization, etc.
+│   ├── 010_quality_improvement.sql        # B4: prompts, gates, optimization, etc.
+│   └── 011_rls_and_verification.sql       # RC2: RLS for B4 tables + claims/debate_turns/abstentions + rerank_score
 │
 ├── .github/workflows/ci.yml              # ruff + pytest + tsc + vitest
 ├── 00_README.md  →  12_EXECUTION_ROADMAP.md   # Specification documents
@@ -304,16 +325,18 @@ conversations, messages                   -- chat history
 retrieval_runs, retrieval_run_evidence    -- per-query retrieval audit
 answer_runs, answer_stream_events         -- answer + SSE replay
 
--- Verification (schema ready, service in RC2)
-claims (                                  -- verifiable answer units
-  supported boolean,
-  entailment_label text,                  -- entail | neutral | contradict
-  entailment_score numeric(3,2),
-  confidence numeric(3,2),                -- calibrated per-claim
-  CONSTRAINT claims_supported_requires_entailment
-    CHECK (NOT supported OR entailment_label = 'entail')  -- DB-enforced two-signal rule
+-- Verification (RC2 — live)
+claims (                                  -- per-claim two-signal verdict
+  claim_text text,
+  critic_verdict text,                    -- supported | unsupported | uncertain
+  nli_label text,                         -- entail | neutral | contradict
+  nli_score numeric(4,3),
+  ensemble_verdict text,                  -- supported only when BOTH agree
+  evidence_spans jsonb,
+  debate_turn integer
 )
-abstentions, debate_turns, contradictions
+debate_turns (turn_number, claim_text, critic_verdict, reasoning)
+abstentions (trust_score, threshold, reason, missing_evidence_query)
 
 -- Evaluation (B3)
 answer_evals (                            -- 7-dimension judge scores 0-100
@@ -425,11 +448,11 @@ data: {"type":"citation","citation":{"citationKey":"[1]","documentId":"...","pag
 data: {"type":"message","message":{...,"citations":[...]}}
 data: {"type":"done"}
 
-# Planned for RC2 (two-signal verifier):
-data: {"type":"debate_turn","round":0,"actor":"critic","action":"flag","claimId":"c2","note":"Not in cited span"}
-data: {"type":"claim","claim":{"id":"c1","supported":true,"entailmentLabel":"entail","confidence":0.91}}
-data: {"type":"trust","score":{"faithfulness":0.91,"relevance":0.95,"overall":0.92,"calibrated":true}}
-data: {"type":"abstention","abstention":{"reason":"No span states a cancellation window.","missingEvidenceQuery":"termination notice period"}}
+# RC2 — verification events (live):
+data: {"type":"claim","claim":"The contract auto-renews for 12 months.","verdict":"supported","criticVerdict":"supported","nliLabel":"entail","nliScore":0.93,"evidenceSpans":["...shall automatically renew..."]}
+data: {"type":"debate_turn","turn":1,"claim":"...","verdict":"unsupported","reasoning":"No span mentions a 12-month period."}
+data: {"type":"trust","raw":0.812,"calibrated":0.847,"components":{"frac_supported":0.8,"entailment_margin":0.75,"min_rerank":0.82,"agreement":1.0}}
+data: {"type":"abstention","reason":"Calibrated trust score below threshold","trustScore":0.41,"threshold":0.55}
 ```
 
 ---
@@ -446,12 +469,12 @@ data: {"type":"abstention","abstention":{"reason":"No span states a cancellation
 | **A4 — Chunking** | Clause-aware chunks, tiktoken | ✅ Complete |
 | **A5 — Embeddings** | OpenAI embedding pipeline | ✅ Complete |
 | **A6 — Indexing** | Pinecone with namespace isolation | ✅ Complete |
-| **A7 — Retrieval** | Hybrid dense+BM25+RRF+cache | ✅ Complete (Cohere rerank in RC2) |
+| **A7 — Retrieval** | Hybrid dense+BM25+RRF+Cohere rerank+cache | ✅ Complete |
 | **A8 — Chat** | Streaming SSE answer generation | ✅ Complete |
 | **A8.1 — Patch** | SSE replay, idempotency | ✅ Complete |
 | **B3 — Eval Platform** | LLM judge, benchmarks, regression | ✅ Complete |
 | **B4 — Quality Platform** | Experiments, gates, optimization | ✅ Complete |
-| **RC2 — Verification** | Two-signal Critic + NLI + calibration + abstention | 🔲 In planning |
+| **RC2 — Verification** | Two-signal Critic + NLI + calibration + abstention + rerank + security fixes | ✅ Complete |
 | **Phase C — Eval System** | Golden dataset, RAGAS metrics, CI gate, eval dashboard | 🔲 Post-RC2 |
 | **Phase D — Reasoning UI** | Live LangGraph viz, debate panel, contradiction graph | 🔲 Future |
 | **Phase E — Provenance** | PDF bounding-box highlights, clause benchmarking | 🔲 Future |
@@ -487,7 +510,7 @@ npm run dev
 ### Run tests
 
 ```bash
-# Backend (169 tests)
+# Backend (191 tests)
 cd backend && poetry run pytest --tb=short -q
 
 # Frontend (6 tests)
@@ -511,6 +534,7 @@ Run migrations in order in your Supabase SQL editor:
 007_answer_generation_platform.sql
 009_eval_platform.sql
 010_quality_improvement.sql
+011_rls_and_verification.sql
 ```
 
 ### Environment variables
