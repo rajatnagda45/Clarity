@@ -1,9 +1,13 @@
 from __future__ import annotations
 
+import logging
 from typing import Any
 
 from fastapi import FastAPI, HTTPException, status
 from fastapi.responses import JSONResponse
+from postgrest.exceptions import APIError as PostgRESTError
+
+logger = logging.getLogger(__name__)
 
 
 def error_payload(code: str, message: str) -> dict[str, dict[str, str]]:
@@ -39,8 +43,20 @@ def install_error_handlers(app: FastAPI) -> None:
             message = "Request failed."
         return error_response(exc.status_code, code, message, headers=exc.headers)
 
+    @app.exception_handler(PostgRESTError)
+    async def _postgrest_exception_handler(_, exc: PostgRESTError) -> JSONResponse:
+        # Surface DB errors (missing tables, RLS violations, constraint failures)
+        # as clean 500s so CORS middleware can add headers before the browser sees them.
+        logger.error("PostgREST error: %s", exc)
+        return error_response(
+            status.HTTP_500_INTERNAL_SERVER_ERROR,
+            "database_error",
+            str(exc),
+        )
+
     @app.exception_handler(Exception)
-    async def _unhandled_exception_handler(_, __: Exception) -> JSONResponse:
+    async def _unhandled_exception_handler(_, exc: Exception) -> JSONResponse:
+        logger.exception("Unhandled exception: %s", exc)
         return error_response(
             status.HTTP_500_INTERNAL_SERVER_ERROR,
             "internal_server_error",
