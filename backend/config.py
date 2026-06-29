@@ -38,6 +38,9 @@ class Settings(BaseSettings):
     clerk_secret_key: str
     next_public_clerk_publishable_key: str = ""
     clerk_jwks_url: str = ""  # override JWKS URL; auto-derived from clerk_secret_key if blank
+    clerk_jwt_issuer: str = ""  # optional issuer claim check (legacy compat)
+    clerk_jwt_audience: str = ""  # optional audience claim check (legacy compat)
+    developer_user_ids: str = ""  # comma-separated user IDs (legacy compat); parse with .split(",") if needed
 
     # Upstash Redis
     upstash_redis_rest_url: str

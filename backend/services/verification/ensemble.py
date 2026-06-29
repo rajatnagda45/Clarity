@@ -97,6 +97,39 @@ def min_nli_score(results: list[ClaimResult]) -> float:
     return min(r.nli_score for r in results)
 
 
+def apply_ensemble(
+    claim_id: str = "",
+    critic_status: str = "unsupported",
+    nli_result=None,
+):
+    """
+    Backward-compat shim for old agents/nodes/critic.py call signature.
+    Returns a duck-typed result object matching the legacy EnsembleVerdict shape.
+    """
+    from dataclasses import dataclass as _dc
+
+    @_dc
+    class _LegacyEnsembleVerdict:
+        entailment_label: str
+        entailment_score: float
+        support_probability: float
+        contradiction_probability: float
+        supported: bool
+
+    nli_label = getattr(nli_result, "label", "neutral") if nli_result else "neutral"
+    nli_score = getattr(nli_result, "score", 0.5) if nli_result else 0.5
+    supported = critic_status == "supported" and nli_label == "entail"
+    contradiction_prob = nli_score if nli_label == "contradict" else (1.0 - nli_score) * 0.3
+    support_prob = nli_score if nli_label == "entail" and supported else nli_score * 0.4
+    return _LegacyEnsembleVerdict(
+        entailment_label=nli_label,
+        entailment_score=nli_score,
+        support_probability=support_prob,
+        contradiction_probability=contradiction_prob,
+        supported=supported,
+    )
+
+
 def entailment_margin(results: list[ClaimResult]) -> float:
     """
     Average margin between entail-score and the max(neutral, contradict) alternative.

@@ -27,6 +27,11 @@ from services.retrieval.vector_provider import VectorSearchProviderError, get_ve
 from services.retrieval.rerank import cohere_rerank
 
 
+def get_reranker():
+    """Backward-compat shim — old tests patch this to inject a fake reranker."""
+    return None
+
+
 @dataclass
 class ChunkRow:
     row: dict[str, Any]
@@ -425,22 +430,36 @@ async def retrieve_evidence(
         # Cohere rerank over the top-k candidates before building results
         rerank_scores: dict[str, float] = {}
         candidate_rows = fused_rows[:limit]
-        texts_to_rerank = [
-            chunks[row["chunk_id"]].row["text"]
-            for row in candidate_rows
-            if row["chunk_id"] in chunks
-        ]
-        if texts_to_rerank:
+        reranker = get_reranker()
+        if reranker is not None:
+            # Use the injected reranker (supports test patching)
             try:
-                scores = cohere_rerank(
-                    query=normalized_query.normalized_query,
-                    documents=texts_to_rerank,
+                rerank_results = await reranker.rerank(
+                    normalized_query.normalized_query,
+                    [{"chunk_id": row["chunk_id"], "document_id": row.get("document_id", ""), "text": chunks[row["chunk_id"]].row["text"]} for row in candidate_rows if row["chunk_id"] in chunks],
+                    top_n=limit,
                 )
-                for idx, row in enumerate(candidate_rows):
-                    if idx < len(scores):
-                        rerank_scores[row["chunk_id"]] = scores[idx]
+                for result in rerank_results:
+                    rerank_scores[result.chunk_id] = result.score
             except Exception:
                 pass
+        else:
+            texts_to_rerank = [
+                chunks[row["chunk_id"]].row["text"]
+                for row in candidate_rows
+                if row["chunk_id"] in chunks
+            ]
+            if texts_to_rerank:
+                try:
+                    scores = cohere_rerank(
+                        query=normalized_query.normalized_query,
+                        documents=texts_to_rerank,
+                    )
+                    for idx, row in enumerate(candidate_rows):
+                        if idx < len(scores):
+                            rerank_scores[row["chunk_id"]] = scores[idx]
+                except Exception:
+                    pass
 
         # Re-sort by rerank score when available, preserving rrf_score as tiebreaker
         if rerank_scores:

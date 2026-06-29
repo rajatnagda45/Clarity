@@ -97,7 +97,16 @@ def _verify_clerk_token(token: str) -> dict:
     if algorithm.startswith("RS"):
         kid = header.get("kid", "")
         public_key = _get_jwks_key(kid)
-        return pyjwt.decode(token, public_key, algorithms=["RS256"], options={"verify_exp": True})
+        audience = getattr(settings, "clerk_jwt_audience", "") or None
+        issuer = getattr(settings, "clerk_jwt_issuer", "") or None
+        return pyjwt.decode(
+            token,
+            public_key,
+            algorithms=["RS256"],
+            options={"verify_exp": True},
+            audience=audience,
+            issuer=issuer,
+        )
     else:
         return pyjwt.decode(
             token,
@@ -107,14 +116,11 @@ def _verify_clerk_token(token: str) -> dict:
         )
 
 
-def _get_jwks_key(kid: str) -> str:
-    """Fetch and cache the RSA public key for the given kid from Clerk's JWKS endpoint."""
-    with _jwks_lock:
-        if kid in _jwks_cache:
-            return _jwks_cache[kid]
-
-    # Derive JWKS URL from clerk_secret_key domain or use env override
-    jwks_url = getattr(settings, "clerk_jwks_url", "") or _infer_jwks_url()
+def _get_jwks_keys(jwks_url: str) -> dict:
+    """
+    Fetch JWKS from the URL and return a dict of kid -> JWK dict.
+    Separated so tests can patch this without mocking httpx.
+    """
     try:
         with httpx.Client(timeout=5.0) as client:
             resp = client.get(jwks_url)
@@ -123,10 +129,20 @@ def _get_jwks_key(kid: str) -> str:
     except Exception as exc:
         logger.error("Failed to fetch Clerk JWKS from %s: %s", jwks_url, exc)
         raise pyjwt.PyJWTError(f"JWKS fetch failed: {exc}") from exc
+    return {key_data.get("kid", ""): key_data for key_data in keys}
+
+
+def _get_jwks_key(kid: str) -> str:
+    """Fetch and cache the RSA public key for the given kid from Clerk's JWKS endpoint."""
+    with _jwks_lock:
+        if kid in _jwks_cache:
+            return _jwks_cache[kid]
+
+    jwks_url = getattr(settings, "clerk_jwks_url", "") or _infer_jwks_url()
+    key_dict = _get_jwks_keys(jwks_url)
 
     from jwt.algorithms import RSAAlgorithm
-    for key_data in keys:
-        key_kid = key_data.get("kid", "")
+    for key_kid, key_data in key_dict.items():
         public_key = RSAAlgorithm.from_jwk(json.dumps(key_data))
         with _jwks_lock:
             _jwks_cache[key_kid] = public_key  # type: ignore[assignment]

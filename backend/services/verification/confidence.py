@@ -15,6 +15,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 
 from .ensemble import ClaimResult, fraction_supported, entailment_margin
+from . import calibrator as calibrator_module  # noqa: F401 — re-exported for test patching
 from .calibrator import calibrate
 from config import settings
 
@@ -82,3 +83,28 @@ def compute_trust(
             "agreement": round(agreement, 4),
         },
     )
+
+
+def blend_confidence(claims: list[dict], spans: list[dict]) -> float:
+    """
+    Backward-compat shim for the legacy agents/nodes/calibrate.py interface.
+
+    Translates old DraftClaim dicts into ClaimResult objects and delegates
+    to compute_trust(), returning the calibrated float.
+    """
+    from .ensemble import ClaimResult
+    results = [
+        ClaimResult(
+            claim=c.get("text", ""),
+            critic_verdict="supported" if c.get("supported") else "unsupported",
+            nli_label=c.get("entailment_label", "neutral"),
+            nli_score=float(c.get("entailment_score", 0.5)),
+            ensemble_verdict="supported" if c.get("supported") else "unsupported",
+            evidence_spans=[],
+            reasoning="",
+            debate_turn=1,
+        )
+        for c in claims
+    ]
+    rerank_scores = [float(s.get("rerank_score", 0.5)) for s in spans if "rerank_score" in s]
+    return compute_trust(results, rerank_scores).calibrated

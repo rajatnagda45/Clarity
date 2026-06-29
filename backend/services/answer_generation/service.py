@@ -20,6 +20,11 @@ from services.verification.ensemble import run_ensemble
 from services.verification.confidence import compute_trust
 from config import settings
 
+# Backward-compat aliases — old tests patch these attributes on this module
+run_critic_node = run_critic
+run_calibrate_node = compute_trust
+run_abstain_node = None  # placeholder; old graph node not used in RC2
+
 
 def _now_iso() -> str:
     return datetime.now(UTC).isoformat()
@@ -336,10 +341,12 @@ async def build_answer_stream(
     claim_results = []
     debate_turns_data: list[dict] = []
     trust_score = None
+    verification_passes = 0
 
     if claims:
         loop_cap = int(getattr(settings, "critic_max_iterations", 2))
         critic_resp = run_critic(claims, evidence_span_texts, loop_iteration=1)
+        verification_passes = 1
         for verdict in critic_resp.verdicts:
             if verdict.debate_turn > 0:
                 debate_turns_data.append({
@@ -354,6 +361,7 @@ async def build_answer_stream(
             unsupported = [v.claim for v in critic_resp.verdicts if v.verdict == "unsupported"]
             if unsupported:
                 critic_resp2 = run_critic(unsupported, evidence_span_texts, loop_iteration=2)
+                verification_passes = 2
                 # Merge second pass verdicts (override first pass unsupported entries)
                 second_map = {v.claim: v for v in critic_resp2.verdicts}
                 updated = []
@@ -437,6 +445,13 @@ async def build_answer_stream(
             "citation_count": len(citations),
             "evidence_chunk_count": len(evidence_blocks),
             "retry_count": 0,
+            "verification_passes": verification_passes,
+            "trust_confidence": trust_score.calibrated if trust_score else None,
+            "confidence_band": (
+                "high" if trust_score and trust_score.calibrated >= 0.80
+                else "medium" if trust_score and trust_score.calibrated >= 0.60
+                else "low" if trust_score else None
+            ),
             "created_at": started_at.isoformat(),
             "completed_at": completed_at.isoformat(),
         }

@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import json
-from unittest.mock import AsyncMock, patch
+from unittest.mock import patch
 
 import jwt
 import pytest
@@ -33,7 +33,9 @@ async def test_rs256_tokens_verify_against_clerk_jwks(client, workspace_id_a):
     ), patch.object(
         auth_module.settings, "clerk_jwt_audience", "clarity"
     ), patch.object(
-        auth_module, "_get_jwks_keys", new=AsyncMock(return_value={kid: {**json.loads(jwk), "kid": kid}})
+        auth_module, "_get_jwks_keys", return_value={kid: {**json.loads(jwk), "kid": kid}}
+    ), patch.object(
+        auth_module, "_jwks_cache", {}
     ):
         response = await client.get(
             "/api/test/probe",

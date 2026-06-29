@@ -78,6 +78,14 @@ def _check_openai(premise: str, hypothesis: str) -> NLIResult:
         return NLIResult(label="neutral", score=0.5)
 
 
+def check_batch(pairs: list[tuple[str, str]]) -> list[NLIResult]:
+    """
+    Backward-compat batch entailment check for legacy callers.
+    Runs check_entailment() on each (premise, hypothesis) pair sequentially.
+    """
+    return [check_entailment(premise, hypothesis) for premise, hypothesis in pairs]
+
+
 def _check_hosted(premise: str, hypothesis: str) -> NLIResult:
     """Hosted DeBERTa-MNLI endpoint (NLI_MODEL env var). Falls back to openai."""
     nli_model = getattr(settings, "nli_model", "")

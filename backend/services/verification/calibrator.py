@@ -18,6 +18,16 @@ logger = logging.getLogger(__name__)
 _calibrator = None
 _calibrator_loaded = False
 
+# Public path reference used by tests and the fit_calibrator script
+_PKL_PATH = Path(__file__).parent / "calibrator.pkl"
+
+
+def load_calibrator() -> None:
+    """Public alias for _load_calibrator() — used by tests that patch _PKL_PATH."""
+    global _calibrator, _calibrator_loaded
+    _calibrator_loaded = False  # force reload
+    _load_calibrator()
+
 
 def _load_calibrator():
     global _calibrator, _calibrator_loaded
@@ -29,7 +39,7 @@ def _load_calibrator():
         [Path(path_override)]
         if path_override
         else [
-            Path(__file__).parent / "calibrator.pkl",
+            _PKL_PATH,  # respects test patches to _PKL_PATH
             Path(__file__).parent.parent.parent / "calibrator.pkl",
         ]
     )

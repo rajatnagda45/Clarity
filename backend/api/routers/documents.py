@@ -7,10 +7,11 @@ from uuid import uuid4
 
 from fastapi import APIRouter, BackgroundTasks, Depends, File, HTTPException, Request, Response, UploadFile, status
 
-from api.deps import require_workspace_role
+from api.deps import require_workspace_role, require_developer
 from config import settings
 from db.client import tenant_query, get_client
 from schemas import (
+    ClauseSummary,
     DocumentChunkListResponse,
     DocumentChunkSummary,
     DocumentDetailResponse,
@@ -32,6 +33,9 @@ from services.ingestion.url import (
     validate_url_ingestion_request,
 )
 from services.storage.r2 import build_document_storage_key, generate_presigned_url, sanitize_filename, upload_document_file, delete_document_object
+
+# Backward-compat alias — old tests patch `documents_router.build_signed_document_url`
+build_signed_document_url = generate_presigned_url
 
 
 router = APIRouter(prefix="/api/documents", tags=["documents"])
@@ -230,6 +234,7 @@ async def list_documents(
 async def inspect_document_chunks(
     document_id: str,
     membership: tuple[str, str] = Depends(require_workspace_role),
+    _developer: str = Depends(require_developer),
 ) -> DocumentChunkListResponse:
     if settings.environment == "production":
         raise _error(status.HTTP_404_NOT_FOUND, "not_found", "Developer chunk inspector unavailable.")
@@ -286,6 +291,7 @@ async def inspect_document_chunks(
 async def inspect_document_embeddings(
     document_id: str,
     membership: tuple[str, str] = Depends(require_workspace_role),
+    _developer: str = Depends(require_developer),
 ) -> DocumentEmbeddingListResponse:
     if settings.environment == "production":
         raise _error(status.HTTP_404_NOT_FOUND, "not_found", "Developer embedding explorer unavailable.")
@@ -431,9 +437,33 @@ async def get_document(
     _schedule_embedding_refresh(background_tasks, row, workspace_id)
     _schedule_index_refresh(background_tasks, row, workspace_id)
 
+    clause_rows = (
+        tenant_query("clauses", workspace_id)
+        .eq("document_id", document_id)
+        .order("page")
+        .execute()
+    )
+    clauses = [
+        ClauseSummary(
+            id=c["id"],
+            workspaceId=c["workspace_id"],
+            documentId=c["document_id"],
+            clauseType=c["clause_type"],
+            text=c["text"],
+            page=c["page"],
+            riskFlag=c["risk_flag"],
+            rationale=c.get("rationale"),
+            benchmarkMatchId=c.get("benchmark_match_id"),
+            deviationNote=c.get("deviation_note"),
+            riskScore=c.get("risk_score"),
+            createdAt=c["created_at"],
+        )
+        for c in (clause_rows.data or [])
+    ]
+
     return DocumentDetailResponse(
         **_document_summary_from_row(row).model_dump(),
-        clauses=[],
+        clauses=clauses,
     )
 
 
@@ -533,10 +563,10 @@ def get_document_file(
     if not row:
         raise _error(status.HTTP_404_NOT_FOUND, "document_not_found", "Document not found.")
     try:
-        url = generate_presigned_url(row["r2_key"], expires_in=300)
+        url = build_signed_document_url(row["r2_key"], expires_in=300)
     except Exception as exc:
         raise _error(status.HTTP_502_BAD_GATEWAY, "presigned_url_failed", "Could not generate download URL.") from exc
-    return {"url": url, "expires_in": 300, "filename": row["filename"]}
+    return {"signedUrl": url, "expires_in": 300, "filename": row["filename"]}
 
 
 @router.delete("/{document_id}")
