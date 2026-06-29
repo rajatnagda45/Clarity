@@ -93,7 +93,6 @@ def complete_experiment(workspace_id: str, experiment_id: str, winner_candidate_
 
 
 def get_experiment(workspace_id: str, experiment_id: str) -> Experiment | None:
-    client = get_client()
     exp_result = (
         tenant_query("experiments", workspace_id)
         .eq("id", experiment_id)

@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from unittest.mock import AsyncMock, MagicMock, call, patch
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
@@ -56,8 +56,6 @@ async def test_run_benchmark_empty_dataset_completes():
         patch("services.eval.benchmark.tenant_query") as mock_tq,
         patch("services.eval.benchmark.get_client") as mock_gc,
     ):
-        call_count = [0]
-
         def tq_side(table, workspace_id):
             chain = MagicMock()
             chain.eq.return_value = chain
