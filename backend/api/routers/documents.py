@@ -38,7 +38,6 @@ from services.storage.r2 import (
     sanitize_filename,
     upload_document_file,
     delete_document_object,
-    download_document_bytes,
     _local_mode,
     _LOCAL_STORAGE_DIR,
 )

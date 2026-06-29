@@ -84,13 +84,19 @@ _allowed_origins = os.getenv(
     "http://localhost:3000,http://localhost:3001",
 ).split(",")
 
-# Starlette runs middleware in reverse registration order.
-# Auth and rate-limit must be added first so CORS (added last) runs outermost,
-# ensuring every response — including auth errors — carries CORS headers.
-# Without this, a failed auth check returns no CORS headers and the browser
-# reports "Failed to fetch" instead of the real HTTP error.
-app.add_middleware(AuthMiddleware)
+# Starlette runs middleware in reverse registration order (last registered = outermost).
+# Correct execution order: CORS (outermost) → Auth → RateLimit → route handler.
+#
+# Why this order:
+#  - CORS must be outermost so its headers are added to ALL responses, including
+#    auth errors and rate-limit 429s. The browser sees every error with CORS headers.
+#  - Auth must run before RateLimit so request.state.user_id is populated before
+#    RateLimitMiddleware reads it. Rate limits are keyed by user_id, not IP.
+#  - RateLimit is innermost so it only fires after the JWT is validated.
+#
+# Registration order (first registered = innermost):
 app.add_middleware(RateLimitMiddleware)
+app.add_middleware(AuthMiddleware)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=_allowed_origins,
