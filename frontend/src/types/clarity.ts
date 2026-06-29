@@ -332,24 +332,30 @@ export interface TrustScore {
 
 export interface Abstention {
   reason: string;
-  missingEvidenceQuery?: string;
-  suggestedFollowUp?: string;
+  missingEvidenceQuery?: string | null;
+  suggestedFollowUp?: string | null;
 }
 
 export interface DebateTurn {
   round: number;                // 0 | 1 | 2
   actor: 'writer' | 'critic';
   action: 'draft' | 'flag' | 'revise' | 'reretrieve' | 'resolve';
-  claimId?: string;
-  note?: string;
+  claimId?: string | null;
+  createdAt?: string | null;
+  note?: string | null;
 }
 
 export interface Contradiction {
   id: string;
   topic: string;
-  positions: { documentId: string; value: string; spanId?: string }[];
+  docA: string;
+  spanA?: string | null;
+  valueA?: string | null;
+  docB: string;
+  spanB?: string | null;
+  valueB?: string | null;
   severity: 'minor' | 'major';
-  note?: string;
+  note?: string | null;
 }
 
 export interface Clause {
@@ -376,6 +382,11 @@ export interface Message {
   createdAt: string;
   answerRunId?: string | null;
   retrievalRunId?: string | null;
+  trust?: TrustScore | null;
+  abstention?: Abstention | null;
+  claims: Claim[];
+  debateTurns: DebateTurn[];
+  retrievedEvidence: RetrievalEvidence[];
   citations: Citation[];
 }
 
@@ -466,9 +477,13 @@ export interface AnswerExplorerRun {
   completedAt?: string | null;
   promptPayload: Record<string, unknown>;
   finalAnswer?: string | null;
+  trust?: TrustScore | null;
+  abstention?: Abstention | null;
+  claims: Claim[];
+  debateTurns: DebateTurn[];
   citations: Citation[];
   retrievedEvidence: RetrievalEvidence[];
-  streamEvents: StreamEvent[];
+  streamEvents: Array<StreamEvent | Record<string, unknown>>;
 }
 
 export interface AnswerExplorerResponse {

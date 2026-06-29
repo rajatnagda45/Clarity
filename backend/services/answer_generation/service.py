@@ -755,6 +755,7 @@ async def build_answer_stream(
 
     tokens = _token_batches(answer_text)
     normalized_payload = last_retrieval_response.normalized_query.model_dump(mode="json", by_alias=True)
+    normalized_results = last_retrieval_response.model_dump(mode="json", by_alias=True)["results"]
     events: list[dict] = [
         {
             "type": "meta",
@@ -871,6 +872,66 @@ async def build_answer_stream(
                 "createdAt": completed_at.isoformat(),
                 "answerRunId": answer_run_id,
                 "retrievalRunId": last_retrieval_run_id,
+                "trust": trust.model_dump(mode="json", by_alias=True),
+                "abstention": abstention_payload.model_dump(mode="json", by_alias=True) if abstention_payload else None,
+                "claims": [
+                    {
+                        "id": claim["id"],
+                        "text": claim["text"],
+                        "spanIds": claim["span_ids"],
+                        "citationKeys": claim.get("citation_keys") or [],
+                        "section": claim.get("section"),
+                        "verificationPass": claim.get("verification_pass", 1),
+                        "supported": claim["supported"],
+                        "uncertain": claim["uncertain"],
+                        "criticStatus": claim.get("critic_status"),
+                        "criticNote": claim.get("critic_note"),
+                        "correctedText": claim.get("corrected_text"),
+                        "entailmentLabel": claim.get("entailment_label"),
+                        "entailmentScore": claim.get("entailment_score"),
+                        "supportProbability": claim.get("support_probability"),
+                        "contradictionProbability": claim.get("contradiction_probability"),
+                        "confidence": claim.get("confidence"),
+                    }
+                    for claim in final_state["claims"]
+                ],
+                "debateTurns": [
+                    {
+                        "round": turn["round"],
+                        "actor": turn["actor"],
+                        "action": turn["action"],
+                        "claimId": turn["claim_id"],
+                        "note": turn["note"],
+                    }
+                    for turn in final_state["debate"]
+                ],
+                "retrievedEvidence": [
+                    {
+                        "workspaceId": workspace_id,
+                        "documentId": retrieval["documentId"],
+                        "chunkId": retrieval["chunkId"],
+                        "chunkIndex": retrieval["chunkIndex"],
+                        "text": retrieval["text"],
+                        "sectionTitle": retrieval["sectionTitle"],
+                        "clauseNumber": retrieval["clauseNumber"],
+                        "pageStart": retrieval["pageStart"],
+                        "pageEnd": retrieval["pageEnd"],
+                        "chunkKind": retrieval["chunkKind"],
+                        "crossReferences": retrieval["crossReferences"],
+                        "vectorScore": retrieval["vectorScore"],
+                        "bm25Score": retrieval["bm25Score"],
+                        "rrfScore": retrieval["rrfScore"],
+                        "rerankScore": retrieval["rerankScore"],
+                        "finalScore": retrieval["finalScore"],
+                        "finalRank": retrieval["finalRank"],
+                        "retrievalReason": retrieval["retrievalReason"],
+                        "retrievalSources": retrieval["retrievalSources"],
+                        "parserVersion": retrieval["parserVersion"],
+                        "chunkVersion": retrieval["chunkVersion"],
+                        "embeddingVersion": retrieval["embeddingVersion"],
+                    }
+                    for block, retrieval in zip(last_evidence_blocks, normalized_results, strict=False)
+                ],
                 "citations": [
                     {
                         "citationKey": block.citation_key,

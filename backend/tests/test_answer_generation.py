@@ -208,6 +208,38 @@ async def test_conversation_detail_returns_messages_and_citations(client, token_
             }
         ]
     )
+    claim_rows = _query_with_rows([])
+    debate_rows = _query_with_rows([])
+    abstention_rows = _query_with_rows([])
+    retrieval_evidence_rows = _query_with_rows(
+        [
+            {
+                "workspace_id": workspace_id_a,
+                "retrieval_run_id": "retrieval-1",
+                "document_id": "doc-1",
+                "chunk_id": "chunk-1",
+                "chunk_index": 0,
+                "text": "The agreement renews annually.",
+                "section_title": "Renewal",
+                "clause_number": "9.2",
+                "page_start": 4,
+                "page_end": 4,
+                "chunk_kind": "clause",
+                "cross_references": [],
+                "vector_score": 0.8,
+                "bm25_score": 1.2,
+                "rrf_score": 0.05,
+                "rerank_score": 0.93,
+                "final_score": 0.93,
+                "final_rank": 1,
+                "retrieval_reason": "Strong semantic and sparse agreement.",
+                "retrieval_sources": ["dense"],
+                "parser_version": "a3.v1",
+                "chunk_version": "a4.v1",
+                "embedding_version": "a5.v1",
+            }
+        ]
+    )
 
     with patch.object(conversations_router, "tenant_query") as tenant_query_mock, patch.object(
         deps_module, "get_client", return_value=client_mock
@@ -219,6 +251,10 @@ async def test_conversation_detail_returns_messages_and_citations(client, token_
             "messages": message_rows,
             "answer_runs": answer_rows,
             "message_citations": citation_rows,
+            "claims": claim_rows,
+            "debate_turns": debate_rows,
+            "abstentions": abstention_rows,
+            "retrieval_run_evidence": retrieval_evidence_rows,
         }[table]
         response = await client.get(
             "/api/conversations/conv-1",

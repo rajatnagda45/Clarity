@@ -1,13 +1,28 @@
 'use client';
 
 import Link from 'next/link';
+import dynamic from 'next/dynamic';
 import { useAuth } from '@clerk/nextjs';
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
 
+import { TrustBadge } from '@/components/chat/TrustBadge';
+import { TrustBreakdown } from '@/components/chat/TrustBreakdown';
+import { VerifiedClaimChip } from '@/components/chat/VerifiedClaimChip';
 import { getAnswerExplorer, getAnswerMetrics } from '@/lib/api';
+import { buildVerificationTimeline } from '@/lib/verifiedAnswer';
 import type { AnswerExplorerResponse, AnswerMetrics } from '@/types/clarity';
 
+
+const DebatePanel = dynamic(
+  () => import('@/components/chat/DebatePanel').then((module) => module.DebatePanel),
+  { ssr: false },
+);
+
+const VerificationTimeline = dynamic(
+  () => import('@/components/chat/VerificationTimeline').then((module) => module.VerificationTimeline),
+  { ssr: false },
+);
 
 type LoadState = 'idle' | 'loading' | 'loaded' | 'error';
 
@@ -59,14 +74,16 @@ export default function DeveloperAnswersPage() {
     };
   }, [getToken, workspaceId]);
 
+  const runs = useMemo(() => answers?.runs ?? [], [answers]);
+
   return (
     <div className="mx-auto flex w-full max-w-7xl flex-col gap-6 px-6 py-10">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="space-y-2">
-          <p className="text-sm font-medium uppercase tracking-[0.2em] text-blue-600">Developer Answer Explorer</p>
-          <h1 className="text-3xl font-semibold text-slate-900">Answer generation runs</h1>
+          <p className="text-sm font-medium uppercase tracking-[0.2em] text-emerald-700">Developer Verification Explorer</p>
+          <h1 className="text-3xl font-semibold text-slate-900">Verified answer runs</h1>
           <p className="text-sm text-slate-600">
-            Inspect grounded prompts, retrieved evidence, streaming events, citations, latency, and token usage for every answer run.
+            Debug the full B1/B2 answer path: claims, critic verdicts, NLI, calibration, trust, abstention, citations, and replay events.
           </p>
         </div>
         <Link
@@ -102,8 +119,8 @@ export default function DeveloperAnswersPage() {
       ) : null}
 
       <section className="grid gap-5">
-        {answers?.runs.map((run) => (
-          <article key={run.answerRunId} className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
+        {runs.map((run) => (
+          <article key={run.answerRunId} className="space-y-4 rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
             <div className="flex flex-wrap items-start justify-between gap-3">
               <div className="space-y-2">
                 <p className="text-xs font-medium uppercase tracking-[0.2em] text-slate-500">{run.provider} · {run.model}</p>
@@ -117,7 +134,40 @@ export default function DeveloperAnswersPage() {
               </div>
             </div>
 
-            <div className="mt-4 grid gap-4 lg:grid-cols-2">
+            <TrustBadge trust={run.trust} claims={run.claims} debateTurns={run.debateTurns} />
+            <VerificationTimeline
+              steps={buildVerificationTimeline(
+                {
+                  claims: run.claims,
+                  debateTurns: run.debateTurns,
+                  trust: run.trust ?? null,
+                  abstention: run.abstention ?? null,
+                  retrievedEvidence: run.retrievedEvidence,
+                },
+                false,
+              )}
+            />
+            <TrustBreakdown trust={run.trust} claims={run.claims} retrievedEvidence={run.retrievedEvidence} />
+
+            {run.claims.length > 0 ? (
+              <section className="space-y-3">
+                <h3 className="text-sm font-semibold text-slate-900">Claims</h3>
+                <div className="grid gap-3">
+                  {run.claims.map((claim) => (
+                    <VerifiedClaimChip
+                      key={claim.id}
+                      claim={claim}
+                      citations={run.citations}
+                      workspaceId={workspaceId}
+                    />
+                  ))}
+                </div>
+              </section>
+            ) : null}
+
+            <DebatePanel debateTurns={run.debateTurns} />
+
+            <div className="grid gap-4 xl:grid-cols-2">
               <div className="rounded-2xl bg-slate-50 p-4">
                 <h3 className="text-sm font-semibold text-slate-900">Prompt payload</h3>
                 <pre className="mt-2 whitespace-pre-wrap break-words text-xs text-slate-700">
@@ -130,7 +180,7 @@ export default function DeveloperAnswersPage() {
               </div>
             </div>
 
-            <div className="mt-4 grid gap-4 lg:grid-cols-2">
+            <div className="grid gap-4 xl:grid-cols-2">
               <div>
                 <h3 className="text-sm font-semibold text-slate-900">Retrieved evidence</h3>
                 <ul className="mt-2 space-y-2 text-sm text-slate-600">
@@ -144,7 +194,7 @@ export default function DeveloperAnswersPage() {
                 </ul>
               </div>
               <div>
-                <h3 className="text-sm font-semibold text-slate-900">Streaming timeline</h3>
+                <h3 className="text-sm font-semibold text-slate-900">Replay events</h3>
                 <ul className="mt-2 space-y-2 text-sm text-slate-600">
                   {run.streamEvents.map((event, index) => (
                     <li key={`${run.answerRunId}-${index}`} className="rounded-2xl bg-slate-50 p-3 font-mono text-xs">

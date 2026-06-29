@@ -243,6 +243,7 @@ async def get_answer_explorer(
                 actor=row["actor"],
                 action=row["action"],
                 claim_id=str(row["claim_id"]) if row.get("claim_id") else None,
+                created_at=row.get("created_at"),
                 note=row.get("note"),
             )
         )

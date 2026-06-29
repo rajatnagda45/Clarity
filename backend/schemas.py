@@ -24,7 +24,7 @@ class BoundingBox(BaseModel):
 class Claim(BaseModel):
     id: str
     text: str
-    span_ids: list[str]
+    span_ids: list[str] = Field(alias="spanIds")
     citation_keys: list[str] = Field(default_factory=list, alias="citationKeys")
     section: str | None = None
     verification_pass: int = Field(default=1, alias="verificationPass")
@@ -33,8 +33,8 @@ class Claim(BaseModel):
     critic_status: Literal["supported", "partial", "unsupported"] | None = Field(default=None, alias="criticStatus")
     critic_note: str | None = Field(default=None, alias="criticNote")
     corrected_text: str | None = Field(default=None, alias="correctedText")
-    entailment_label: Literal["entail", "neutral", "contradict"] | None = None
-    entailment_score: float | None = Field(default=None, ge=0.0, le=1.0)
+    entailment_label: Literal["entail", "neutral", "contradict"] | None = Field(default=None, alias="entailmentLabel")
+    entailment_score: float | None = Field(default=None, ge=0.0, le=1.0, alias="entailmentScore")
     support_probability: float | None = Field(default=None, ge=0.0, le=1.0, alias="supportProbability")
     contradiction_probability: float | None = Field(default=None, ge=0.0, le=1.0, alias="contradictionProbability")
     confidence: float | None = Field(default=None, ge=0.0, le=1.0)  # calibrated
@@ -55,7 +55,7 @@ class TrustScore(BaseModel):
 
 class Abstention(BaseModel):
     reason: str
-    missing_evidence_query: str | None = None
+    missing_evidence_query: str | None = Field(default=None, alias="missingEvidenceQuery")
     suggested_follow_up: str | None = Field(default=None, alias="suggestedFollowUp")
 
     model_config = {"populate_by_name": True}
@@ -65,21 +65,26 @@ class DebateTurn(BaseModel):
     round: int = Field(ge=0, le=2)
     actor: Literal["writer", "critic"]
     action: Literal["draft", "flag", "revise", "reretrieve", "resolve"]
-    claim_id: str | None = None
+    claim_id: str | None = Field(default=None, alias="claimId")
+    created_at: str | None = Field(default=None, alias="createdAt")
     note: str | None = None
+
+    model_config = {"populate_by_name": True}
 
 
 class Contradiction(BaseModel):
     id: str
     topic: str
-    doc_a: str
-    span_a: str | None
-    value_a: str | None
-    doc_b: str
-    span_b: str | None
-    value_b: str | None
+    doc_a: str = Field(alias="docA")
+    span_a: str | None = Field(default=None, alias="spanA")
+    value_a: str | None = Field(default=None, alias="valueA")
+    doc_b: str = Field(alias="docB")
+    span_b: str | None = Field(default=None, alias="spanB")
+    value_b: str | None = Field(default=None, alias="valueB")
     severity: Literal["minor", "major"]
     note: str | None = None
+
+    model_config = {"populate_by_name": True}
 
 
 class HealthResponse(BaseModel):
@@ -515,6 +520,11 @@ class ChatMessage(BaseModel):
     created_at: str = Field(alias="createdAt")
     answer_run_id: str | None = Field(default=None, alias="answerRunId")
     retrieval_run_id: str | None = Field(default=None, alias="retrievalRunId")
+    trust: TrustScore | None = None
+    abstention: Abstention | None = None
+    claims: list[Claim] = Field(default_factory=list)
+    debate_turns: list[DebateTurn] = Field(default_factory=list, alias="debateTurns")
+    retrieved_evidence: list[RetrievalEvidenceResponse] = Field(default_factory=list, alias="retrievedEvidence")
     citations: list[MessageCitation] = Field(default_factory=list)
 
     model_config = {"populate_by_name": True}

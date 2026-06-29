@@ -25,6 +25,7 @@ from api.routers import documents
 from api.routers import health
 from api.routers import chat
 from api.routers import conversations
+from api.routers import contradictions
 from api.routers import messages
 from api.routers import retrieval
 from api.routers import workspaces
@@ -88,6 +89,7 @@ app.include_router(documents.router)
 app.include_router(retrieval.router)
 app.include_router(chat.router)
 app.include_router(conversations.router)
+app.include_router(contradictions.router)
 app.include_router(messages.router)
 app.include_router(claims.router)
 app.include_router(developer.router)
