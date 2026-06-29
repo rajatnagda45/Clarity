@@ -5,10 +5,13 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from api.deps import require_developer, require_workspace_role
 from db.client import tenant_query
 from schemas import (
+    Abstention,
     AnswerExplorerResponse,
     AnswerExplorerRunResponse,
     AnswerMetricsResponse,
+    Claim,
     ChunkSourceOffset,
+    DebateTurn,
     DeveloperDashboardDocument,
     DeveloperDashboardResponse,
     EmbeddingMetricsResponse,
@@ -18,6 +21,7 @@ from schemas import (
     RetrievalMetricsResponse,
     RetrievalEvidenceResponse,
     RetrievalSearchRequest,
+    TrustScore,
 )
 from services.embeddings.metrics import build_embedding_metrics
 from services.indexing.metrics import build_index_metrics
@@ -167,6 +171,9 @@ async def get_answer_explorer(
     evidence_rows = tenant_query("retrieval_run_evidence", workspace_id).execute().data or []
     citation_rows = tenant_query("message_citations", workspace_id).execute().data or []
     event_rows = tenant_query("answer_stream_events", workspace_id).execute().data or []
+    claim_rows = tenant_query("claims", workspace_id).execute().data or []
+    debate_rows = tenant_query("debate_turns", workspace_id).execute().data or []
+    abstention_rows = tenant_query("abstentions", workspace_id).execute().data or []
 
     retrieval_by_id = {str(row["id"]): row for row in retrieval_rows}
     evidence_by_run: dict[str, list[RetrievalEvidenceResponse]] = {}
@@ -203,10 +210,63 @@ async def get_answer_explorer(
     events_by_run: dict[str, list[dict]] = {}
     for row in sorted(event_rows, key=lambda item: (str(item["answer_run_id"]), item["sequence_number"])):
         events_by_run.setdefault(str(row["answer_run_id"]), []).append(row["payload"])
+    claims_by_run: dict[str, list[Claim]] = {}
+    for row in sorted(claim_rows, key=lambda item: (str(item.get("answer_run_id") or ""), item.get("claim_index", 0))):
+        answer_run_id = row.get("answer_run_id")
+        if not answer_run_id:
+            continue
+        claims_by_run.setdefault(str(answer_run_id), []).append(
+            Claim(
+                id=str(row["id"]),
+                text=row["text"],
+                span_ids=row.get("span_ids") or [],
+                citationKeys=row.get("citation_keys") or [],
+                section=row.get("section"),
+                verificationPass=row.get("verification_pass", 1),
+                supported=row.get("supported", False),
+                uncertain=row.get("uncertain", False),
+                criticStatus=row.get("critic_status"),
+                criticNote=row.get("critic_note"),
+                correctedText=row.get("corrected_text"),
+                entailmentLabel=row.get("entailment_label"),
+                entailmentScore=float(row["entailment_score"]) if row.get("entailment_score") is not None else None,
+                supportProbability=float(row["support_probability"]) if row.get("support_probability") is not None else None,
+                contradictionProbability=float(row["contradiction_probability"]) if row.get("contradiction_probability") is not None else None,
+                confidence=float(row["confidence"]) if row.get("confidence") is not None else None,
+            )
+        )
+    debate_by_message: dict[str, list[DebateTurn]] = {}
+    for row in debate_rows:
+        debate_by_message.setdefault(str(row["message_id"]), []).append(
+            DebateTurn(
+                round=row["round"],
+                actor=row["actor"],
+                action=row["action"],
+                claim_id=str(row["claim_id"]) if row.get("claim_id") else None,
+                note=row.get("note"),
+            )
+        )
+    abstention_by_message: dict[str, Abstention] = {}
+    for row in abstention_rows:
+        abstention_by_message[str(row["message_id"])] = Abstention(
+            reason=row["reason"],
+            missing_evidence_query=row.get("missing_evidence_query"),
+            suggestedFollowUp=row.get("suggested_follow_up"),
+        )
 
     runs = []
     for row in answer_rows.data or []:
         retrieval_row = retrieval_by_id.get(str(row["retrieval_run_id"]), {})
+        trust = None
+        if row.get("trust_confidence") is not None:
+            trust = TrustScore(
+                faithfulness=float(row.get("trust_faithfulness") or 0.0),
+                relevance=float(row["trust_relevance"]) if row.get("trust_relevance") is not None else None,
+                overall=float(row.get("trust_overall") or 0.0),
+                confidence=float(row.get("trust_confidence") or 0.0),
+                calibrated=bool(row.get("trust_calibrated", False)),
+                confidenceBand=row.get("confidence_band") or "low",
+            )
         runs.append(
             AnswerExplorerRunResponse(
                 answerRunId=str(row["id"]),
@@ -234,6 +294,10 @@ async def get_answer_explorer(
                 completedAt=row.get("completed_at"),
                 promptPayload=row.get("prompt_payload") or {},
                 finalAnswer=row.get("answer_markdown"),
+                trust=trust,
+                abstention=abstention_by_message.get(str(row.get("assistant_message_id"))),
+                claims=claims_by_run.get(str(row["id"]), []),
+                debateTurns=debate_by_message.get(str(row.get("assistant_message_id")), []),
                 citations=citations_by_run.get(str(row["id"]), []),
                 retrievedEvidence=evidence_by_run.get(str(row["retrieval_run_id"]), []),
                 streamEvents=events_by_run.get(str(row["id"]), []),

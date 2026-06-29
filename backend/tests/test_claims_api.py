@@ -48,6 +48,10 @@ async def test_get_claim_spans_returns_workspace_scoped_offsets(client, token_a,
     evidence_query.order.return_value = evidence_query
     evidence_query.limit.return_value = evidence_query
     evidence_query.execute.return_value = SimpleNamespace(data=[{"final_score": 0.82}])
+    claim_query = MagicMock()
+    claim_query.eq.return_value = claim_query
+    claim_query.limit.return_value = claim_query
+    claim_query.execute.return_value = SimpleNamespace(data=[])
 
     with patch.object(claims_router, "tenant_query") as tenant_query_mock, patch.object(
         deps_module, "get_client", return_value=client_mock
@@ -55,6 +59,7 @@ async def test_get_claim_spans_returns_workspace_scoped_offsets(client, token_a,
         db_client, "get_client", return_value=client_mock
     ):
         tenant_query_mock.side_effect = lambda table, workspace_id: {
+            "claims": claim_query,
             "chunks": chunks_query,
             "retrieval_run_evidence": evidence_query,
         }[table]

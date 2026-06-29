@@ -25,24 +25,40 @@ class Claim(BaseModel):
     id: str
     text: str
     span_ids: list[str]
+    citation_keys: list[str] = Field(default_factory=list, alias="citationKeys")
+    section: str | None = None
+    verification_pass: int = Field(default=1, alias="verificationPass")
     supported: bool = False        # true only if Critic AND NLI entailment agree
     uncertain: bool = False
+    critic_status: Literal["supported", "partial", "unsupported"] | None = Field(default=None, alias="criticStatus")
+    critic_note: str | None = Field(default=None, alias="criticNote")
+    corrected_text: str | None = Field(default=None, alias="correctedText")
     entailment_label: Literal["entail", "neutral", "contradict"] | None = None
     entailment_score: float | None = Field(default=None, ge=0.0, le=1.0)
+    support_probability: float | None = Field(default=None, ge=0.0, le=1.0, alias="supportProbability")
+    contradiction_probability: float | None = Field(default=None, ge=0.0, le=1.0, alias="contradictionProbability")
     confidence: float | None = Field(default=None, ge=0.0, le=1.0)  # calibrated
+
+    model_config = {"populate_by_name": True}
 
 
 class TrustScore(BaseModel):
     faithfulness: float = Field(ge=0.0, le=1.0)
-    relevance: float = Field(ge=0.0, le=1.0)
+    relevance: float | None = Field(default=None, ge=0.0, le=1.0)
     overall: float = Field(ge=0.0, le=1.0)
     confidence: float = Field(ge=0.0, le=1.0)   # calibrated
     calibrated: bool = True
+    confidence_band: Literal["low", "medium", "high"] = Field(alias="confidenceBand")
+
+    model_config = {"populate_by_name": True}
 
 
 class Abstention(BaseModel):
     reason: str
     missing_evidence_query: str | None = None
+    suggested_follow_up: str | None = Field(default=None, alias="suggestedFollowUp")
+
+    model_config = {"populate_by_name": True}
 
 
 class DebateTurn(BaseModel):
@@ -575,6 +591,10 @@ class AnswerExplorerRunResponse(BaseModel):
     completed_at: str | None = Field(default=None, alias="completedAt")
     prompt_payload: dict = Field(alias="promptPayload")
     final_answer: str | None = Field(default=None, alias="finalAnswer")
+    trust: TrustScore | None = None
+    abstention: Abstention | None = None
+    claims: list[Claim] = Field(default_factory=list)
+    debate_turns: list[DebateTurn] = Field(default_factory=list, alias="debateTurns")
     citations: list[MessageCitation]
     retrieved_evidence: list[RetrievalEvidenceResponse] = Field(alias="retrievedEvidence")
     stream_events: list[dict] = Field(alias="streamEvents")

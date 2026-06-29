@@ -69,6 +69,62 @@ class WriterResult(BaseModel):
     usage: WriterUsage
 
 
+class ExtractedClaim(BaseModel):
+    claim_id: str = Field(alias="claimId")
+    text: str = Field(min_length=1)
+    supporting_citation_keys: list[str] = Field(alias="supportingCitationKeys", default_factory=list)
+    section: str | None = None
+
+    model_config = {"populate_by_name": True}
+
+
+class ClaimExtractionOutput(BaseModel):
+    claims: list[ExtractedClaim] = Field(default_factory=list)
+
+    model_config = {"populate_by_name": True}
+
+
+class ClaimRecord(BaseModel):
+    id: str
+    text: str
+    span_ids: list[str] = Field(alias="spanIds")
+    citation_keys: list[str] = Field(alias="citationKeys")
+    section: str | None = None
+    verification_pass: int = Field(alias="verificationPass")
+    supported: bool = False
+    uncertain: bool = False
+    critic_status: str | None = Field(default=None, alias="criticStatus")
+    critic_note: str | None = Field(default=None, alias="criticNote")
+    corrected_text: str | None = Field(default=None, alias="correctedText")
+    entailment_label: str | None = Field(default=None, alias="entailmentLabel")
+    entailment_score: float | None = Field(default=None, alias="entailmentScore")
+    support_probability: float | None = Field(default=None, alias="supportProbability")
+    contradiction_probability: float | None = Field(default=None, alias="contradictionProbability")
+    confidence: float | None = None
+
+    model_config = {"populate_by_name": True}
+
+
+class TrustMetadata(BaseModel):
+    faithfulness: float
+    relevance: float | None = None
+    overall: float
+    confidence: float
+    calibrated: bool
+    confidence_band: str = Field(alias="confidenceBand")
+
+    model_config = {"populate_by_name": True}
+
+
+class AbstentionPayload(BaseModel):
+    reason: str
+    missing_evidence_query: str | None = Field(default=None, alias="missingEvidenceQuery")
+    suggested_follow_up: str | None = Field(default=None, alias="suggestedFollowUp")
+    trust: TrustMetadata | None = None
+
+    model_config = {"populate_by_name": True}
+
+
 @dataclass(slots=True)
 class PreparedAnswerStream:
     conversation_id: str

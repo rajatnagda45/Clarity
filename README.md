@@ -3,7 +3,7 @@
 > **An AI contract auditor that catches its own hallucinations, proves every claim against the exact source text, and shows you a measured trust score for each answer.**
 
 [![CI](https://github.com/rajatnagda45/Clarity/actions/workflows/ci.yml/badge.svg)](https://github.com/rajatnagda45/Clarity/actions/workflows/ci.yml)
-![Phase](https://img.shields.io/badge/phase-A8%20answer%20generation-blue)
+![Phase](https://img.shields.io/badge/phase-B1%20verified%20runtime-blue)
 ![Stack](https://img.shields.io/badge/stack-Next.js%2015%20%2B%20FastAPI%20%2B%20LangGraph-informational)
 ![License](https://img.shields.io/badge/license-MIT-green)
 
@@ -11,7 +11,7 @@
 
 ## Current Status
 
-Phase **A** is functionally complete through the **A8.1 security and completion patch**.
+Phase **A** is complete, and **Phase B1** is now live in the backend runtime.
 
 Implemented today:
 - Clerk-backed protected app shell for `/dashboard`, `/documents`, and `/chat`
@@ -52,12 +52,18 @@ Implemented today:
 - Cohere reranking with cached rerank results in the retrieval pipeline
 - developer-only Answer Explorer with prompt payloads, evidence, stream timelines, token usage, latency, and cost
 - answer-generation metrics for latency, tokens, citations, and evidence coverage
+- verification-aware answer runtime orchestrator wired into the live `/api/chat` path
+- first-class claim extraction with persisted claim objects, citation keys, sections, and verification passes
+- bounded Writer → Critic → revision → Critic verification loop with a maximum of two passes
+- runtime NLI enrichment for every claim with entailment, support, and contradiction probabilities
+- calibrated trust persistence on `answer_runs` with confidence bands and abstention state
+- streamed Phase B runtime events for `claim`, `debate_turn`, `trust`, and `abstention`
+- persisted debate turns, abstentions, and verification metadata exposed through developer APIs
 - deterministic document lifecycle through `uploaded → extracted → normalized → metadata_ready → awaiting_chunking → chunking → chunked → awaiting_embeddings → embedding → embedded → awaiting_index → indexing → indexed`
 - resumable artifact persistence for ingestion stages
 - backend and frontend test baseline still green after the milestone
 
 Not implemented yet:
-- live Phase B verifier runtime in the user-facing answer path
 - trust badge / calibrated confidence UI
 - debate panel / abstention UI
 - offline calibration workflow and Phase B evaluation surfaces
@@ -111,7 +117,7 @@ Clarity solves both. Every answer is verified before it leaves the system, and e
 3. Watch the reasoning graph light up: Supervisor → Retriever → Writer → Critic → NLI
 4. Receive a streaming, cited answer grounded in retrieved evidence
 5. Click any claim → the original PDF opens at the cited page with the exact extracted support span
-6. Phase B adds calibrated trust, abstention, and verifier debate
+6. The backend runtime verifies claims, emits debate/trust events, and abstains when confidence is too low
 ```
 
 ---
@@ -156,9 +162,12 @@ Upload → R2 storage → PDF/DOCX extraction → normalization → clause-aware
 
 ```
 Request → hybrid retrieval (semantic + BM25 → RRF → Cohere rerank → top evidence)
-→ answer writer builds a grounded response from cited chunks only
-→ stream tokens and citations over SSE
-→ persist conversation, answer run, citations, retrieval evidence, and replay events
+→ answer writer drafts from cited chunks only
+→ claim extraction turns the draft into atomic, evidence-backed claims
+→ Critic checks each claim, optionally refines the query, and runs one bounded revision pass
+→ NLI + calibration produce per-claim verdicts, trust, and abstention decisions
+→ stream tokens, claims, debate turns, trust, and abstention over SSE
+→ persist conversation, answer run, citations, claims, debate turns, abstentions, retrieval evidence, and replay events
 ```
 
 ### Multi-tenancy (three layers, all required)
@@ -302,12 +311,12 @@ data: {"type":"graph_node","node":"retriever","status":"finished","summary":"5 s
 data: {"type":"debate_turn","round":0,"actor":"writer","action":"draft","claimId":"c1"}
 data: {"type":"token","claimId":"c1","text":"This contract auto-renews..."}
 data: {"type":"debate_turn","round":0,"actor":"critic","action":"flag","claimId":"c3","note":"Not supported by cited span"}
-data: {"type":"claim","claim":{"id":"c1","supported":true,"entailmentLabel":"entail","confidence":0.9}}
-data: {"type":"trust","score":{"faithfulness":0.91,"relevance":0.95,"overall":0.92,"calibrated":true}}
+data: {"type":"claim","claim":{"id":"c1","supported":true,"criticStatus":"supported","entailmentLabel":"entail","supportProbability":0.97,"contradictionProbability":0.01,"confidence":0.9}}
+data: {"type":"trust","score":{"faithfulness":0.91,"relevance":0.95,"overall":0.92,"confidence":0.92,"calibrated":true,"confidenceBand":"high"}}
 data: {"type":"done"}
 
 # When evidence is thin — abstention instead of a confident wrong answer:
-data: {"type":"abstention","abstention":{"reason":"No span states a cancellation window.","missingEvidenceQuery":"termination notice cancellation"}}
+data: {"type":"abstention","abstention":{"reason":"No span states a cancellation window.","missingEvidenceQuery":"termination notice cancellation","suggestedFollowUp":"Ask specifically about the termination clause."}}
 ```
 
 ---

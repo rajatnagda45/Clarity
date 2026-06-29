@@ -66,3 +66,17 @@ def test_answer_generation_migration_is_safe_to_reapply():
     assert "create unique index if not exists answer_runs_workspace_request_idx" in sql
     assert "create table if not exists answer_stream_events" in sql
     assert "drop policy if exists message_citations_tenant_isolation" in sql
+
+
+def test_verified_runtime_migration_is_safe_to_reapply():
+    migration = Path(__file__).resolve().parents[2] / "migrations" / "008_verified_runtime_integration.sql"
+    sql = migration.read_text(encoding="utf-8")
+
+    assert "alter column span_ids type text[] using coalesce(span_ids::text[], '{}'::text[]);" in sql
+    assert "add column if not exists answer_run_id uuid references answer_runs(id) on delete cascade" in sql
+    assert "add column if not exists verification_pass int not null default 1" in sql
+    assert "create index if not exists claims_answer_run_idx" in sql
+    assert "drop constraint if exists claims_critic_status_check" in sql
+    assert "add column if not exists trust_confidence numeric(3,2)" in sql
+    assert "drop constraint if exists answer_runs_confidence_band_check" in sql
+    assert "add column if not exists suggested_follow_up text" in sql
