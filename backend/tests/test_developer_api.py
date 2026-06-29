@@ -494,6 +494,12 @@ async def test_answer_metrics_and_explorer_return_developer_summary(client, toke
                 "completed_at": "2026-06-29T10:00:01Z",
                 "prompt_payload": {"systemPrompt": "prompt"},
                 "answer_markdown": "It renews annually.",
+                "trust_faithfulness": 1.0,
+                "trust_relevance": None,
+                "trust_overall": 0.88,
+                "trust_confidence": 0.88,
+                "trust_calibrated": True,
+                "confidence_band": "high",
             }
         ]
     )
@@ -565,6 +571,52 @@ async def test_answer_metrics_and_explorer_return_developer_summary(client, toke
             {"answer_run_id": "answer-1", "sequence_number": 2, "payload": {"type": "done"}},
         ]
     )
+    claims_query = MagicMock()
+    claims_query.select.return_value = claims_query
+    claims_query.eq.return_value = claims_query
+    claims_query.execute.return_value = SimpleNamespace(
+        data=[
+            {
+                "id": "claim-1",
+                "answer_run_id": "answer-1",
+                "span_ids": ["chunk-1"],
+                "citation_keys": ["E1"],
+                "text": "It renews annually.",
+                "section": "Renewal",
+                "verification_pass": 1,
+                "supported": True,
+                "uncertain": False,
+                "critic_status": "supported",
+                "critic_note": None,
+                "corrected_text": None,
+                "entailment_label": "entail",
+                "entailment_score": 0.92,
+                "support_probability": 0.92,
+                "contradiction_probability": 0.03,
+                "confidence": 0.88,
+                "claim_index": 0,
+            }
+        ]
+    )
+    debate_query = MagicMock()
+    debate_query.select.return_value = debate_query
+    debate_query.eq.return_value = debate_query
+    debate_query.execute.return_value = SimpleNamespace(
+        data=[
+            {
+                "message_id": "msg-assistant",
+                "round": 0,
+                "actor": "critic",
+                "action": "resolve",
+                "claim_id": "claim-1",
+                "note": "Critic+NLI agree",
+            }
+        ]
+    )
+    abstentions_query = MagicMock()
+    abstentions_query.select.return_value = abstentions_query
+    abstentions_query.eq.return_value = abstentions_query
+    abstentions_query.execute.return_value = SimpleNamespace(data=[])
 
     client_mock = MagicMock()
     client_mock.table.side_effect = lambda name: {"memberships": memberships_table}[name]
@@ -582,6 +634,9 @@ async def test_answer_metrics_and_explorer_return_developer_summary(client, toke
             "retrieval_run_evidence": evidence_query,
             "message_citations": citations_query,
             "answer_stream_events": events_query,
+            "claims": claims_query,
+            "debate_turns": debate_query,
+            "abstentions": abstentions_query,
         }[table]
 
         metrics_response = await client.get(
@@ -606,3 +661,5 @@ async def test_answer_metrics_and_explorer_return_developer_summary(client, toke
     explorer_body = explorer_response.json()
     assert explorer_body["runs"][0]["answerRunId"] == "answer-1"
     assert explorer_body["runs"][0]["citations"][0]["citationKey"] == "E1"
+    assert explorer_body["runs"][0]["claims"][0]["criticStatus"] == "supported"
+    assert explorer_body["runs"][0]["trust"]["confidenceBand"] == "high"

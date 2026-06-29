@@ -17,10 +17,18 @@ class DraftClaim(TypedDict):
     id: str
     text: str
     span_ids: list[str]
+    citation_keys: list[str]
+    section: str | None
+    verification_pass: int
     supported: bool
     uncertain: bool
+    critic_status: str | None
+    critic_note: str | None
+    corrected_text: str | None
     entailment_label: str | None
     entailment_score: float | None
+    support_probability: float | None
+    contradiction_probability: float | None
     confidence: float | None
 
 

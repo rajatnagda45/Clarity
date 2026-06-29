@@ -115,14 +115,19 @@ async def run_critic_node(state: AgentState) -> AgentState:
 
         if critic_status == "partial" and verdict.get("corrected_text"):
             claim["text"] = verdict["corrected_text"]
+            claim["corrected_text"] = verdict["corrected_text"]
 
         ev = apply_ensemble(
             claim_id=claim["id"],
             critic_status=critic_status,
             nli_result=nli_result,
         )
+        claim["critic_status"] = critic_status
+        claim["critic_note"] = verdict.get("note")
         claim["entailment_label"] = ev.entailment_label
         claim["entailment_score"] = ev.entailment_score
+        claim["support_probability"] = ev.support_probability
+        claim["contradiction_probability"] = ev.contradiction_probability
 
         turn: DebateTurnEntry
         if ev.supported:

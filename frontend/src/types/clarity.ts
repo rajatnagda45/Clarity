@@ -306,24 +306,34 @@ export interface Claim {
   id: string;
   text: string;
   spanIds: string[];
+  citationKeys: string[];
+  section?: string | null;
+  verificationPass: number;
   supported: boolean;           // true only if Critic AND NLI entailment agree
   uncertain: boolean;
+  criticStatus?: 'supported' | 'partial' | 'unsupported';
+  criticNote?: string | null;
+  correctedText?: string | null;
   entailmentLabel?: EntailmentLabel;
   entailmentScore?: number;     // 0..1
+  supportProbability?: number;
+  contradictionProbability?: number;
   confidence?: number;          // 0..1, calibrated per-claim
 }
 
 export interface TrustScore {
   faithfulness: number;         // 0..1
-  relevance: number;
+  relevance: number | null;
   overall: number;
   confidence: number;           // 0..1, calibrated
   calibrated: boolean;
+  confidenceBand: 'low' | 'medium' | 'high';
 }
 
 export interface Abstention {
   reason: string;
   missingEvidenceQuery?: string;
+  suggestedFollowUp?: string;
 }
 
 export interface DebateTurn {
@@ -403,6 +413,10 @@ export type StreamEvent =
   | { type: 'graph_node'; node: string; status: 'started' | 'finished'; summary?: string }
   | { type: 'retrieval'; normalizedQuery: RetrievalNormalizedQuery; resultCount: number }
   | { type: 'token'; text: string }
+  | { type: 'claim'; claim: Claim }
+  | { type: 'debate_turn'; round: number; actor: 'writer' | 'critic'; action: DebateTurn['action']; claimId?: string; note?: string }
+  | { type: 'trust'; score: TrustScore }
+  | ({ type: 'abstention' } & Abstention & { trust?: TrustScore })
   | { type: 'citation'; citation: Citation }
   | { type: 'message'; message: Message }
   | { type: 'error'; code: string; message: string }

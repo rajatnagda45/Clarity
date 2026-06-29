@@ -11,14 +11,30 @@ _NLI_LABELS = frozenset({"entail", "neutral", "contradict"})
 
 
 class NLIResult:
-    __slots__ = ("label", "score")
+    __slots__ = ("label", "score", "support_probability", "contradiction_probability")
 
-    def __init__(self, label: str, score: float) -> None:
+    def __init__(
+        self,
+        label: str,
+        score: float,
+        *,
+        support_probability: float | None = None,
+        contradiction_probability: float | None = None,
+    ) -> None:
         self.label = label
         self.score = score
+        self.support_probability = score if support_probability is None and label == "entail" else (support_probability or 0.0)
+        self.contradiction_probability = (
+            score if contradiction_probability is None and label == "contradict" else (contradiction_probability or 0.0)
+        )
 
     def to_dict(self) -> dict:
-        return {"label": self.label, "score": self.score}
+        return {
+            "label": self.label,
+            "score": self.score,
+            "support_probability": self.support_probability,
+            "contradiction_probability": self.contradiction_probability,
+        }
 
 
 async def _check_via_openai(claim_text: str, span_text: str) -> NLIResult:
@@ -32,8 +48,9 @@ async def _check_via_openai(claim_text: str, span_text: str) -> NLIResult:
     system = (
         "You are an entailment classifier. Decide whether the HYPOTHESIS is entailed, "
         "contradicted, or neutral with respect to the PREMISE. "
-        "Output ONLY valid JSON with exactly one field: "
-        '{"label": "entail" | "neutral" | "contradict", "score": <float 0-1>}. '
+        "Output ONLY valid JSON with fields: "
+        '{"label": "entail" | "neutral" | "contradict", "score": <float 0-1>, '
+        '"supportProbability": <float 0-1>, "contradictionProbability": <float 0-1>}. '
         "No other text."
     )
     user = f"PREMISE: {span_text}\nHYPOTHESIS: {claim_text}"
@@ -51,10 +68,17 @@ async def _check_via_openai(claim_text: str, span_text: str) -> NLIResult:
             label = "neutral"
         score = float(parsed.get("score", 0.5))
         score = max(0.0, min(1.0, score))
-        return NLIResult(label=label, score=score)
+        support_probability = float(parsed.get("supportProbability", score if label == "entail" else 0.0))
+        contradiction_probability = float(parsed.get("contradictionProbability", score if label == "contradict" else 0.0))
+        return NLIResult(
+            label=label,
+            score=score,
+            support_probability=max(0.0, min(1.0, support_probability)),
+            contradiction_probability=max(0.0, min(1.0, contradiction_probability)),
+        )
     except (json.JSONDecodeError, KeyError, TypeError, ValueError):
         logger.warning("NLI parse failure; defaulting to neutral. raw=%r", raw)
-        return NLIResult(label="neutral", score=0.5)
+        return NLIResult(label="neutral", score=0.5, support_probability=0.0, contradiction_probability=0.0)
 
 
 async def _check_via_hosted(claim_text: str, span_text: str) -> NLIResult:
@@ -72,13 +96,24 @@ async def _check_via_hosted(claim_text: str, span_text: str) -> NLIResult:
 
     label_map = {"entailment": "entail", "contradiction": "contradict", "neutral": "neutral"}
     best_label, best_score = "neutral", 0.0
+    support_probability = 0.0
+    contradiction_probability = 0.0
     for entry in data if isinstance(data, list) else [data]:
         raw_label = str(entry.get("label", "")).lower()
         mapped = label_map.get(raw_label, "neutral")
         score = float(entry.get("score", 0.0))
+        if mapped == "entail":
+            support_probability = max(support_probability, score)
+        if mapped == "contradict":
+            contradiction_probability = max(contradiction_probability, score)
         if score > best_score:
             best_label, best_score = mapped, score
-    return NLIResult(label=best_label, score=best_score)
+    return NLIResult(
+        label=best_label,
+        score=best_score,
+        support_probability=support_probability,
+        contradiction_probability=contradiction_probability,
+    )
 
 
 async def check_entailment(claim_text: str, span_text: str) -> NLIResult:

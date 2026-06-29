@@ -17,19 +17,22 @@ async def get_claim_spans(
     membership: tuple[str, str] = Depends(require_workspace_role),
 ) -> ClaimSpanListResponse:
     workspace_id, _ = membership
-    chunk_result = (
-        tenant_query("chunks", workspace_id)
-        .eq("chunk_id", claim_id)
-        .limit(1)
-        .execute()
-    )
+    claim_result = tenant_query("claims", workspace_id).eq("id", claim_id).limit(1).execute()
+    claim = (claim_result.data or [None])[0]
+    chunk_id = claim_id
+    if claim is not None:
+        span_ids = claim.get("span_ids") or []
+        if span_ids:
+            chunk_id = span_ids[0]
+
+    chunk_result = tenant_query("chunks", workspace_id).eq("chunk_id", chunk_id).limit(1).execute()
     chunk = (chunk_result.data or [None])[0]
     if chunk is None:
         raise api_error(status.HTTP_404_NOT_FOUND, "claim_not_found", "Claim evidence was not found.")
 
     evidence_rows = (
         tenant_query("retrieval_run_evidence", workspace_id)
-        .eq("chunk_id", claim_id)
+        .eq("chunk_id", chunk_id)
         .order("final_score", desc=True)
         .limit(1)
         .execute()
@@ -45,7 +48,7 @@ async def get_claim_spans(
 
     spans = [
         ClaimSpanResponse(
-            chunkId=claim_id,
+            chunkId=chunk_id,
             documentId=str(chunk["document_id"]),
             page=offset["page"],
             charStart=offset["char_start"],
@@ -58,7 +61,7 @@ async def get_claim_spans(
     if not spans:
         spans = [
             ClaimSpanResponse(
-                chunkId=claim_id,
+                chunkId=chunk_id,
                 documentId=str(chunk["document_id"]),
                 page=chunk["page_start"],
                 charStart=chunk.get("char_start", 0),

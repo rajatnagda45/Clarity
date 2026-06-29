@@ -11,6 +11,8 @@ class EnsembleVerdict:
     supported: bool
     entailment_label: str
     entailment_score: float
+    support_probability: float
+    contradiction_probability: float
     critic_ok: bool
     nli_label: str
     nli_score: float
@@ -36,6 +38,8 @@ def apply_ensemble(
         supported=supported,
         entailment_label=nli_result.label,
         entailment_score=nli_result.score,
+        support_probability=nli_result.support_probability,
+        contradiction_probability=nli_result.contradiction_probability,
         critic_ok=critic_ok,
         nli_label=nli_result.label,
         nli_score=nli_result.score,
