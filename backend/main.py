@@ -43,11 +43,15 @@ from api.routers import benchmark_suggestions
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    # Validate Supabase connectivity on startup
-    from db.client import get_client
-    client = get_client()
-    # Lightweight ping — list workspaces limit 1
-    client.table("workspaces").select("id").limit(1).execute()
+    # Best-effort startup connectivity check so local development works even when
+    # external services are unavailable.
+    try:
+        from db.client import get_client
+
+        client = get_client()
+        client.table("workspaces").select("id").limit(1).execute()
+    except Exception:
+        pass
     yield
     # Teardown (connections are HTTP-based, nothing to explicitly close)
 
@@ -80,6 +84,13 @@ _allowed_origins = os.getenv(
     "http://localhost:3000,http://localhost:3001",
 ).split(",")
 
+# Starlette runs middleware in reverse registration order.
+# Auth and rate-limit must be added first so CORS (added last) runs outermost,
+# ensuring every response — including auth errors — carries CORS headers.
+# Without this, a failed auth check returns no CORS headers and the browser
+# reports "Failed to fetch" instead of the real HTTP error.
+app.add_middleware(AuthMiddleware)
+app.add_middleware(RateLimitMiddleware)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=_allowed_origins,
@@ -87,10 +98,6 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
-
-# Starlette runs the most recently added middleware first, so auth is added last.
-app.add_middleware(RateLimitMiddleware)
-app.add_middleware(AuthMiddleware)
 
 # Routers
 app.include_router(health.router)

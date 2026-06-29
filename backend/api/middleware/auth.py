@@ -61,6 +61,15 @@ class AuthMiddleware(BaseHTTPMiddleware):
                 status_code=status.HTTP_401_UNAUTHORIZED,
                 content={"error": f"Invalid token: {exc}"},
             )
+        except Exception as exc:
+            # Catch malformed tokens that raise non-JWT errors (e.g. UnicodeDecodeError,
+            # JSONDecodeError from _decode_header). Must return a Response here — not re-raise —
+            # so the CORS middleware can add headers before the browser sees the error.
+            logger.warning("Token decode failed with unexpected error: %s", exc)
+            return JSONResponse(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                content={"error": "Invalid token format"},
+            )
 
         workspace_ids: list[str] = payload.get("workspace_ids", [])
         user_id: str = payload.get("sub", "")
