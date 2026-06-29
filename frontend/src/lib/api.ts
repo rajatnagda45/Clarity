@@ -443,3 +443,149 @@ export async function getEvalMetrics(
 ): Promise<EvalMetrics[]> {
   return apiFetch<EvalMetrics[]>(`/api/eval/metrics?suite=${suite}`, { method: 'GET', ...auth });
 }
+
+// ---------------------------------------------------------------------------
+// B4: Experiments
+// ---------------------------------------------------------------------------
+export async function listExperiments(auth: AuthContext): Promise<import('@/types/clarity').ExperimentListResponse> {
+  return apiFetch('/api/experiments', { method: 'GET', ...auth });
+}
+
+export async function createExperiment(
+  auth: AuthContext,
+  payload: { name: string; description?: string },
+): Promise<import('@/types/clarity').Experiment> {
+  return apiFetch('/api/experiments', { method: 'POST', body: JSON.stringify(payload), ...auth });
+}
+
+export async function getExperiment(
+  auth: AuthContext,
+  experimentId: string,
+): Promise<import('@/types/clarity').Experiment> {
+  return apiFetch(`/api/experiments/${experimentId}`, { method: 'GET', ...auth });
+}
+
+// ---------------------------------------------------------------------------
+// B4: Prompts
+// ---------------------------------------------------------------------------
+export async function listPromptVersions(
+  auth: AuthContext,
+  promptKey?: string,
+): Promise<import('@/types/clarity').PromptVersionListResponse> {
+  const qs = promptKey ? `?prompt_key=${promptKey}` : '';
+  return apiFetch(`/api/prompts${qs}`, { method: 'GET', ...auth });
+}
+
+export async function createPromptVersion(
+  auth: AuthContext,
+  payload: { promptKey: string; version: string; content: string; description?: string; author?: string },
+): Promise<import('@/types/clarity').PromptVersion> {
+  const body = {
+    prompt_key: payload.promptKey,
+    version: payload.version,
+    content: payload.content,
+    description: payload.description,
+    author: payload.author,
+  };
+  return apiFetch('/api/prompts', { method: 'POST', body: JSON.stringify(body), ...auth });
+}
+
+export async function activatePromptVersion(
+  auth: AuthContext,
+  promptId: string,
+): Promise<import('@/types/clarity').PromptVersion> {
+  return apiFetch(`/api/prompts/${promptId}/activate`, { method: 'POST', ...auth });
+}
+
+// ---------------------------------------------------------------------------
+// B4: Optimization
+// ---------------------------------------------------------------------------
+export async function listOptimizationRecommendations(
+  auth: AuthContext,
+  status?: string,
+): Promise<import('@/types/clarity').OptimizationListResponse> {
+  const qs = status ? `?status_filter=${status}` : '';
+  return apiFetch(`/api/optimization${qs}`, { method: 'GET', ...auth });
+}
+
+export async function runOptimizationAnalysis(
+  auth: AuthContext,
+): Promise<import('@/types/clarity').OptimizationListResponse> {
+  return apiFetch('/api/optimization/analyze', { method: 'POST', ...auth });
+}
+
+export async function updateRecommendation(
+  auth: AuthContext,
+  recId: string,
+  status: 'accepted' | 'dismissed',
+): Promise<import('@/types/clarity').OptimizationRecommendation> {
+  return apiFetch(`/api/optimization/${recId}`, {
+    method: 'PATCH',
+    body: JSON.stringify({ status }),
+    ...auth,
+  });
+}
+
+// ---------------------------------------------------------------------------
+// B4: Quality Gates
+// ---------------------------------------------------------------------------
+export async function listQualityGateRules(auth: AuthContext): Promise<import('@/types/clarity').QualityGateRule[]> {
+  return apiFetch('/api/quality-gates/rules', { method: 'GET', ...auth });
+}
+
+export async function createQualityGateRule(
+  auth: AuthContext,
+  payload: { name: string; metric: string; operator: string; threshold: number },
+): Promise<import('@/types/clarity').QualityGateRule> {
+  return apiFetch('/api/quality-gates/rules', { method: 'POST', body: JSON.stringify(payload), ...auth });
+}
+
+export async function runQualityGate(
+  auth: AuthContext,
+  payload: { benchmarkRunId?: string; experimentId?: string },
+): Promise<import('@/types/clarity').QualityGateRun> {
+  const body = { benchmark_run_id: payload.benchmarkRunId, experiment_id: payload.experimentId };
+  return apiFetch('/api/quality-gates/run', { method: 'POST', body: JSON.stringify(body), ...auth });
+}
+
+export async function listQualityGateRuns(auth: AuthContext): Promise<import('@/types/clarity').QualityGateRunListResponse> {
+  return apiFetch('/api/quality-gates/runs', { method: 'GET', ...auth });
+}
+
+// ---------------------------------------------------------------------------
+// B4: Release Notes
+// ---------------------------------------------------------------------------
+export async function listReleaseNotes(auth: AuthContext): Promise<import('@/types/clarity').ReleaseNoteListResponse> {
+  return apiFetch('/api/release-notes', { method: 'GET', ...auth });
+}
+
+// ---------------------------------------------------------------------------
+// B4: Model Comparisons
+// ---------------------------------------------------------------------------
+export async function listModelComparisons(auth: AuthContext): Promise<import('@/types/clarity').ModelComparisonListResponse> {
+  return apiFetch('/api/model-comparisons', { method: 'GET', ...auth });
+}
+
+// ---------------------------------------------------------------------------
+// B4: Benchmark Suggestions
+// ---------------------------------------------------------------------------
+export async function listBenchmarkSuggestions(
+  auth: AuthContext,
+  status?: string,
+): Promise<import('@/types/clarity').BenchmarkSuggestionListResponse> {
+  const qs = status ? `?suggestion_status=${status}` : '';
+  return apiFetch(`/api/benchmark-suggestions${qs}`, { method: 'GET', ...auth });
+}
+
+export async function scanBenchmarkSuggestions(
+  auth: AuthContext,
+): Promise<import('@/types/clarity').BenchmarkSuggestionListResponse> {
+  return apiFetch('/api/benchmark-suggestions/scan', { method: 'POST', ...auth });
+}
+
+export async function dismissSuggestion(
+  auth: AuthContext,
+  suggestionId: string,
+): Promise<import('@/types/clarity').BenchmarkSuggestion> {
+  return apiFetch(`/api/benchmark-suggestions/${suggestionId}/dismiss`, { method: 'POST', ...auth });
+}

@@ -749,3 +749,214 @@ class RegressionReportResponse(BaseModel):
 class RegressionListResponse(BaseModel):
     reports: list[RegressionReportResponse]
     total: int
+
+
+# ─── B4: Quality Improvement Platform schemas ─────────────────────────────────
+
+class ExperimentCandidateResponse(BaseModel):
+    id: str
+    workspace_id: str = Field(alias="workspaceId")
+    experiment_id: str = Field(alias="experimentId")
+    name: str
+    prompt_version: str = Field(alias="promptVersion")
+    model_version: str = Field(alias="modelVersion")
+    writer_version: str = Field(alias="writerVersion")
+    avg_judge_overall: float | None = Field(default=None, alias="avgJudgeOverall")
+    avg_trust_confidence: float | None = Field(default=None, alias="avgTrustConfidence")
+    eval_count: int = Field(alias="evalCount")
+    created_at: str = Field(alias="createdAt")
+
+    model_config = {"populate_by_name": True}
+
+
+class ExperimentResponse(BaseModel):
+    id: str
+    workspace_id: str = Field(alias="workspaceId")
+    name: str
+    description: str | None = None
+    status: Literal["active", "completed", "archived"]
+    winner_candidate_id: str | None = Field(default=None, alias="winnerCandidateId")
+    candidates: list[ExperimentCandidateResponse] = Field(default_factory=list)
+    created_at: str = Field(alias="createdAt")
+
+    model_config = {"populate_by_name": True}
+
+
+class ExperimentListResponse(BaseModel):
+    experiments: list[ExperimentResponse]
+    total: int
+
+
+class CreateExperimentRequest(BaseModel):
+    name: str = Field(min_length=1, max_length=200)
+    description: str | None = None
+
+
+class AddCandidateRequest(BaseModel):
+    name: str = Field(min_length=1, max_length=200)
+    prompt_version: str
+    model_version: str
+    writer_version: str
+
+
+class CreatePromptVersionRequest(BaseModel):
+    prompt_key: Literal["writer", "critic", "judge"]
+    version: str = Field(min_length=1, max_length=100)
+    content: str = Field(min_length=1)
+    description: str | None = None
+    author: str | None = None
+
+
+class PromptVersionResponse(BaseModel):
+    id: str
+    workspace_id: str = Field(alias="workspaceId")
+    prompt_key: str = Field(alias="promptKey")
+    version: str
+    description: str | None = None
+    content: str
+    author: str | None = None
+    active: bool
+    retired: bool
+    created_at: str = Field(alias="createdAt")
+
+    model_config = {"populate_by_name": True}
+
+
+class PromptVersionListResponse(BaseModel):
+    versions: list[PromptVersionResponse]
+    total: int
+
+
+class OptimizationRecommendationResponse(BaseModel):
+    id: str
+    workspace_id: str = Field(alias="workspaceId")
+    dimension: str
+    severity: Literal["low", "medium", "high"]
+    recommendation: str
+    evidence: dict | None = None
+    status: Literal["pending", "accepted", "dismissed"]
+    resolved_at: str | None = Field(default=None, alias="resolvedAt")
+    created_at: str = Field(alias="createdAt")
+
+    model_config = {"populate_by_name": True}
+
+
+class OptimizationListResponse(BaseModel):
+    recommendations: list[OptimizationRecommendationResponse]
+    total: int
+
+
+class UpdateRecommendationRequest(BaseModel):
+    status: Literal["accepted", "dismissed"]
+
+
+class CreateQualityGateRuleRequest(BaseModel):
+    name: str = Field(min_length=1, max_length=200)
+    metric: Literal["judge_overall", "hallucination_risk", "trust", "latency_ms"]
+    operator: Literal["gte", "lte", "gt", "lt"]
+    threshold: float
+
+
+class QualityGateRuleResponse(BaseModel):
+    id: str
+    workspace_id: str = Field(alias="workspaceId")
+    name: str
+    metric: str
+    operator: str
+    threshold: float
+    active: bool
+    created_at: str = Field(alias="createdAt")
+
+    model_config = {"populate_by_name": True}
+
+
+class QualityGateRunResponse(BaseModel):
+    id: str
+    workspace_id: str = Field(alias="workspaceId")
+    benchmark_run_id: str | None = Field(default=None, alias="benchmarkRunId")
+    experiment_id: str | None = Field(default=None, alias="experimentId")
+    rules_evaluated: int = Field(alias="rulesEvaluated")
+    rules_passed: int = Field(alias="rulesPassed")
+    rules_failed: int = Field(alias="rulesFailed")
+    passed: bool
+    details: list[dict] = Field(default_factory=list)
+    created_at: str = Field(alias="createdAt")
+
+    model_config = {"populate_by_name": True}
+
+
+class QualityGateRunListResponse(BaseModel):
+    runs: list[QualityGateRunResponse]
+    total: int
+
+
+class RunQualityGateRequest(BaseModel):
+    benchmark_run_id: str | None = None
+    experiment_id: str | None = None
+
+
+class ReleaseNoteResponse(BaseModel):
+    id: str
+    workspace_id: str = Field(alias="workspaceId")
+    title: str
+    from_version: str | None = Field(default=None, alias="fromVersion")
+    to_version: str = Field(alias="toVersion")
+    summary: str
+    metrics_delta: dict = Field(alias="metricsDelta")
+    benchmark_run_id: str | None = Field(default=None, alias="benchmarkRunId")
+    created_at: str = Field(alias="createdAt")
+
+    model_config = {"populate_by_name": True}
+
+
+class ReleaseNoteListResponse(BaseModel):
+    notes: list[ReleaseNoteResponse]
+    total: int
+
+
+class CreateReleaseNoteRequest(BaseModel):
+    to_version: str
+    to_benchmark_run_id: str
+    from_version: str | None = None
+    from_benchmark_run_id: str | None = None
+    title: str | None = None
+
+
+class BenchmarkSuggestionResponse(BaseModel):
+    id: str
+    workspace_id: str = Field(alias="workspaceId")
+    answer_run_id: str | None = Field(default=None, alias="answerRunId")
+    question: str
+    suggested_reason: str = Field(alias="suggestedReason")
+    status: Literal["pending", "approved", "dismissed"]
+    approved_case_id: str | None = Field(default=None, alias="approvedCaseId")
+    created_at: str = Field(alias="createdAt")
+
+    model_config = {"populate_by_name": True}
+
+
+class BenchmarkSuggestionListResponse(BaseModel):
+    suggestions: list[BenchmarkSuggestionResponse]
+    total: int
+
+
+class ApproveSuggestionRequest(BaseModel):
+    dataset_id: str
+    reference_answer: str | None = None
+    document_ids: list[str] = Field(default_factory=list)
+
+
+class ModelComparisonResponse(BaseModel):
+    model_version: str = Field(alias="modelVersion")
+    run_count: int = Field(alias="runCount")
+    total_cases: int = Field(alias="totalCases")
+    avg_judge_overall: float | None = Field(default=None, alias="avgJudgeOverall")
+    avg_trust_confidence: float | None = Field(default=None, alias="avgTrustConfidence")
+    avg_latency_ms: float | None = Field(default=None, alias="avgLatencyMs")
+
+    model_config = {"populate_by_name": True}
+
+
+class ModelComparisonListResponse(BaseModel):
+    comparisons: list[ModelComparisonResponse]
+    total: int
