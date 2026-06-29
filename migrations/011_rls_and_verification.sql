@@ -51,8 +51,14 @@ CREATE POLICY experiment_candidates_workspace_isolation ON experiment_candidates
 -- 2. Verification pipeline tables
 -- ============================================================
 
+-- Drop old-format tables created by 001_initial_schema.sql (used message_id).
+-- RC2 replaces them with answer_run_id references. CASCADE removes stale FKs.
+DROP TABLE IF EXISTS debate_turns CASCADE;
+DROP TABLE IF EXISTS abstentions  CASCADE;
+DROP TABLE IF EXISTS claims       CASCADE;
+
 -- Per-claim two-signal verdict stored against an answer_run
-CREATE TABLE IF NOT EXISTS claims (
+CREATE TABLE claims (
     id                  uuid PRIMARY KEY DEFAULT gen_random_uuid(),
     workspace_id        uuid NOT NULL,
     answer_run_id       uuid NOT NULL REFERENCES answer_runs(id) ON DELETE CASCADE,
@@ -75,7 +81,7 @@ CREATE INDEX IF NOT EXISTS claims_answer_run_id_idx ON claims(answer_run_id);
 CREATE INDEX IF NOT EXISTS claims_workspace_id_idx  ON claims(workspace_id);
 
 -- Critic ↔ Writer debate rounds stored for replay
-CREATE TABLE IF NOT EXISTS debate_turns (
+CREATE TABLE debate_turns (
     id            uuid PRIMARY KEY DEFAULT gen_random_uuid(),
     workspace_id  uuid NOT NULL,
     answer_run_id uuid NOT NULL REFERENCES answer_runs(id) ON DELETE CASCADE,
@@ -94,7 +100,7 @@ CREATE POLICY debate_turns_workspace_isolation ON debate_turns
 CREATE INDEX IF NOT EXISTS debate_turns_answer_run_id_idx ON debate_turns(answer_run_id);
 
 -- Abstention records — when calibrated trust < threshold the system declines to answer
-CREATE TABLE IF NOT EXISTS abstentions (
+CREATE TABLE abstentions (
     id                  uuid PRIMARY KEY DEFAULT gen_random_uuid(),
     workspace_id        uuid NOT NULL,
     answer_run_id       uuid NOT NULL REFERENCES answer_runs(id) ON DELETE CASCADE,

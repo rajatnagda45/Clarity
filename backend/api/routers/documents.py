@@ -32,7 +32,16 @@ from services.ingestion.url import (
     enqueue_url_ingestion,
     validate_url_ingestion_request,
 )
-from services.storage.r2 import build_document_storage_key, generate_presigned_url, sanitize_filename, upload_document_file, delete_document_object
+from services.storage.r2 import (
+    build_document_storage_key,
+    generate_presigned_url,
+    sanitize_filename,
+    upload_document_file,
+    delete_document_object,
+    download_document_bytes,
+    _local_mode,
+    _LOCAL_STORAGE_DIR,
+)
 
 # Backward-compat alias — old tests patch `documents_router.build_signed_document_url`
 build_signed_document_url = generate_presigned_url
@@ -566,7 +575,27 @@ def get_document_file(
         url = build_signed_document_url(row["r2_key"], expires_in=300)
     except Exception as exc:
         raise _error(status.HTTP_502_BAD_GATEWAY, "presigned_url_failed", "Could not generate download URL.") from exc
-    return {"signedUrl": url, "expires_in": 300, "filename": row["filename"]}
+    return {
+        "signedUrl": url,
+        "expiresInSeconds": 300,
+        "documentId": document_id,
+        "filename": row["filename"],
+    }
+
+
+@router.get("/dev-file/{key:path}", include_in_schema=False)
+def serve_local_dev_file(key: str):
+    """Serves locally-stored files in dev mode (when R2 credentials are not set).
+    This endpoint is unauthenticated so the browser can open the URL directly,
+    mirroring how presigned R2 URLs work in production."""
+    from fastapi.responses import FileResponse
+    if not _local_mode():
+        raise _error(status.HTTP_403_FORBIDDEN, "not_dev_mode", "Only available in local dev mode.")
+    file_path = _LOCAL_STORAGE_DIR / key
+    if not file_path.exists():
+        raise _error(status.HTTP_404_NOT_FOUND, "file_not_found", "File not found in local storage.")
+    media_type = "application/pdf" if key.endswith(".pdf") else "application/octet-stream"
+    return FileResponse(path=str(file_path), media_type=media_type)
 
 
 @router.delete("/{document_id}")

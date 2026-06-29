@@ -1,3 +1,7 @@
+-- ============================================================
+-- FILE: migrations/001_initial_schema.sql
+-- ============================================================
+
 -- =============================================================================
 -- Migration 001 — Initial schema
 -- Creation order respects FK dependencies:
@@ -385,6 +389,12 @@ create policy subscriptions_tenant_isolation on subscriptions
   using (workspace_id::text = any (
     select jsonb_array_elements_text(auth.jwt() -> 'workspace_ids')
   ));
+
+
+-- ============================================================
+-- FILE: migrations/002_document_ingestion_pipeline.sql
+-- ============================================================
+
 -- =============================================================================
 -- Migration 002 — Document ingestion pipeline state + artifacts
 -- Extends A2 upload storage with deterministic A3 ingestion lifecycle.
@@ -455,6 +465,58 @@ create policy document_ingestion_artifacts_tenant_isolation
       select jsonb_array_elements_text(auth.jwt() -> 'workspace_ids')
     )
   );
+
+
+-- ============================================================
+-- FILE: migrations/003_add_verification_fields.sql
+-- ============================================================
+
+-- Phase B: add two-signal verification columns to claims
+-- Entailment label + score come from the independent NLI check.
+-- Confidence is the calibrated blend of all four signals.
+-- The constraint enforces the two-signal rule at the DB level:
+--   a claim can only be supported=true when the NLI model agreed (entail).
+
+ALTER TABLE claims
+    ADD COLUMN IF NOT EXISTS entailment_label text
+        CHECK (entailment_label IN ('entail', 'neutral', 'contradict')),
+    ADD COLUMN IF NOT EXISTS entailment_score numeric(3,2)
+        CHECK (entailment_score BETWEEN 0 AND 1),
+    ADD COLUMN IF NOT EXISTS confidence numeric(3,2)
+        CHECK (confidence BETWEEN 0 AND 1);
+
+-- Enforces the two-signal rule: supported=true requires entailment_label='entail'.
+-- Added as a separate statement so it can be applied to existing rows safely.
+-- PostgreSQL does not support ADD CONSTRAINT IF NOT EXISTS, so guard with a DO block.
+DO $$
+BEGIN
+    IF NOT EXISTS (
+        SELECT 1 FROM pg_constraint
+        WHERE conname = 'claims_supported_requires_entailment'
+    ) THEN
+        ALTER TABLE claims
+            ADD CONSTRAINT claims_supported_requires_entailment
+                CHECK (supported = false OR entailment_label = 'entail');
+    END IF;
+END $$;
+
+-- Confirm debate_turns table exists (created in 001_initial_schema.sql).
+-- This is a guard, not a creation: the migration fails fast if it was missed.
+DO $$
+BEGIN
+    IF NOT EXISTS (
+        SELECT 1 FROM information_schema.tables
+        WHERE table_name = 'debate_turns'
+    ) THEN
+        RAISE EXCEPTION 'debate_turns table missing — re-apply 001_initial_schema.sql';
+    END IF;
+END $$;
+
+
+-- ============================================================
+-- FILE: migrations/003_chunking_pipeline.sql
+-- ============================================================
+
 -- =============================================================================
 -- Migration 003 — Clause-aware chunking pipeline
 -- Extends A3 ingestion with deterministic chunk persistence and lifecycle.
@@ -542,46 +604,12 @@ alter table chunks
 create unique index if not exists chunks_chunk_id_idx on chunks (chunk_id);
 create unique index if not exists chunks_document_version_index_idx
   on chunks (document_id, chunk_version, chunk_index);
--- Phase B: add two-signal verification columns to claims
--- Entailment label + score come from the independent NLI check.
--- Confidence is the calibrated blend of all four signals.
--- The constraint enforces the two-signal rule at the DB level:
---   a claim can only be supported=true when the NLI model agreed (entail).
 
-ALTER TABLE claims
-    ADD COLUMN IF NOT EXISTS entailment_label text
-        CHECK (entailment_label IN ('entail', 'neutral', 'contradict')),
-    ADD COLUMN IF NOT EXISTS entailment_score numeric(3,2)
-        CHECK (entailment_score BETWEEN 0 AND 1),
-    ADD COLUMN IF NOT EXISTS confidence numeric(3,2)
-        CHECK (confidence BETWEEN 0 AND 1);
 
--- Enforces the two-signal rule: supported=true requires entailment_label='entail'.
--- Added as a separate statement so it can be applied to existing rows safely.
--- PostgreSQL does not support ADD CONSTRAINT IF NOT EXISTS, so guard with a DO block.
-DO $$
-BEGIN
-    IF NOT EXISTS (
-        SELECT 1 FROM pg_constraint
-        WHERE conname = 'claims_supported_requires_entailment'
-    ) THEN
-        ALTER TABLE claims
-            ADD CONSTRAINT claims_supported_requires_entailment
-                CHECK (supported = false OR entailment_label = 'entail');
-    END IF;
-END $$;
+-- ============================================================
+-- FILE: migrations/004_embedding_pipeline.sql
+-- ============================================================
 
--- Confirm debate_turns table exists (created in 001_initial_schema.sql).
--- This is a guard, not a creation: the migration fails fast if it was missed.
-DO $$
-BEGIN
-    IF NOT EXISTS (
-        SELECT 1 FROM information_schema.tables
-        WHERE table_name = 'debate_turns'
-    ) THEN
-        RAISE EXCEPTION 'debate_turns table missing — re-apply 001_initial_schema.sql';
-    END IF;
-END $$;
 -- =============================================================================
 -- Migration 004 — Embedding pipeline
 -- Extends A4 chunking with versioned embedding persistence and lifecycle.
@@ -678,6 +706,12 @@ create policy chunk_embeddings_tenant_isolation
       select jsonb_array_elements_text(auth.jwt() -> 'workspace_ids')
     )
   );
+
+
+-- ============================================================
+-- FILE: migrations/005_vector_indexing_pipeline.sql
+-- ============================================================
+
 -- =============================================================================
 -- Migration 005 — Vector indexing pipeline
 -- Extends A5 embeddings with provider-agnostic vector index synchronization.
@@ -780,6 +814,12 @@ create policy chunk_vector_index_records_tenant_isolation
       select jsonb_array_elements_text(auth.jwt() -> 'workspace_ids')
     )
   );
+
+
+-- ============================================================
+-- FILE: migrations/006_hybrid_retrieval_engine.sql
+-- ============================================================
+
 -- =============================================================================
 -- Migration 006 — Hybrid retrieval engine
 -- Adds retrieval observability for dense + sparse + fused evidence retrieval.
@@ -823,6 +863,12 @@ create policy retrieval_events_tenant_isolation
       select jsonb_array_elements_text(auth.jwt() -> 'workspace_ids')
     )
   );
+
+
+-- ============================================================
+-- FILE: migrations/007_answer_generation_platform.sql
+-- ============================================================
+
 -- =============================================================================
 -- Migration 007 — Answer generation platform
 -- Adds conversations persistence, retrieval/answer run tracking, SSE replay,
@@ -1034,6 +1080,12 @@ create policy message_citations_tenant_isolation
       select jsonb_array_elements_text(auth.jwt() -> 'workspace_ids')
     )
   );
+
+
+-- ============================================================
+-- FILE: migrations/008_verified_runtime_integration.sql
+-- ============================================================
+
 -- =============================================================================
 -- Migration 008 — Verified runtime integration
 -- Adds additive persistence for claim extraction, verification metadata,
@@ -1086,6 +1138,12 @@ alter table answer_runs
 
 alter table abstentions
   add column if not exists suggested_follow_up text;
+
+
+-- ============================================================
+-- FILE: migrations/009_eval_platform.sql
+-- ============================================================
+
 -- B3: Continuous Evaluation & Self-Improvement Platform
 -- Extends answer_evals with 7-dimension LLM-as-judge scores (0–100 scale).
 -- Adds benchmark, regression, and experiment tables.
@@ -1279,6 +1337,12 @@ ALTER TABLE experiments
 
 -- RLS: all new tables follow the standard workspace-scoped pattern.
 -- Enable after applying: ALTER TABLE ... ENABLE ROW LEVEL SECURITY; (done at deploy time)
+
+
+-- ============================================================
+-- FILE: migrations/010_quality_improvement.sql
+-- ============================================================
+
 -- B4: Autonomous Quality Improvement Platform
 -- Adds prompt versioning, optimization recommendations, quality gates,
 -- release notes, and benchmark suggestion tables.
@@ -1408,6 +1472,12 @@ CREATE INDEX IF NOT EXISTS idx_benchmark_suggestions_workspace
 
 -- RLS on all new tables follows the workspace-scoped standard.
 -- Enable RLS at deploy time: ALTER TABLE ... ENABLE ROW LEVEL SECURITY;
+
+
+-- ============================================================
+-- FILE: migrations/011_rls_and_verification.sql
+-- ============================================================
+
 -- Migration 011: RLS policies for B4 tables + verification pipeline tables
 -- Applies row-level security to all B4 quality-improvement tables and adds
 -- the three verification tables (claims, debate_turns, abstentions).
@@ -1461,8 +1531,14 @@ CREATE POLICY experiment_candidates_workspace_isolation ON experiment_candidates
 -- 2. Verification pipeline tables
 -- ============================================================
 
+-- Drop old-format tables created by 001_initial_schema.sql (used message_id).
+-- RC2 replaces them with answer_run_id references. CASCADE removes stale FKs.
+DROP TABLE IF EXISTS debate_turns CASCADE;
+DROP TABLE IF EXISTS abstentions  CASCADE;
+DROP TABLE IF EXISTS claims       CASCADE;
+
 -- Per-claim two-signal verdict stored against an answer_run
-CREATE TABLE IF NOT EXISTS claims (
+CREATE TABLE claims (
     id                  uuid PRIMARY KEY DEFAULT gen_random_uuid(),
     workspace_id        uuid NOT NULL,
     answer_run_id       uuid NOT NULL REFERENCES answer_runs(id) ON DELETE CASCADE,
@@ -1485,7 +1561,7 @@ CREATE INDEX IF NOT EXISTS claims_answer_run_id_idx ON claims(answer_run_id);
 CREATE INDEX IF NOT EXISTS claims_workspace_id_idx  ON claims(workspace_id);
 
 -- Critic ↔ Writer debate rounds stored for replay
-CREATE TABLE IF NOT EXISTS debate_turns (
+CREATE TABLE debate_turns (
     id            uuid PRIMARY KEY DEFAULT gen_random_uuid(),
     workspace_id  uuid NOT NULL,
     answer_run_id uuid NOT NULL REFERENCES answer_runs(id) ON DELETE CASCADE,
@@ -1504,7 +1580,7 @@ CREATE POLICY debate_turns_workspace_isolation ON debate_turns
 CREATE INDEX IF NOT EXISTS debate_turns_answer_run_id_idx ON debate_turns(answer_run_id);
 
 -- Abstention records — when calibrated trust < threshold the system declines to answer
-CREATE TABLE IF NOT EXISTS abstentions (
+CREATE TABLE abstentions (
     id                  uuid PRIMARY KEY DEFAULT gen_random_uuid(),
     workspace_id        uuid NOT NULL,
     answer_run_id       uuid NOT NULL REFERENCES answer_runs(id) ON DELETE CASCADE,
@@ -1529,3 +1605,5 @@ CREATE INDEX IF NOT EXISTS abstentions_workspace_id_idx  ON abstentions(workspac
 
 ALTER TABLE retrieval_run_evidence
     ADD COLUMN IF NOT EXISTS rerank_score numeric(6,5);
+
+

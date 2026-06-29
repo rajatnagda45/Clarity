@@ -31,6 +31,7 @@ _jwks_lock = threading.Lock()
 
 # Paths that don't require authentication
 _PUBLIC_PATHS = {"/", "/health", "/api/health", "/docs", "/openapi.json", "/redoc"}
+_PUBLIC_PATH_PREFIXES = ("/api/documents/dev-file/",)
 
 
 class AuthMiddleware(BaseHTTPMiddleware):
@@ -38,7 +39,7 @@ class AuthMiddleware(BaseHTTPMiddleware):
         super().__init__(app)
 
     async def dispatch(self, request: Request, call_next: Callable):
-        if request.url.path in _PUBLIC_PATHS or request.method == "OPTIONS":
+        if request.url.path in _PUBLIC_PATHS or request.method == "OPTIONS" or any(request.url.path.startswith(p) for p in _PUBLIC_PATH_PREFIXES):
             return await call_next(request)
 
         auth_header = request.headers.get("Authorization", "")
@@ -80,9 +81,15 @@ class AuthMiddleware(BaseHTTPMiddleware):
                 content={"error": "Token missing sub claim"},
             )
 
+        # Clerk JWTs won't contain workspace_ids unless a custom session claim template
+        # is configured in the Clerk dashboard. Fall back to a DB membership lookup so
+        # the app works before that template is set up.
+        if not workspace_ids:
+            workspace_ids = _get_workspace_ids_for_user(user_id)
+
         request.state.user_id = user_id
         request.state.workspace_ids = workspace_ids
-        # Convenience: active workspace from header (validated against token's list)
+        # Convenience: active workspace from header (validated against membership list)
         requested_ws = request.headers.get("X-Workspace-Id", "")
         if requested_ws and requested_ws not in workspace_ids:
             return JSONResponse(
@@ -186,6 +193,23 @@ def _decode_header(token: str) -> dict:
     padding = "=" * (4 - len(header_segment) % 4)
     decoded = base64.urlsafe_b64decode(header_segment + padding)
     return json.loads(decoded)
+
+
+def _get_workspace_ids_for_user(user_id: str) -> list[str]:
+    """Look up workspace memberships from DB when JWT has no workspace_ids claim."""
+    try:
+        from db.client import get_client
+        result = (
+            get_client()
+            .table("memberships")
+            .select("workspace_id")
+            .eq("user_id", user_id)
+            .execute()
+        )
+        return [row["workspace_id"] for row in (result.data or [])]
+    except Exception as exc:
+        logger.warning("Workspace membership lookup failed for user %s: %s", user_id, exc)
+        return []
 
 
 def require_workspace(request: Request) -> str:

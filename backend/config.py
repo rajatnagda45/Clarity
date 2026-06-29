@@ -26,8 +26,8 @@ class Settings(BaseSettings):
     pinecone_index: str = "clarity"
     pinecone_dim: int = 1536
 
-    # Cohere
-    cohere_api_key: str
+    # Cohere (optional — only needed for reranking)
+    cohere_api_key: str = ""
 
     # Supabase
     supabase_url: str
@@ -42,14 +42,14 @@ class Settings(BaseSettings):
     clerk_jwt_audience: str = ""  # optional audience claim check (legacy compat)
     developer_user_ids: str = ""  # comma-separated user IDs (legacy compat); parse with .split(",") if needed
 
-    # Upstash Redis
-    upstash_redis_rest_url: str
-    upstash_redis_rest_token: str
+    # Upstash Redis (optional — set RETRIEVAL_CACHE_TTL_SECONDS=0 to disable)
+    upstash_redis_rest_url: str = ""
+    upstash_redis_rest_token: str = ""
 
-    # Cloudflare R2
-    r2_account_id: str
-    r2_access_key_id: str
-    r2_secret_access_key: str
+    # Cloudflare R2 (optional — falls back to local filesystem storage in dev mode)
+    r2_account_id: str = ""
+    r2_access_key_id: str = ""
+    r2_secret_access_key: str = ""
     r2_bucket: str = "clarity-docs"
     r2_endpoint_url: str | None = None
 
