@@ -39,6 +39,38 @@ describe('chat stream reducer', () => {
     expect(state.errorMessage).toBe('boom');
 
     state = applyStreamEvent(state, {
+      type: 'claim',
+      claim: {
+        id: 'claim-1',
+        text: 'It renews annually.',
+        spanIds: ['chunk-1'],
+        citationKeys: ['E1'],
+        verificationPass: 1,
+        supported: true,
+        uncertain: false,
+        criticStatus: 'supported',
+      },
+    });
+    state = applyStreamEvent(state, {
+      type: 'debate_turn',
+      round: 0,
+      actor: 'critic',
+      action: 'resolve',
+      note: 'Supported by the cited clause.',
+    });
+    state = applyStreamEvent(state, {
+      type: 'trust',
+      score: {
+        faithfulness: 1,
+        relevance: null,
+        overall: 0.88,
+        confidence: 0.88,
+        calibrated: true,
+        confidenceBand: 'high',
+      },
+    });
+
+    state = applyStreamEvent(state, {
       type: 'message',
       message: {
         id: 'msg-assistant',
@@ -49,11 +81,57 @@ describe('chat stream reducer', () => {
         createdAt: '2026-06-29T00:00:00Z',
         answerRunId: 'answer-1',
         retrievalRunId: 'retrieval-1',
+        trust: {
+          faithfulness: 1,
+          relevance: null,
+          overall: 0.88,
+          confidence: 0.88,
+          calibrated: true,
+          confidenceBand: 'high',
+        },
+        abstention: null,
+        claims: [
+          {
+            id: 'claim-1',
+            text: 'It renews annually.',
+            spanIds: ['chunk-1'],
+            citationKeys: ['E1'],
+            verificationPass: 1,
+            supported: true,
+            uncertain: false,
+            criticStatus: 'supported',
+          },
+        ],
+        debateTurns: [{ round: 0, actor: 'critic', action: 'resolve', note: 'Supported by the cited clause.' }],
+        retrievedEvidence: [],
         citations: [],
       },
     });
 
     expect(state.finishedMessage?.id).toBe('msg-assistant');
     expect(state.content).toBe('Final answer');
+    expect(state.claims).toHaveLength(1);
+    expect(state.trust?.confidenceBand).toBe('high');
+  });
+
+  it('stores abstention payloads and trust during streaming', () => {
+    let state = createStreamingAnswerState();
+    state = applyStreamEvent(state, {
+      type: 'abstention',
+      reason: 'No span states a cancellation window.',
+      missingEvidenceQuery: 'termination notice cancellation',
+      suggestedFollowUp: 'Ask specifically about the termination clause.',
+      trust: {
+        faithfulness: 0.2,
+        relevance: null,
+        overall: 0.3,
+        confidence: 0.3,
+        calibrated: true,
+        confidenceBand: 'low',
+      },
+    });
+
+    expect(state.abstention?.reason).toContain('No span states');
+    expect(state.trust?.confidenceBand).toBe('low');
   });
 });

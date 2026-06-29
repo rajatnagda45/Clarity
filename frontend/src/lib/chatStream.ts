@@ -1,4 +1,4 @@
-import type { Citation, Message, StreamEvent } from '@/types/clarity';
+import type { Abstention, Citation, Claim, DebateTurn, Message, RetrievalNormalizedQuery, StreamEvent, TrustScore } from '@/types/clarity';
 
 
 export interface StreamingAnswerState {
@@ -8,6 +8,12 @@ export interface StreamingAnswerState {
   assistantMessageId: string | null;
   content: string;
   citations: Citation[];
+  claims: Claim[];
+  trust: TrustScore | null;
+  abstention: Abstention | null;
+  debateTurns: DebateTurn[];
+  normalizedQuery: RetrievalNormalizedQuery | null;
+  retrievalResultCount: number;
   finishedMessage: Message | null;
   lastSequence: number;
   errorMessage: string | null;
@@ -22,6 +28,12 @@ export function createStreamingAnswerState(): StreamingAnswerState {
     assistantMessageId: null,
     content: '',
     citations: [],
+    claims: [],
+    trust: null,
+    abstention: null,
+    debateTurns: [],
+    normalizedQuery: null,
+    retrievalResultCount: 0,
     finishedMessage: null,
     lastSequence: 0,
     errorMessage: null,
@@ -52,6 +64,44 @@ export function applyStreamEvent(
         ...state,
         citations: [...state.citations, event.citation],
       };
+    case 'claim':
+      return {
+        ...state,
+        claims: [...state.claims.filter((claim) => claim.id !== event.claim.id), event.claim],
+      };
+    case 'debate_turn':
+      return {
+        ...state,
+        debateTurns: [...state.debateTurns, {
+          round: event.round,
+          actor: event.actor,
+          action: event.action,
+          claimId: event.claimId,
+          createdAt: null,
+          note: event.note,
+        }],
+      };
+    case 'trust':
+      return {
+        ...state,
+        trust: event.score,
+      };
+    case 'abstention':
+      return {
+        ...state,
+        abstention: {
+          reason: event.reason,
+          missingEvidenceQuery: event.missingEvidenceQuery,
+          suggestedFollowUp: event.suggestedFollowUp,
+        },
+        trust: event.trust ?? state.trust,
+      };
+    case 'retrieval':
+      return {
+        ...state,
+        normalizedQuery: event.normalizedQuery,
+        retrievalResultCount: event.resultCount,
+      };
     case 'message':
       return {
         ...state,
@@ -59,6 +109,10 @@ export function applyStreamEvent(
         assistantMessageId: event.message.id,
         content: event.message.content,
         citations: event.message.citations,
+        claims: event.message.claims,
+        trust: event.message.trust ?? null,
+        abstention: event.message.abstention ?? null,
+        debateTurns: event.message.debateTurns,
       };
     case 'error':
       return {

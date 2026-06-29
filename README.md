@@ -3,7 +3,7 @@
 > **An AI contract auditor that catches its own hallucinations, proves every claim against the exact source text, and shows you a measured trust score for each answer.**
 
 [![CI](https://github.com/rajatnagda45/Clarity/actions/workflows/ci.yml/badge.svg)](https://github.com/rajatnagda45/Clarity/actions/workflows/ci.yml)
-![Phase](https://img.shields.io/badge/phase-B1%20verified%20runtime-blue)
+![Phase](https://img.shields.io/badge/phase-B2%20verified%20answer%20experience-blue)
 ![Stack](https://img.shields.io/badge/stack-Next.js%2015%20%2B%20FastAPI%20%2B%20LangGraph-informational)
 ![License](https://img.shields.io/badge/license-MIT-green)
 
@@ -11,7 +11,7 @@
 
 ## Current Status
 
-Phase **A** is complete, and **Phase B1** is now live in the backend runtime.
+Phase **A** is complete, **Phase B1** is live in the backend runtime, and **Phase B2** now exposes verified answers in the user-facing UI.
 
 Implemented today:
 - Clerk-backed protected app shell for `/dashboard`, `/documents`, and `/chat`
@@ -59,13 +59,17 @@ Implemented today:
 - calibrated trust persistence on `answer_runs` with confidence bands and abstention state
 - streamed Phase B runtime events for `claim`, `debate_turn`, `trust`, and `abstention`
 - persisted debate turns, abstentions, and verification metadata exposed through developer APIs
+- end-user trust badge with calibrated confidence band, support rate, and verification pass count
+- verified claim chips with critic notes, support probabilities, and direct provenance links
+- debate timeline, verification timeline, trust breakdown, contradiction viewer, and abstention UX in chat
+- conversation reload now restores trust, claims, debate turns, abstentions, and retrieval evidence
+- upgraded provenance viewer with claim metadata, confidence, support probability, and lazy-loaded PDF evidence
+- improved developer verification explorer showing claims, critic/NLI outcomes, calibration context, trust, and replay events
 - deterministic document lifecycle through `uploaded → extracted → normalized → metadata_ready → awaiting_chunking → chunking → chunked → awaiting_embeddings → embedding → embedded → awaiting_index → indexing → indexed`
 - resumable artifact persistence for ingestion stages
 - backend and frontend test baseline still green after the milestone
 
 Not implemented yet:
-- trust badge / calibrated confidence UI
-- debate panel / abstention UI
 - offline calibration workflow and Phase B evaluation surfaces
 
 A6 technical debt notes recorded for retrieval-adjacent parsing hardening:
@@ -117,8 +121,24 @@ Clarity solves both. Every answer is verified before it leaves the system, and e
 3. Watch the reasoning graph light up: Supervisor → Retriever → Writer → Critic → NLI
 4. Receive a streaming, cited answer grounded in retrieved evidence
 5. Click any claim → the original PDF opens at the cited page with the exact extracted support span
-6. The backend runtime verifies claims, emits debate/trust events, and abstains when confidence is too low
+6. Watch trust, verification steps, claim verdicts, debate, contradictions, and abstention state update live beside the answer
 ```
+
+## Verified Answer Experience
+
+Phase B2 turns verification from hidden runtime state into the primary answer experience:
+
+- **Trust Badge.** Every assistant answer shows calibrated confidence, confidence band, support rate, and verification pass count.
+- **Verified Claims.** Claims render as explicit chips with status, critic note, support probability, and one-click provenance access.
+- **Debate + Verification Timeline.** Users can inspect draft → critique → revision → finalization without opening developer tooling.
+- **Trust Breakdown.** Retrieval confidence, critic confidence, NLI confidence, citation coverage, claim coverage, and final trust are explained in one card.
+- **Abstention UX.** Low-confidence runs are presented as honest abstentions with missing evidence and a suggested follow-up.
+- **Contradiction Presentation.** Related workspace contradictions can be inspected directly from the answer surface.
+
+Screenshots:
+- Placeholder: verified answer card with trust badge and claim chips
+- Placeholder: debate timeline and trust breakdown
+- Placeholder: provenance viewer with highlighted sentence and claim details
 
 ---
 

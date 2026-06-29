@@ -1,18 +1,31 @@
 'use client';
 
 import Link from 'next/link';
+import dynamic from 'next/dynamic';
 import { useAuth } from '@clerk/nextjs';
 import { useParams, useSearchParams } from 'next/navigation';
 import { useEffect, useMemo, useState } from 'react';
 
 import { getClaimSpans, getDocumentFile } from '@/lib/api';
+import { formatPercent } from '@/lib/verifiedAnswer';
 import type { DocumentFile, SpanRef } from '@/types/clarity';
+
+
+const PdfEvidenceViewer = dynamic(
+  () => import('@/components/provenance/PdfEvidenceViewer').then((module) => module.PdfEvidenceViewer),
+  { ssr: false },
+);
 
 
 export default function ProvenanceViewerPage() {
   const params = useParams<{ documentId: string; chunkId: string }>();
   const searchParams = useSearchParams();
   const workspaceId = searchParams.get('workspace') ?? '';
+  const citationKey = searchParams.get('citationKey');
+  const claimText = searchParams.get('claimText');
+  const criticStatus = searchParams.get('criticStatus');
+  const confidence = searchParams.get('confidence');
+  const supportProbability = searchParams.get('supportProbability');
   const { getToken } = useAuth();
 
   const [documentFile, setDocumentFile] = useState<DocumentFile | null>(null);
@@ -74,60 +87,52 @@ export default function ProvenanceViewerPage() {
 
       {errorMessage ? <p className="text-sm text-red-600">{errorMessage}</p> : null}
 
-      <div className="grid gap-6 lg:grid-cols-[1.4fr_1fr]">
-        <section className="rounded-3xl border border-slate-200 bg-white p-4 shadow-sm">
-          <div className="mb-4 flex items-center justify-between gap-3">
-            <p className="text-sm text-slate-600">Current page: {currentPage}</p>
-            <div className="flex gap-2">
-              <button
-                type="button"
-                onClick={() => setCurrentPage((page) => Math.max(1, page - 1))}
-                className="rounded-full border border-slate-300 px-3 py-1 text-sm text-slate-700"
-              >
-                Previous
-              </button>
-              <button
-                type="button"
-                onClick={() => setCurrentPage((page) => page + 1)}
-                className="rounded-full border border-slate-300 px-3 py-1 text-sm text-slate-700"
-              >
-                Next
-              </button>
-            </div>
-          </div>
-          {documentFile ? (
-            <iframe
-              title="Source document"
-              src={`${documentFile.signedUrl}#page=${currentPage}`}
-              className="h-[70vh] w-full rounded-2xl border border-slate-200"
-            />
-          ) : (
-            <div className="flex h-[70vh] items-center justify-center rounded-2xl border border-dashed border-slate-300 bg-slate-50 text-sm text-slate-600">
-              Loading signed document…
-            </div>
-          )}
-        </section>
+      <div className="grid gap-6 xl:grid-cols-[1.4fr_1fr]">
+        <PdfEvidenceViewer
+          currentPage={currentPage}
+          documentFile={documentFile}
+          onPreviousPage={() => setCurrentPage((page) => Math.max(1, page - 1))}
+          onNextPage={() => setCurrentPage((page) => page + 1)}
+        />
 
-        <section className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
-          <h2 className="text-xl font-semibold text-slate-900">Exact highlighted spans</h2>
-          <p className="mt-1 text-sm text-slate-600">
-            These spans come directly from stored source offsets for this citation.
-          </p>
-          <div className="mt-5 space-y-4">
-            {visibleSpans.map((span, index) => (
-              <article key={`${span.chunkId}-${index}`} className="rounded-2xl border border-blue-200 bg-blue-50 p-4">
-                <p className="text-xs font-semibold uppercase tracking-[0.16em] text-blue-700">
-                  Page {span.page} · chars {span.charStart}-{span.charEnd}
-                </p>
-                <p className="mt-3 whitespace-pre-wrap text-sm leading-7 text-slate-900">{span.text}</p>
-              </article>
-            ))}
-            {visibleSpans.length === 0 ? (
-              <div className="rounded-2xl border border-dashed border-slate-300 bg-slate-50 p-4 text-sm text-slate-600">
-                No exact spans are mapped to this page.
-              </div>
+        <section className="space-y-4">
+          <article className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
+            <h2 className="text-xl font-semibold text-slate-900">Claim details</h2>
+            <div className="mt-4 grid gap-3 text-sm text-slate-700">
+              <p><span className="font-semibold text-slate-900">Citation:</span> {citationKey ?? 'Direct span lookup'}</p>
+              <p><span className="font-semibold text-slate-900">Verification:</span> {criticStatus ?? 'Unknown'}</p>
+              <p><span className="font-semibold text-slate-900">Confidence:</span> {formatPercent(confidence ? Number(confidence) : null)}</p>
+              <p><span className="font-semibold text-slate-900">Support probability:</span> {formatPercent(supportProbability ? Number(supportProbability) : null)}</p>
+            </div>
+            {claimText ? (
+              <p className="mt-4 whitespace-pre-wrap rounded-2xl bg-slate-50 p-4 text-sm leading-7 text-slate-900">
+                {claimText}
+              </p>
             ) : null}
-          </div>
+          </article>
+
+          <article className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
+            <h2 className="text-xl font-semibold text-slate-900">Exact highlighted spans</h2>
+            <p className="mt-1 text-sm text-slate-600">
+              These spans come directly from stored source offsets for this citation or claim.
+            </p>
+            <div className="mt-5 space-y-4">
+              {visibleSpans.map((span, index) => (
+                <article key={`${span.chunkId}-${index}`} className="rounded-2xl border border-blue-200 bg-blue-50 p-4">
+                  <p className="text-xs font-semibold uppercase tracking-[0.16em] text-blue-700">
+                    Page {span.page} · chars {span.charStart}-{span.charEnd}
+                  </p>
+                  <p className="mt-2 text-xs text-slate-500">Rerank score: {formatPercent(span.rerankScore)}</p>
+                  <p className="mt-3 whitespace-pre-wrap text-sm leading-7 text-slate-900">{span.text}</p>
+                </article>
+              ))}
+              {visibleSpans.length === 0 ? (
+                <div className="rounded-2xl border border-dashed border-slate-300 bg-slate-50 p-4 text-sm text-slate-600">
+                  No exact spans are mapped to this page.
+                </div>
+              ) : null}
+            </div>
+          </article>
         </section>
       </div>
     </div>
