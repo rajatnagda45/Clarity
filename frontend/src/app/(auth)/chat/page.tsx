@@ -170,7 +170,7 @@ function streamingMessageFromState(workspaceId: string, state: StreamingAnswerSt
     abstention: state.abstention,
     claims: state.claims,
     debateTurns: state.debateTurns,
-    retrievedEvidence: [],
+    retrievedEvidence: state.retrievedEvidence,
     citations: state.citations,
   };
 }

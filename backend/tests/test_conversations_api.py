@@ -19,6 +19,7 @@ def _query_with_rows(rows: list[dict]):
     query = MagicMock()
     query.select.return_value = query
     query.eq.return_value = query
+    query.in_.return_value = query
     query.order.return_value = query
     query.limit.return_value = query
     query.execute.return_value = SimpleNamespace(data=rows)
@@ -122,7 +123,7 @@ async def test_get_conversation_restores_verification_metadata(client, token_a, 
         [
             {
                 "message_id": "msg-assistant",
-                "round_number": 0,
+                "round": 0,
                 "actor": "writer",
                 "action": "draft",
                 "claim_id": None,

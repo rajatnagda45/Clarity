@@ -19,6 +19,7 @@ def _query_with_rows(rows: list[dict]):
     query = MagicMock()
     query.select.return_value = query
     query.eq.return_value = query
+    query.in_.return_value = query
     query.order.return_value = query
     query.limit.return_value = query
     query.execute.return_value = SimpleNamespace(data=rows)
