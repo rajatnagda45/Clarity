@@ -29,6 +29,13 @@ from api.routers import workspaces
 from api.routers import evaluations
 from api.routers import benchmarks
 from api.routers import regressions
+from api.routers import experiments
+from api.routers import prompts
+from api.routers import optimization
+from api.routers import quality_gates
+from api.routers import release_notes
+from api.routers import model_comparisons
+from api.routers import benchmark_suggestions
 
 
 @asynccontextmanager
@@ -93,3 +100,10 @@ app.include_router(developer.router)
 app.include_router(evaluations.router)
 app.include_router(benchmarks.router)
 app.include_router(regressions.router)
+app.include_router(experiments.router)
+app.include_router(prompts.router)
+app.include_router(optimization.router)
+app.include_router(quality_gates.router)
+app.include_router(release_notes.router)
+app.include_router(model_comparisons.router)
+app.include_router(benchmark_suggestions.router)
