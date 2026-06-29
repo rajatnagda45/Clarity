@@ -29,6 +29,9 @@ from api.routers import contradictions
 from api.routers import messages
 from api.routers import retrieval
 from api.routers import workspaces
+from api.routers import evaluations
+from api.routers import benchmarks
+from api.routers import regressions
 
 
 @asynccontextmanager
@@ -93,3 +96,6 @@ app.include_router(contradictions.router)
 app.include_router(messages.router)
 app.include_router(claims.router)
 app.include_router(developer.router)
+app.include_router(evaluations.router)
+app.include_router(benchmarks.router)
+app.include_router(regressions.router)
