@@ -38,36 +38,30 @@ describe('chat stream reducer', () => {
     state = applyStreamEvent(state, { type: 'error', code: 'writer_failed', message: 'boom' });
     expect(state.errorMessage).toBe('boom');
 
+    // RC2: claim is a string in SSE; full Claim objects arrive via the message event
     state = applyStreamEvent(state, {
       type: 'claim',
-      claim: {
-        id: 'claim-1',
-        text: 'It renews annually.',
-        spanIds: ['chunk-1'],
-        citationKeys: ['E1'],
-        verificationPass: 1,
-        supported: true,
-        uncertain: false,
-        criticStatus: 'supported',
-      },
+      claim: 'It renews annually.',
+      verdict: 'supported',
+      criticVerdict: 'supported',
+      nliLabel: 'entailment',
+      nliScore: 0.97,
+      evidenceSpans: ['chunk-1'],
     });
+    // RC2: debate_turn carries turn number, claim text, verdict, reasoning
     state = applyStreamEvent(state, {
       type: 'debate_turn',
-      round: 0,
-      actor: 'critic',
-      action: 'resolve',
-      note: 'Supported by the cited clause.',
+      turn: 1,
+      claim: 'It renews annually.',
+      verdict: 'supported',
+      reasoning: 'Supported by the cited clause.',
     });
+    // RC2: trust carries raw + calibrated scores
     state = applyStreamEvent(state, {
       type: 'trust',
-      score: {
-        faithfulness: 1,
-        relevance: null,
-        overall: 0.88,
-        confidence: 0.88,
-        calibrated: true,
-        confidenceBand: 'high',
-      },
+      raw: 0.88,
+      calibrated: 0.88,
+      components: {},
     });
 
     state = applyStreamEvent(state, {
@@ -142,19 +136,20 @@ describe('chat stream reducer', () => {
 
   it('stores abstention payloads and trust during streaming', () => {
     let state = createStreamingAnswerState();
+    // RC2: trust event sets the trust score
+    state = applyStreamEvent(state, {
+      type: 'trust',
+      raw: 0.3,
+      calibrated: 0.3,
+      components: {},
+    });
+    // RC2: abstention event carries reason, trustScore, threshold
     state = applyStreamEvent(state, {
       type: 'abstention',
       reason: 'No span states a cancellation window.',
+      trustScore: 0.3,
+      threshold: 0.6,
       missingEvidenceQuery: 'termination notice cancellation',
-      suggestedFollowUp: 'Ask specifically about the termination clause.',
-      trust: {
-        faithfulness: 0.2,
-        relevance: null,
-        overall: 0.3,
-        confidence: 0.3,
-        calibrated: true,
-        confidenceBand: 'low',
-      },
     });
 
     expect(state.abstention?.reason).toContain('No span states');

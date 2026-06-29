@@ -384,9 +384,9 @@ export interface Message {
   retrievalRunId?: string | null;
   trust?: TrustScore | null;
   abstention?: Abstention | null;
-  claims: Claim[];
-  debateTurns: DebateTurn[];
-  retrievedEvidence: RetrievalEvidence[];
+  claims?: Claim[];
+  debateTurns?: DebateTurn[];
+  retrievedEvidence?: RetrievalEvidence[];
   citations: Citation[];
 }
 
@@ -424,13 +424,6 @@ export type StreamEvent =
   | { type: 'graph_node'; node: string; status: 'started' | 'finished'; summary?: string }
   | { type: 'retrieval'; normalizedQuery: RetrievalNormalizedQuery; resultCount: number }
   | { type: 'token'; text: string }
-  | { type: 'claim'; claim: Claim }
-  | { type: 'debate_turn'; round: number; actor: 'writer' | 'critic'; action: DebateTurn['action']; claimId?: string; note?: string }
-  | { type: 'trust'; score: TrustScore }
-  | ({ type: 'abstention' } & Abstention & { trust?: TrustScore })
-  | { type: 'citation'; citation: Citation }
-  | { type: 'message'; message: Message }
-  | { type: 'error'; code: string; message: string }
   | {
       type: 'claim';
       claim: string;
@@ -460,6 +453,9 @@ export type StreamEvent =
       threshold: number;
       missingEvidenceQuery?: string;
     }
+  | { type: 'citation'; citation: Citation }
+  | { type: 'message'; message: Message }
+  | { type: 'error'; code: string; message: string }
   | { type: 'done' };
 
 export interface ConversationDetail {

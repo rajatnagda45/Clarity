@@ -1,5 +1,7 @@
 "use client";
 
+import React from 'react';
+
 interface TrustBadgeProps {
   calibrated: number; // 0.0 – 1.0
   raw?: number;

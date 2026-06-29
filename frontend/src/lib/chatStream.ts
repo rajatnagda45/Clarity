@@ -77,36 +77,33 @@ export function applyStreamEvent(
         citations: [...state.citations, event.citation],
       };
     case 'claim':
-      return {
-        ...state,
-        claims: [...state.claims.filter((claim) => claim.id !== event.claim.id), event.claim],
-      };
+      // RC2: claim is a string; full Claim objects arrive via the 'message' event from DB
+      return state;
     case 'debate_turn':
-      return {
-        ...state,
-        debateTurns: [...state.debateTurns, {
-          round: event.round,
-          actor: event.actor,
-          action: event.action,
-          claimId: event.claimId,
-          createdAt: null,
-          note: event.note,
-        }],
-      };
+      // RC2: {turn, claim, verdict, reasoning}; page.tsx manages streamingDebateTurns separately
+      return state;
     case 'trust':
+      // RC2: {raw, calibrated, components}
       return {
         ...state,
-        trust: event.score,
+        trust: {
+          faithfulness: event.calibrated,
+          relevance: null,
+          overall: event.raw,
+          confidence: event.calibrated,
+          calibrated: true,
+          confidenceBand: event.calibrated >= 0.80 ? 'high' : event.calibrated >= 0.60 ? 'medium' : 'low',
+        } satisfies TrustScore,
       };
     case 'abstention':
+      // RC2: {reason, trustScore, threshold, missingEvidenceQuery?}
       return {
         ...state,
         abstention: {
           reason: event.reason,
-          missingEvidenceQuery: event.missingEvidenceQuery,
-          suggestedFollowUp: event.suggestedFollowUp,
+          missingEvidenceQuery: event.missingEvidenceQuery ?? null,
+          suggestedFollowUp: null,
         },
-        trust: event.trust ?? state.trust,
       };
     case 'retrieval':
       return {
@@ -121,11 +118,11 @@ export function applyStreamEvent(
         assistantMessageId: event.message.id,
         content: event.message.content,
         citations: event.message.citations,
-        claims: event.message.claims,
-        retrievedEvidence: event.message.retrievedEvidence,
+        claims: event.message.claims ?? [],
+        retrievedEvidence: event.message.retrievedEvidence ?? [],
         trust: event.message.trust ?? null,
         abstention: event.message.abstention ?? null,
-        debateTurns: event.message.debateTurns,
+        debateTurns: event.message.debateTurns ?? [],
       };
     case 'error':
       return {

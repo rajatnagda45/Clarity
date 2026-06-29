@@ -134,26 +134,26 @@ export default function DeveloperAnswersPage() {
               </div>
             </div>
 
-            <TrustBadge trust={run.trust} claims={run.claims} debateTurns={run.debateTurns} />
+            {run.trust && <TrustBadge calibrated={run.trust.confidence} raw={run.trust.overall} />}
             <VerificationTimeline
               steps={buildVerificationTimeline(
                 {
-                  claims: run.claims,
-                  debateTurns: run.debateTurns,
+                  claims: run.claims ?? [],
+                  debateTurns: run.debateTurns ?? [],
                   trust: run.trust ?? null,
                   abstention: run.abstention ?? null,
-                  retrievedEvidence: run.retrievedEvidence,
+                  retrievedEvidence: run.retrievedEvidence ?? [],
                 },
                 false,
               )}
             />
-            <TrustBreakdown trust={run.trust} claims={run.claims} retrievedEvidence={run.retrievedEvidence} />
+            <TrustBreakdown trust={run.trust} claims={run.claims ?? []} retrievedEvidence={run.retrievedEvidence ?? []} />
 
-            {run.claims.length > 0 ? (
+            {(run.claims ?? []).length > 0 ? (
               <section className="space-y-3">
                 <h3 className="text-sm font-semibold text-slate-900">Claims</h3>
                 <div className="grid gap-3">
-                  {run.claims.map((claim) => (
+                  {(run.claims ?? []).map((claim) => (
                     <VerifiedClaimChip
                       key={claim.id}
                       claim={claim}
@@ -165,7 +165,7 @@ export default function DeveloperAnswersPage() {
               </section>
             ) : null}
 
-            <DebatePanel debateTurns={run.debateTurns} />
+            <DebatePanel turns={[]} />
 
             <div className="grid gap-4 xl:grid-cols-2">
               <div className="rounded-2xl bg-slate-50 p-4">
@@ -184,7 +184,7 @@ export default function DeveloperAnswersPage() {
               <div>
                 <h3 className="text-sm font-semibold text-slate-900">Retrieved evidence</h3>
                 <ul className="mt-2 space-y-2 text-sm text-slate-600">
-                  {run.retrievedEvidence.map((evidence) => (
+                  {(run.retrievedEvidence ?? []).map((evidence) => (
                     <li key={evidence.chunkId} className="rounded-2xl bg-slate-50 p-3">
                       <p className="font-medium text-slate-900">{evidence.sectionTitle || evidence.chunkId}</p>
                       <p>Rank {evidence.finalRank} · pages {evidence.pageStart}-{evidence.pageEnd}</p>

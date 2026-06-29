@@ -47,13 +47,13 @@ const trust = {
 describe('verified answer helpers and components', () => {
   it('renders trust badge details and verified claim chips', () => {
     const trustMarkup = renderToStaticMarkup(
-      <TrustBadge trust={trust} claims={[claim]} debateTurns={[{ round: 0, actor: 'writer', action: 'draft' }]} />,
+      <TrustBadge calibrated={trust.confidence} raw={trust.overall} />,
     );
     const claimMarkup = renderToStaticMarkup(
       <VerifiedClaimChip claim={claim} citations={[citation]} workspaceId="ws-1" />,
     );
 
-    expect(trustMarkup).toContain('Overall Trust Score');
+    expect(trustMarkup).toContain('High trust');
     expect(trustMarkup).toContain('91%');
     expect(claimMarkup).toContain('Verified');
     expect(claimMarkup).toContain('Matches the cited renewal clause.');
@@ -134,7 +134,7 @@ describe('verified answer helpers and components', () => {
 
   it('renders debate, timeline, and abstention experiences', () => {
     const debateMarkup = renderToStaticMarkup(
-      <DebatePanel debateTurns={[{ round: 0, actor: 'writer', action: 'draft', note: 'Prepared 1 claim.' }]} />,
+      <DebatePanel turns={[{ turn: 1, claim: 'It renews annually.', verdict: 'supported', reasoning: 'Prepared 1 claim.' }]} />,
     );
     const timelineMarkup = renderToStaticMarkup(
       <VerificationTimeline
@@ -145,18 +145,16 @@ describe('verified answer helpers and components', () => {
     );
     const abstentionMarkup = renderToStaticMarkup(
       <AbstentionCard
-        abstention={{
-          reason: 'I could not verify the cancellation window.',
-          missingEvidenceQuery: 'termination notice cancellation',
-          suggestedFollowUp: 'Ask about the termination clause directly.',
-        }}
-        trust={{ ...trust, confidence: 0.3, confidenceBand: 'low' }}
+        reason="I could not verify the cancellation window."
+        trustScore={0.3}
+        threshold={0.6}
+        missingEvidenceQuery="termination notice cancellation"
       />,
     );
 
-    expect(debateMarkup).toContain('Debate Timeline');
+    expect(debateMarkup).toContain('Critic review');
     expect(timelineMarkup).toContain('Claim Extraction');
-    expect(abstentionMarkup).toContain('I don');
+    expect(abstentionMarkup).toContain('cancellation');
   });
 
   it('filters related contradictions by cited or retrieved documents', () => {

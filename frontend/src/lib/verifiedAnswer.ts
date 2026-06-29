@@ -181,10 +181,12 @@ export function buildVerificationTimeline(
   message: Pick<Message, 'claims' | 'debateTurns' | 'trust' | 'abstention' | 'retrievedEvidence'>,
   isStreaming: boolean,
 ): VerificationTimelineStep[] {
-  const hasClaims = message.claims.length > 0;
-  const hasCritic = message.debateTurns.some((turn) => turn.actor === 'critic');
-  const hasRevision = message.debateTurns.some((turn) => turn.action === 'revise');
-  const hasNli = message.claims.some((claim) => claim.entailmentLabel || claim.supportProbability != null);
+  const claims = message.claims ?? [];
+  const debateTurns = message.debateTurns ?? [];
+  const hasClaims = claims.length > 0;
+  const hasCritic = debateTurns.some((turn) => turn.actor === 'critic');
+  const hasRevision = debateTurns.some((turn) => turn.action === 'revise');
+  const hasNli = claims.some((claim) => claim.entailmentLabel || claim.supportProbability != null);
   const hasTrust = message.trust != null;
   const hasAbstention = message.abstention != null;
 
@@ -193,7 +195,7 @@ export function buildVerificationTimeline(
       id: 'claims',
       label: 'Claim Extraction',
       status: hasClaims ? 'completed' : isStreaming ? 'running' : 'skipped',
-      summary: hasClaims ? `${message.claims.length} claim(s) extracted.` : 'Waiting for claims.',
+      summary: hasClaims ? `${claims.length} claim(s) extracted.` : 'Waiting for claims.',
     },
     {
       id: 'critic',
@@ -254,7 +256,7 @@ export function buildProvenanceHref(options: {
 export function getRelatedContradictions(message: Message, contradictions: Contradiction[]): Contradiction[] {
   const relatedDocumentIds = new Set([
     ...message.citations.map((citation) => citation.documentId),
-    ...message.retrievedEvidence.map((evidence) => evidence.documentId),
+    ...(message.retrievedEvidence ?? []).map((evidence) => evidence.documentId),
   ]);
   return contradictions.filter(
     (contradiction) => relatedDocumentIds.has(contradiction.docA) || relatedDocumentIds.has(contradiction.docB),
