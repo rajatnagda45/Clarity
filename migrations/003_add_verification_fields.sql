@@ -14,9 +14,18 @@ ALTER TABLE claims
 
 -- Enforces the two-signal rule: supported=true requires entailment_label='entail'.
 -- Added as a separate statement so it can be applied to existing rows safely.
-ALTER TABLE claims
-    ADD CONSTRAINT IF NOT EXISTS claims_supported_requires_entailment
-        CHECK (supported = false OR entailment_label = 'entail');
+-- PostgreSQL does not support ADD CONSTRAINT IF NOT EXISTS, so guard with a DO block.
+DO $$
+BEGIN
+    IF NOT EXISTS (
+        SELECT 1 FROM pg_constraint
+        WHERE conname = 'claims_supported_requires_entailment'
+    ) THEN
+        ALTER TABLE claims
+            ADD CONSTRAINT claims_supported_requires_entailment
+                CHECK (supported = false OR entailment_label = 'entail');
+    END IF;
+END $$;
 
 -- Confirm debate_turns table exists (created in 001_initial_schema.sql).
 -- This is a guard, not a creation: the migration fails fast if it was missed.
