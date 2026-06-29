@@ -103,7 +103,32 @@ describe('chat stream reducer', () => {
           },
         ],
         debateTurns: [{ round: 0, actor: 'critic', action: 'resolve', note: 'Supported by the cited clause.' }],
-        retrievedEvidence: [],
+        retrievedEvidence: [
+          {
+            workspaceId: 'ws-1',
+            documentId: 'doc-1',
+            chunkId: 'chunk-1',
+            chunkIndex: 0,
+            text: 'The agreement renews annually.',
+            sectionTitle: 'Renewal',
+            clauseNumber: '9.2',
+            pageStart: 4,
+            pageEnd: 4,
+            chunkKind: 'clause',
+            crossReferences: [],
+            vectorScore: 0.8,
+            bm25Score: 1.2,
+            rrfScore: 0.05,
+            rerankScore: 0.93,
+            finalScore: 0.93,
+            finalRank: 1,
+            retrievalReason: 'Strong semantic and sparse agreement.',
+            retrievalSources: ['dense'],
+            parserVersion: 'a3.v1',
+            chunkVersion: 'a4.v1',
+            embeddingVersion: 'a5.v1',
+          },
+        ],
         citations: [],
       },
     });
@@ -111,6 +136,7 @@ describe('chat stream reducer', () => {
     expect(state.finishedMessage?.id).toBe('msg-assistant');
     expect(state.content).toBe('Final answer');
     expect(state.claims).toHaveLength(1);
+    expect(state.retrievedEvidence[0]?.chunkId).toBe('chunk-1');
     expect(state.trust?.confidenceBand).toBe('high');
   });
 

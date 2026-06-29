@@ -1,4 +1,14 @@
-import type { Abstention, Citation, Claim, DebateTurn, Message, RetrievalNormalizedQuery, StreamEvent, TrustScore } from '@/types/clarity';
+import type {
+  Abstention,
+  Citation,
+  Claim,
+  DebateTurn,
+  Message,
+  RetrievalEvidence,
+  RetrievalNormalizedQuery,
+  StreamEvent,
+  TrustScore,
+} from '@/types/clarity';
 
 
 export interface StreamingAnswerState {
@@ -9,6 +19,7 @@ export interface StreamingAnswerState {
   content: string;
   citations: Citation[];
   claims: Claim[];
+  retrievedEvidence: RetrievalEvidence[];
   trust: TrustScore | null;
   abstention: Abstention | null;
   debateTurns: DebateTurn[];
@@ -29,6 +40,7 @@ export function createStreamingAnswerState(): StreamingAnswerState {
     content: '',
     citations: [],
     claims: [],
+    retrievedEvidence: [],
     trust: null,
     abstention: null,
     debateTurns: [],
@@ -110,6 +122,7 @@ export function applyStreamEvent(
         content: event.message.content,
         citations: event.message.citations,
         claims: event.message.claims,
+        retrievedEvidence: event.message.retrievedEvidence,
         trust: event.message.trust ?? null,
         abstention: event.message.abstention ?? null,
         debateTurns: event.message.debateTurns,

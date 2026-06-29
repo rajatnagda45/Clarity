@@ -98,8 +98,9 @@ def _build_abstention(row: dict | None) -> Abstention | None:
 
 
 def _build_debate_turn(row: dict) -> DebateTurn:
+    round_number = row["round"] if "round" in row else row["round_number"]
     return DebateTurn(
-        round=row["round_number"],
+        round=round_number,
         actor=row["actor"],
         action=row["action"],
         claim_id=str(row["claim_id"]) if row.get("claim_id") else None,
@@ -192,37 +193,73 @@ async def get_conversation(
         for row in answer_runs.data or []
         if row.get("assistant_message_id")
     }
+    message_ids = [str(row["id"]) for row in messages.data or []]
     answer_run_ids = [str(row["id"]) for row in answer_runs.data or []]
-    citations = tenant_query("message_citations", workspace_id).execute()
+    retrieval_run_ids = [
+        str(row["retrieval_run_id"])
+        for row in answer_runs.data or []
+        if row.get("retrieval_run_id") is not None
+    ]
+    citations = (
+        tenant_query("message_citations", workspace_id)
+        .in_("message_id", message_ids)
+        .execute()
+        if message_ids
+        else None
+    )
     citations_by_message: dict[str, list[MessageCitation]] = {}
-    for row in citations.data or []:
+    for row in (citations.data if citations is not None else []):
         message_id = str(row["message_id"])
         citations_by_message.setdefault(message_id, []).append(_build_citation(row))
 
-    claims_rows = tenant_query("claims", workspace_id).execute()
+    claims_rows = (
+        tenant_query("claims", workspace_id)
+        .in_("answer_run_id", answer_run_ids)
+        .execute()
+        if answer_run_ids
+        else None
+    )
     claims_by_run: dict[str, list[Claim]] = {}
-    for row in claims_rows.data or []:
+    for row in (claims_rows.data if claims_rows is not None else []):
         answer_run_id = row.get("answer_run_id")
         if answer_run_id is None or str(answer_run_id) not in answer_run_ids:
             continue
         claims_by_run.setdefault(str(answer_run_id), []).append(_build_claim(row))
 
-    debate_rows = tenant_query("debate_turns", workspace_id).execute()
+    debate_rows = (
+        tenant_query("debate_turns", workspace_id)
+        .in_("message_id", message_ids)
+        .execute()
+        if message_ids
+        else None
+    )
     debate_by_message: dict[str, list[DebateTurn]] = {}
-    for row in debate_rows.data or []:
+    for row in (debate_rows.data if debate_rows is not None else []):
         message_id = str(row["message_id"])
         debate_by_message.setdefault(message_id, []).append(_build_debate_turn(row))
 
-    abstention_rows = tenant_query("abstentions", workspace_id).execute()
+    abstention_rows = (
+        tenant_query("abstentions", workspace_id)
+        .in_("message_id", message_ids)
+        .execute()
+        if message_ids
+        else None
+    )
     abstention_by_message = {
         str(row["message_id"]): _build_abstention(row)
-        for row in abstention_rows.data or []
+        for row in (abstention_rows.data if abstention_rows is not None else [])
         if row.get("message_id")
     }
 
-    evidence_rows = tenant_query("retrieval_run_evidence", workspace_id).execute()
+    evidence_rows = (
+        tenant_query("retrieval_run_evidence", workspace_id)
+        .in_("retrieval_run_id", retrieval_run_ids)
+        .execute()
+        if retrieval_run_ids
+        else None
+    )
     evidence_by_run: dict[str, list[RetrievalEvidenceResponse]] = {}
-    for row in evidence_rows.data or []:
+    for row in (evidence_rows.data if evidence_rows is not None else []):
         retrieval_run_id = row.get("retrieval_run_id")
         if retrieval_run_id is None:
             continue
