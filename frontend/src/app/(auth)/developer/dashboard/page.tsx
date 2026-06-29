@@ -173,6 +173,55 @@ export default function DeveloperDashboardPage() {
             </article>
 
             <article className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+              <h2 className="text-lg font-semibold text-slate-900">Quality Improvement</h2>
+              <p className="mt-1 text-sm text-slate-500">B4 platform — experiments, prompt versioning, optimization, gates, and release notes.</p>
+              <div className="mt-4 flex flex-wrap gap-2">
+                <Link
+                  href={`/developer/experiments?workspace=${encodeURIComponent(workspaceId)}`}
+                  className="inline-flex rounded-full border border-blue-300 bg-blue-50 px-3 py-1 text-xs font-medium text-blue-700"
+                >
+                  Experiments
+                </Link>
+                <Link
+                  href={`/developer/prompts?workspace=${encodeURIComponent(workspaceId)}`}
+                  className="inline-flex rounded-full border border-blue-300 bg-blue-50 px-3 py-1 text-xs font-medium text-blue-700"
+                >
+                  Prompt Versions
+                </Link>
+                <Link
+                  href={`/developer/optimization?workspace=${encodeURIComponent(workspaceId)}`}
+                  className="inline-flex rounded-full border border-blue-300 bg-blue-50 px-3 py-1 text-xs font-medium text-blue-700"
+                >
+                  Optimization
+                </Link>
+                <Link
+                  href={`/developer/quality-gates?workspace=${encodeURIComponent(workspaceId)}`}
+                  className="inline-flex rounded-full border border-blue-300 bg-blue-50 px-3 py-1 text-xs font-medium text-blue-700"
+                >
+                  Quality Gates
+                </Link>
+                <Link
+                  href={`/developer/release-notes?workspace=${encodeURIComponent(workspaceId)}`}
+                  className="inline-flex rounded-full border border-blue-300 bg-blue-50 px-3 py-1 text-xs font-medium text-blue-700"
+                >
+                  Release Notes
+                </Link>
+                <Link
+                  href={`/developer/model-comparisons?workspace=${encodeURIComponent(workspaceId)}`}
+                  className="inline-flex rounded-full border border-blue-300 bg-blue-50 px-3 py-1 text-xs font-medium text-blue-700"
+                >
+                  Model Comparisons
+                </Link>
+                <Link
+                  href={`/developer/benchmark-suggestions?workspace=${encodeURIComponent(workspaceId)}`}
+                  className="inline-flex rounded-full border border-blue-300 bg-blue-50 px-3 py-1 text-xs font-medium text-blue-700"
+                >
+                  Benchmark Suggestions
+                </Link>
+              </div>
+            </article>
+
+            <article className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
               <h2 className="text-lg font-semibold text-slate-900">Failed jobs</h2>
               {failedJobs.length === 0 ? (
                 <p className="mt-3 text-sm text-slate-600">No failed jobs in this workspace.</p>

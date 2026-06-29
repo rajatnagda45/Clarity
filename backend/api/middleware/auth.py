@@ -5,17 +5,29 @@ Validates the Bearer token on every request, extracts workspace_id,
 and injects both into request.state so route handlers never touch raw headers.
 
 workspace_id is derived from the verified JWT — never from the request body.
+
+RS256 (production Clerk tokens): fetches RSA public key from Clerk's JWKS endpoint
+and caches it for the process lifetime. Falls back to HS256 for dev/test environments.
 """
 
 import json
 import base64
+import logging
+import threading
 from typing import Callable
+import httpx
 import jwt as pyjwt
 from fastapi import Request, HTTPException, status
 from fastapi.responses import JSONResponse
 from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.types import ASGIApp
 from config import settings
+
+logger = logging.getLogger(__name__)
+
+# Module-level JWKS cache — populated on first RS256 request, never changes
+_jwks_cache: dict[str, str] = {}  # kid → PEM public key
+_jwks_lock = threading.Lock()
 
 # Paths that don't require authentication
 _PUBLIC_PATHS = {"/", "/health", "/api/health", "/docs", "/openapi.json", "/redoc"}
@@ -75,16 +87,16 @@ class AuthMiddleware(BaseHTTPMiddleware):
 
 def _verify_clerk_token(token: str) -> dict:
     """
-    Verifies a Clerk-issued JWT using the configured JWT secret.
-    Clerk uses RS256 in production; for dev/test, HS256 with SUPABASE_JWT_SECRET is acceptable.
-    The key algorithm is determined from the token header.
+    Verifies a Clerk-issued JWT.
+    - RS256 (Clerk production): fetches the RSA public key from Clerk JWKS, caches by kid.
+    - HS256 (dev/test): uses SUPABASE_JWT_SECRET directly.
     """
     header = _decode_header(token)
     algorithm = header.get("alg", "HS256")
 
     if algorithm.startswith("RS"):
-        # RS256: decode with PEM public key (set CLERK_JWT_PUBLIC_KEY in prod)
-        public_key = settings.clerk_secret_key
+        kid = header.get("kid", "")
+        public_key = _get_jwks_key(kid)
         return pyjwt.decode(token, public_key, algorithms=["RS256"], options={"verify_exp": True})
     else:
         return pyjwt.decode(
@@ -93,6 +105,55 @@ def _verify_clerk_token(token: str) -> dict:
             algorithms=["HS256"],
             options={"verify_exp": True},
         )
+
+
+def _get_jwks_key(kid: str) -> str:
+    """Fetch and cache the RSA public key for the given kid from Clerk's JWKS endpoint."""
+    with _jwks_lock:
+        if kid in _jwks_cache:
+            return _jwks_cache[kid]
+
+    # Derive JWKS URL from clerk_secret_key domain or use env override
+    jwks_url = getattr(settings, "clerk_jwks_url", "") or _infer_jwks_url()
+    try:
+        with httpx.Client(timeout=5.0) as client:
+            resp = client.get(jwks_url)
+            resp.raise_for_status()
+            keys = resp.json().get("keys", [])
+    except Exception as exc:
+        logger.error("Failed to fetch Clerk JWKS from %s: %s", jwks_url, exc)
+        raise pyjwt.PyJWTError(f"JWKS fetch failed: {exc}") from exc
+
+    from jwt.algorithms import RSAAlgorithm
+    for key_data in keys:
+        key_kid = key_data.get("kid", "")
+        public_key = RSAAlgorithm.from_jwk(json.dumps(key_data))
+        with _jwks_lock:
+            _jwks_cache[key_kid] = public_key  # type: ignore[assignment]
+
+    with _jwks_lock:
+        if kid in _jwks_cache:
+            return _jwks_cache[kid]  # type: ignore[return-value]
+
+    raise pyjwt.PyJWTError(f"No JWKS key found for kid={kid!r}")
+
+
+def _infer_jwks_url() -> str:
+    """
+    Infer the Clerk JWKS URL from CLERK_SECRET_KEY.
+    Clerk secret keys follow the pattern sk_live_<base64-encoded-domain>.
+    Falls back to a well-known URL if inference fails.
+    """
+    try:
+        key = settings.clerk_secret_key
+        if key.startswith(("sk_live_", "sk_test_")):
+            encoded = key.split("_", 2)[2]
+            padding = "=" * (4 - len(encoded) % 4)
+            domain = base64.b64decode(encoded + padding).decode().rstrip("\x00").rstrip("$")
+            return f"https://{domain}/.well-known/jwks.json"
+    except Exception:
+        pass
+    return "https://clerk.com/.well-known/jwks.json"
 
 
 def _decode_header(token: str) -> dict:

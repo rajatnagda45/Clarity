@@ -1,12 +1,13 @@
 from __future__ import annotations
 
-from fastapi import APIRouter, Depends, Header, HTTPException, status
+from fastapi import APIRouter, BackgroundTasks, Depends, Header, HTTPException, status
 from fastapi.responses import StreamingResponse
 
 from api.deps import require_workspace_role
 from db.client import tenant_query
 from schemas import ChatRequest
 from services.answer_generation.service import build_answer_stream, replay_answer_stream, stream_events
+from services.eval.engine import schedule_eval
 
 
 router = APIRouter(prefix="/api/chat", tags=["chat"])
@@ -19,6 +20,7 @@ def _error(status_code: int, code: str, message: str) -> HTTPException:
 @router.post("")
 async def start_chat_stream(
     payload: ChatRequest,
+    background_tasks: BackgroundTasks,
     membership: tuple[str, str] = Depends(require_workspace_role),
 ):
     workspace_id, _ = membership
@@ -29,6 +31,9 @@ async def start_chat_stream(
         document_ids=payload.document_ids,
         request_id=payload.request_id,
     )
+    # Fire LLM-as-judge eval after the answer is fully generated
+    if prepared.assistant_message_id:
+        background_tasks.add_task(schedule_eval, prepared.answer_run_id, workspace_id)
     return StreamingResponse(stream_events(prepared.events), media_type="text/event-stream")
 
 

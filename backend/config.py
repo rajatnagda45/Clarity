@@ -37,6 +37,7 @@ class Settings(BaseSettings):
     # Clerk
     clerk_secret_key: str
     next_public_clerk_publishable_key: str = ""
+    clerk_jwks_url: str = ""  # override JWKS URL; auto-derived from clerk_secret_key if blank
 
     # Upstash Redis
     upstash_redis_rest_url: str
@@ -82,6 +83,15 @@ class Settings(BaseSettings):
     answer_max_history_messages: int = 8
     llm_prompt_cost_per_1k_tokens_usd: float = 0.0
     llm_completion_cost_per_1k_tokens_usd: float = 0.0
+
+    # B3 Evaluation platform
+    judge_provider: str = "openai"
+    judge_model: str = "gpt-4o-mini"
+    judge_temperature: float = 0.0
+    judge_prompt_version: str = "b3.judge.v1"
+    eval_auto_judge: bool = True
+    eval_regression_threshold: float = 10.0  # point drop on 0-100 scale that triggers a flag
+    eval_regression_window: int = 10          # number of prior evals used as the baseline
 
     # LangSmith
     langchain_tracing_v2: bool = True

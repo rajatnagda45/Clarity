@@ -66,6 +66,7 @@ class RetrievalEvidence(BaseModel):
     vector_score: float | None = Field(default=None, alias="vectorScore")
     bm25_score: float | None = Field(default=None, alias="bm25Score")
     rrf_score: float = Field(alias="rrfScore")
+    rerank_score: float | None = Field(default=None, alias="rerankScore")
     final_score: float = Field(alias="finalScore")
     final_rank: int = Field(alias="finalRank", ge=1)
     retrieval_reason: str = Field(alias="retrievalReason")

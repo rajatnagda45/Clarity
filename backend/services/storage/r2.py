@@ -56,3 +56,13 @@ def download_document_bytes(key: str) -> bytes:
 def delete_document_object(key: str) -> None:
     client = get_r2_client()
     client.delete_object(Bucket=settings.r2_bucket, Key=key)
+
+
+def generate_presigned_url(key: str, expires_in: int = 300) -> str:
+    """Generate a short-lived presigned GET URL for an R2 object (default 5 min TTL)."""
+    client = get_r2_client()
+    return client.generate_presigned_url(
+        "get_object",
+        Params={"Bucket": settings.r2_bucket, "Key": key},
+        ExpiresIn=expires_in,
+    )

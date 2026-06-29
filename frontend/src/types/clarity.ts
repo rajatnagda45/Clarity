@@ -398,6 +398,35 @@ export type StreamEvent =
   | { type: 'citation'; citation: Citation }
   | { type: 'message'; message: Message }
   | { type: 'error'; code: string; message: string }
+  | {
+      type: 'claim';
+      claim: string;
+      verdict: 'supported' | 'unsupported' | 'uncertain';
+      criticVerdict: string;
+      nliLabel: string;
+      nliScore: number;
+      evidenceSpans: string[];
+    }
+  | {
+      type: 'debate_turn';
+      turn: number;
+      claim: string;
+      verdict: 'supported' | 'unsupported' | 'uncertain';
+      reasoning: string;
+    }
+  | {
+      type: 'trust';
+      raw: number;
+      calibrated: number;
+      components: Record<string, number>;
+    }
+  | {
+      type: 'abstention';
+      reason: string;
+      trustScore: number;
+      threshold: number;
+      missingEvidenceQuery?: string;
+    }
   | { type: 'done' };
 
 export interface ConversationDetail {
@@ -469,4 +498,155 @@ export interface EvalMetrics {
 export interface ApiError {
   error?: string | { code?: string; message?: string };
   detail?: string | { code?: string; message?: string };
+}
+
+// ─── B4: Quality Improvement Platform types ──────────────────────────────────
+
+export interface ExperimentCandidate {
+  id: string;
+  workspaceId: string;
+  experimentId: string;
+  name: string;
+  promptVersion: string;
+  modelVersion: string;
+  writerVersion: string;
+  avgJudgeOverall: number | null;
+  avgTrustConfidence: number | null;
+  evalCount: number;
+  createdAt: string;
+}
+
+export interface Experiment {
+  id: string;
+  workspaceId: string;
+  name: string;
+  description: string | null;
+  status: 'active' | 'completed' | 'archived';
+  winnerCandidateId: string | null;
+  candidates: ExperimentCandidate[];
+  createdAt: string;
+}
+
+export interface ExperimentListResponse {
+  experiments: Experiment[];
+  total: number;
+}
+
+export interface PromptVersion {
+  id: string;
+  workspaceId: string;
+  promptKey: string;
+  version: string;
+  description: string | null;
+  content: string;
+  author: string | null;
+  active: boolean;
+  retired: boolean;
+  createdAt: string;
+}
+
+export interface PromptVersionListResponse {
+  versions: PromptVersion[];
+  total: number;
+}
+
+export interface OptimizationRecommendation {
+  id: string;
+  workspaceId: string;
+  dimension: string;
+  severity: 'low' | 'medium' | 'high';
+  recommendation: string;
+  evidence: Record<string, unknown> | null;
+  status: 'pending' | 'accepted' | 'dismissed';
+  resolvedAt: string | null;
+  createdAt: string;
+}
+
+export interface OptimizationListResponse {
+  recommendations: OptimizationRecommendation[];
+  total: number;
+}
+
+export interface QualityGateRule {
+  id: string;
+  workspaceId: string;
+  name: string;
+  metric: string;
+  operator: string;
+  threshold: number;
+  active: boolean;
+  createdAt: string;
+}
+
+export interface QualityGateRunDetail {
+  ruleId: string;
+  ruleName: string;
+  metric: string;
+  passed: boolean;
+  note: string;
+}
+
+export interface QualityGateRun {
+  id: string;
+  workspaceId: string;
+  benchmarkRunId: string | null;
+  experimentId: string | null;
+  rulesEvaluated: number;
+  rulesPassed: number;
+  rulesFailed: number;
+  passed: boolean;
+  details: QualityGateRunDetail[];
+  createdAt: string;
+}
+
+export interface QualityGateRunListResponse {
+  runs: QualityGateRun[];
+  total: number;
+}
+
+export interface ReleaseNote {
+  id: string;
+  workspaceId: string;
+  title: string;
+  fromVersion: string | null;
+  toVersion: string;
+  summary: string;
+  metricsDelta: Record<string, number>;
+  benchmarkRunId: string | null;
+  createdAt: string;
+}
+
+export interface ReleaseNoteListResponse {
+  notes: ReleaseNote[];
+  total: number;
+}
+
+export interface BenchmarkSuggestion {
+  id: string;
+  workspaceId: string;
+  answerRunId: string | null;
+  question: string;
+  suggestedReason: string;
+  status: 'pending' | 'approved' | 'dismissed';
+  approvedCaseId: string | null;
+  createdAt: string;
+}
+
+export interface BenchmarkSuggestionListResponse {
+  suggestions: BenchmarkSuggestion[];
+  total: number;
+}
+
+export interface ModelComparison {
+  modelVersion: string;
+  runCount: number;
+  totalCases: number;
+  avgJudgeOverall: number | null;
+  avgTrustConfidence: number | null;
+  avgLatencyMs: number | null;
+}
+
+export interface ModelComparisonListResponse {
+  comparisons: ModelComparison[];
+  total: number;
 }
