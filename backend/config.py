@@ -37,6 +37,7 @@ class Settings(BaseSettings):
     # Clerk
     clerk_secret_key: str
     next_public_clerk_publishable_key: str = ""
+    clerk_jwks_url: str = ""  # override JWKS URL; auto-derived from clerk_secret_key if blank
 
     # Upstash Redis
     upstash_redis_rest_url: str

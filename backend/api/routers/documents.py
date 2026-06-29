@@ -5,7 +5,7 @@ from tempfile import SpooledTemporaryFile
 from pathlib import Path
 from uuid import uuid4
 
-from fastapi import APIRouter, BackgroundTasks, Depends, File, HTTPException, Request, UploadFile, status
+from fastapi import APIRouter, BackgroundTasks, Depends, File, HTTPException, Request, Response, UploadFile, status
 
 from api.deps import require_workspace_role
 from config import settings
@@ -31,7 +31,7 @@ from services.ingestion.url import (
     enqueue_url_ingestion,
     validate_url_ingestion_request,
 )
-from services.storage.r2 import build_document_storage_key, sanitize_filename, upload_document_file, delete_document_object
+from services.storage.r2 import build_document_storage_key, generate_presigned_url, sanitize_filename, upload_document_file, delete_document_object
 
 
 router = APIRouter(prefix="/api/documents", tags=["documents"])
@@ -519,3 +519,42 @@ async def upload_document(
     created_row = (result.data or [row])[0]
     background_tasks.add_task(run_document_ingestion_task, document_id, workspace_id)
     return _document_summary_from_row(created_row)
+
+
+@router.get("/{document_id}/file")
+def get_document_file(
+    document_id: str,
+    membership: tuple[str, str] = Depends(require_workspace_role),
+):
+    """Returns a short-lived presigned URL for direct R2 download (5 min TTL)."""
+    workspace_id, _ = membership
+    result = tenant_query("documents", workspace_id).eq("id", document_id).limit(1).execute()
+    row = (result.data or [None])[0]
+    if not row:
+        raise _error(status.HTTP_404_NOT_FOUND, "document_not_found", "Document not found.")
+    try:
+        url = generate_presigned_url(row["r2_key"], expires_in=300)
+    except Exception as exc:
+        raise _error(status.HTTP_502_BAD_GATEWAY, "presigned_url_failed", "Could not generate download URL.") from exc
+    return {"url": url, "expires_in": 300, "filename": row["filename"]}
+
+
+@router.delete("/{document_id}")
+def delete_document(
+    document_id: str,
+    membership: tuple[str, str] = Depends(require_workspace_role),
+) -> Response:
+    """Deletes a document and its R2 object. Cascades to all derived artifacts via FK."""
+    workspace_id, role = membership
+    if role not in ("owner", "editor"):
+        raise _error(status.HTTP_403_FORBIDDEN, "insufficient_role", "Editor or owner role required to delete documents.")
+    result = tenant_query("documents", workspace_id).eq("id", document_id).limit(1).execute()
+    row = (result.data or [None])[0]
+    if not row:
+        raise _error(status.HTTP_404_NOT_FOUND, "document_not_found", "Document not found.")
+    try:
+        delete_document_object(row["r2_key"])
+    except Exception:
+        pass  # Best-effort; DB cascade still proceeds
+    get_client().table("documents").delete().eq("id", document_id).eq("workspace_id", workspace_id).execute()
+    return Response(status_code=status.HTTP_204_NO_CONTENT)

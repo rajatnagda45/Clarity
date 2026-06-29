@@ -9,6 +9,9 @@ import { applyStreamEvent, createStreamingAnswerState } from '@/lib/chatStream';
 import { getConversation, listConversations, resumeAnswerStream, streamQuery } from '@/lib/api';
 import { parseMarkdownBlocks } from '@/lib/markdown';
 import type { Citation, Conversation, Message, StreamEvent } from '@/types/clarity';
+import { TrustBadge } from '@/components/chat/TrustBadge';
+import { DebatePanel, type DebateTurn } from '@/components/chat/DebatePanel';
+import { AbstentionCard } from '@/components/chat/AbstentionCard';
 
 
 type LoadState = 'idle' | 'loading' | 'loaded' | 'error';
@@ -64,6 +67,9 @@ export default function ChatPage() {
   const [errorMessage, setErrorMessage] = useState('');
   const [streamingText, setStreamingText] = useState('');
   const [streamingCitations, setStreamingCitations] = useState<Citation[]>([]);
+  const [streamingTrust, setStreamingTrust] = useState<{ raw: number; calibrated: number; components: Record<string, number> } | null>(null);
+  const [streamingDebateTurns, setStreamingDebateTurns] = useState<DebateTurn[]>([]);
+  const [streamingAbstention, setStreamingAbstention] = useState<{ reason: string; trustScore: number; threshold: number; missingEvidenceQuery?: string } | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -146,6 +152,9 @@ export default function ChatPage() {
     setErrorMessage('');
     setStreamingText('');
     setStreamingCitations([]);
+    setStreamingTrust(null);
+    setStreamingDebateTurns([]);
+    setStreamingAbstention(null);
     setIsStreaming(true);
 
     const token = await getToken();
@@ -173,6 +182,23 @@ export default function ChatPage() {
 
       if (streamEvent.type === 'citation') {
         setStreamingCitations(next.citations);
+      }
+
+      if (streamEvent.type === 'debate_turn') {
+        setStreamingDebateTurns((prev) => [...prev, streamEvent]);
+      }
+
+      if (streamEvent.type === 'trust') {
+        setStreamingTrust({ raw: streamEvent.raw, calibrated: streamEvent.calibrated, components: streamEvent.components });
+      }
+
+      if (streamEvent.type === 'abstention') {
+        setStreamingAbstention({
+          reason: streamEvent.reason,
+          trustScore: streamEvent.trustScore,
+          threshold: streamEvent.threshold,
+          missingEvidenceQuery: streamEvent.missingEvidenceQuery,
+        });
       }
 
       if (streamEvent.type === 'message') {
@@ -306,8 +332,26 @@ export default function ChatPage() {
               <div className="mb-3 flex items-center gap-2 text-xs font-medium uppercase tracking-[0.2em] text-blue-700">
                 <span className="inline-flex h-2 w-2 rounded-full bg-blue-500" />
                 Writing
+                {streamingTrust && (
+                  <span className="ml-2">
+                    <TrustBadge
+                      calibrated={streamingTrust.calibrated}
+                      raw={streamingTrust.raw}
+                      components={streamingTrust.components}
+                    />
+                  </span>
+                )}
               </div>
-              <MessageBody content={streamingText || 'Thinking…'} />
+              {streamingAbstention ? (
+                <AbstentionCard
+                  reason={streamingAbstention.reason}
+                  trustScore={streamingAbstention.trustScore}
+                  threshold={streamingAbstention.threshold}
+                  missingEvidenceQuery={streamingAbstention.missingEvidenceQuery}
+                />
+              ) : (
+                <MessageBody content={streamingText || 'Thinking…'} />
+              )}
               {streamingCitations.length > 0 ? (
                 <div className="mt-4 flex flex-wrap gap-2">
                   {streamingCitations.map((citation) => (
@@ -315,6 +359,9 @@ export default function ChatPage() {
                   ))}
                 </div>
               ) : null}
+              {streamingDebateTurns.length > 0 && (
+                <DebatePanel turns={streamingDebateTurns} />
+              )}
             </article>
           ) : null}
 

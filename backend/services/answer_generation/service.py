@@ -15,6 +15,9 @@ from services.answer_generation.prompt_builder import (
 from services.answer_generation.provider import WriterProviderError, get_writer_provider
 from services.retrieval.models import RetrievalRequest
 from services.retrieval.service import retrieve_evidence
+from services.verification.critic import run_critic, extract_claims
+from services.verification.ensemble import run_ensemble
+from services.verification.confidence import compute_trust
 from config import settings
 
 
@@ -103,6 +106,7 @@ def _build_evidence_blocks(results: list[dict], workspace_id: str) -> list[Evide
                 retrievalSources=row["retrievalSources"],
                 checksum=checksums.get(row["chunkId"]),
                 sourceOffsets=offsets.get(row["chunkId"], []),
+                rerankScore=row.get("rerankScore"),
             )
         )
     return blocks
@@ -325,6 +329,59 @@ async def build_answer_stream(
         )
 
     answer_text = writer_result.output.answer_markdown.strip()
+
+    # ---- Two-signal verification pipeline ----
+    evidence_span_texts = [block.text for block in evidence_blocks]
+    claims = extract_claims(answer_text)
+    claim_results = []
+    debate_turns_data: list[dict] = []
+    trust_score = None
+
+    if claims:
+        loop_cap = int(getattr(settings, "critic_max_iterations", 2))
+        critic_resp = run_critic(claims, evidence_span_texts, loop_iteration=1)
+        for verdict in critic_resp.verdicts:
+            if verdict.debate_turn > 0:
+                debate_turns_data.append({
+                    "turn": verdict.debate_turn,
+                    "claim": verdict.claim,
+                    "verdict": verdict.verdict,
+                    "reasoning": verdict.reasoning,
+                })
+
+        # Second pass only when there are unsupported claims and loop_cap allows
+        if loop_cap >= 2:
+            unsupported = [v.claim for v in critic_resp.verdicts if v.verdict == "unsupported"]
+            if unsupported:
+                critic_resp2 = run_critic(unsupported, evidence_span_texts, loop_iteration=2)
+                # Merge second pass verdicts (override first pass unsupported entries)
+                second_map = {v.claim: v for v in critic_resp2.verdicts}
+                updated = []
+                for v in critic_resp.verdicts:
+                    updated.append(second_map.get(v.claim, v))
+                from services.verification.critic import CriticResponse
+                critic_resp = CriticResponse(
+                    verdicts=updated,
+                    overall_confidence=critic_resp2.overall_confidence,
+                )
+                for verdict in critic_resp2.verdicts:
+                    debate_turns_data.append({
+                        "turn": verdict.debate_turn,
+                        "claim": verdict.claim,
+                        "verdict": verdict.verdict,
+                        "reasoning": verdict.reasoning,
+                    })
+
+        claim_results = run_ensemble(critic_resp, evidence_span_texts)
+        rerank_scores_list = [
+            block.rerank_score
+            for block in evidence_blocks
+            if block.rerank_score is not None
+        ]
+        trust_score = compute_trust(claim_results, rerank_scores_list)
+
+    # ---- End verification ----
+
     assistant_message_id = str(uuid4())
     answer_run_id = str(uuid4())
     completed_at = datetime.now(UTC)
@@ -498,6 +555,80 @@ async def build_answer_stream(
             },
         }
     )
+    # Persist verification rows
+    if claim_results:
+        try:
+            get_client().table("claims").insert([
+                {
+                    "workspace_id": workspace_id,
+                    "answer_run_id": answer_run_id,
+                    "claim_text": r.claim,
+                    "critic_verdict": r.critic_verdict,
+                    "nli_label": r.nli_label,
+                    "nli_score": r.nli_score,
+                    "ensemble_verdict": r.ensemble_verdict,
+                    "evidence_spans": r.evidence_spans,
+                    "debate_turn": r.debate_turn,
+                }
+                for r in claim_results
+            ]).execute()
+        except Exception:
+            pass
+    if debate_turns_data:
+        try:
+            get_client().table("debate_turns").insert([
+                {
+                    "workspace_id": workspace_id,
+                    "answer_run_id": answer_run_id,
+                    "turn_number": t["turn"],
+                    "claim_text": t["claim"],
+                    "critic_verdict": t["verdict"],
+                    "reasoning": t["reasoning"],
+                }
+                for t in debate_turns_data
+            ]).execute()
+        except Exception:
+            pass
+    if trust_score is not None and trust_score.should_abstain:
+        try:
+            get_client().table("abstentions").insert({
+                "workspace_id": workspace_id,
+                "answer_run_id": answer_run_id,
+                "reason": "Calibrated trust score below threshold",
+                "trust_score": trust_score.calibrated,
+                "threshold": float(getattr(settings, "abstain_threshold", 0.55)),
+            }).execute()
+        except Exception:
+            pass
+
+    # Emit verification events (claim, debate_turn, trust, abstention)
+    for result in claim_results:
+        events.append({
+            "type": "claim",
+            "claim": result.claim,
+            "verdict": result.ensemble_verdict,
+            "criticVerdict": result.critic_verdict,
+            "nliLabel": result.nli_label,
+            "nliScore": result.nli_score,
+            "evidenceSpans": result.evidence_spans,
+        })
+    for turn in debate_turns_data:
+        events.append({"type": "debate_turn", **turn})
+    if trust_score is not None:
+        events.append({
+            "type": "trust",
+            "raw": trust_score.raw,
+            "calibrated": trust_score.calibrated,
+            "components": trust_score.components,
+        })
+        if trust_score.should_abstain:
+            events.append({
+                "type": "abstention",
+                "reason": "Calibrated trust score below threshold",
+                "trustScore": trust_score.calibrated,
+                "threshold": float(getattr(settings, "abstain_threshold", 0.55)),
+            })
+
     events.append({"type": "done"})
     _persist_events(workspace_id, answer_run_id, events)
 
