@@ -14,6 +14,7 @@ import json
 import base64
 import logging
 import threading
+from datetime import timedelta
 from typing import Callable
 import httpx
 import jwt as pyjwt
@@ -110,6 +111,11 @@ def _verify_clerk_token(token: str) -> dict:
     header = _decode_header(token)
     algorithm = header.get("alg", "HS256")
 
+    # Allow 60 s of clock skew between the backend server and Clerk's token issuer.
+    # Without leeway, tokens where iat is a few seconds in the future (common in
+    # local dev where clocks drift) are rejected with "not yet valid (iat)".
+    _leeway = timedelta(seconds=60)
+
     if algorithm.startswith("RS"):
         kid = header.get("kid", "")
         public_key = _get_jwks_key(kid)
@@ -120,6 +126,7 @@ def _verify_clerk_token(token: str) -> dict:
             public_key,
             algorithms=["RS256"],
             options={"verify_exp": True},
+            leeway=_leeway,
             audience=audience,
             issuer=issuer,
         )
@@ -129,6 +136,7 @@ def _verify_clerk_token(token: str) -> dict:
             settings.supabase_jwt_secret,
             algorithms=["HS256"],
             options={"verify_exp": True},
+            leeway=_leeway,
         )
 
 
