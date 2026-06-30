@@ -24,13 +24,23 @@ async def start_chat_stream(
     membership: tuple[str, str] = Depends(require_workspace_role),
 ):
     workspace_id, _ = membership
-    prepared = await build_answer_stream(
-        workspace_id=workspace_id,
-        query=payload.query,
-        conversation_id=payload.conversation_id,
-        document_ids=payload.document_ids,
-        request_id=payload.request_id,
-    )
+    try:
+        prepared = await build_answer_stream(
+            workspace_id=workspace_id,
+            query=payload.query,
+            conversation_id=payload.conversation_id,
+            document_ids=payload.document_ids,
+            request_id=payload.request_id,
+        )
+    except BaseException as exc:
+        # Catches both regular exceptions and ExceptionGroup (Python 3.11+ anyio TaskGroup).
+        # Collapse to HTTPException so CORS middleware can add headers before the browser
+        # sees the error (otherwise the response has no CORS headers → "Failed to fetch").
+        cause = exc.exceptions[0] if isinstance(exc, BaseExceptionGroup) else exc
+        raise HTTPException(
+            status_code=status.HTTP_502_BAD_GATEWAY,
+            detail={"code": "stream_preparation_failed", "message": str(cause)},
+        ) from cause
     # Fire LLM-as-judge eval after the answer is fully generated
     if prepared.assistant_message_id:
         background_tasks.add_task(schedule_eval, prepared.answer_run_id, workspace_id)
