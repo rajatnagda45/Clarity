@@ -3,7 +3,6 @@
 import Link from 'next/link';
 import { useEffect, useState } from 'react';
 import { useAuth } from '@clerk/nextjs';
-import { AppShell } from '@/components/shell/AppShell';
 import { useWorkspace } from '@/contexts/WorkspaceContext';
 import { Skeleton } from '@/components/ds/Skeleton';
 import { EmptyState } from '@/components/ds/EmptyState';
@@ -44,7 +43,6 @@ export default function ConversationsPage() {
   }, [activeWorkspace, getToken]);
 
   return (
-    <AppShell breadcrumbs={[{ label: 'Conversations' }]}>
       <div className="mx-auto w-full max-w-3xl px-6 py-8 flex flex-col gap-6">
         <div>
           <h1 className="text-xl font-semibold text-[var(--color-text-primary)]">Conversations</h1>
@@ -101,6 +99,5 @@ export default function ConversationsPage() {
           </div>
         )}
       </div>
-    </AppShell>
   );
 }

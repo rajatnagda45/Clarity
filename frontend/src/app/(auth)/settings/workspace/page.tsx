@@ -2,7 +2,6 @@
 
 import { useState } from 'react';
 import { useAuth } from '@clerk/nextjs';
-import { AppShell } from '@/components/shell/AppShell';
 import { useWorkspace } from '@/contexts/WorkspaceContext';
 import { useToast } from '@/contexts/ToastContext';
 import { Button } from '@/components/ds/Button';
@@ -60,7 +59,6 @@ export default function WorkspaceSettingsPage() {
   }
 
   return (
-    <AppShell breadcrumbs={[{ label: 'Settings' }, { label: 'Workspace' }]}>
       <div className="mx-auto w-full max-w-2xl px-6 py-8 flex flex-col gap-8">
         <div>
           <h1 className="text-xl font-semibold text-[var(--color-text-primary)]">Workspace settings</h1>
@@ -177,6 +175,5 @@ export default function WorkspaceSettingsPage() {
           </DialogFooter>
         </Dialog>
       </div>
-    </AppShell>
   );
 }

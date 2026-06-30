@@ -2,71 +2,14 @@
 @tailwind components;
 @tailwind utilities;
 
-/* ─── Design tokens — Light mode (default) ──────────────────────────────── */
+/* ─── Design tokens — Dark mode (default, forced) ───────────────────────── */
 :root {
   /* Surface */
-  --color-bg-base: #f8f8f8;
-  --color-bg-surface: #ffffff;
-  --color-bg-elevated: #f4f4f5;
-  --color-bg-hover: #f0f0f2;
-  --color-bg-overlay: rgba(0, 0, 0, 0.40);
-
-  /* Border */
-  --color-border-subtle: rgba(0, 0, 0, 0.06);
-  --color-border-default: rgba(0, 0, 0, 0.10);
-  --color-border-strong: rgba(0, 0, 0, 0.18);
-
-  /* Text */
-  --color-text-primary: #09090b;
-  --color-text-secondary: #52525b;
-  --color-text-tertiary: #a1a1aa;
-  --color-text-disabled: #d4d4d8;
-  --color-text-link: #2563eb;
-
-  /* Accent */
-  --color-accent: #3b82f6;
-  --color-accent-hover: #2563eb;
-  --color-accent-subtle: rgba(59, 130, 246, 0.10);
-  --color-accent-fg: #1d4ed8;
-
-  /* Success */
-  --color-success: #16a34a;
-  --color-success-subtle: rgba(22, 163, 74, 0.10);
-  --color-success-fg: #15803d;
-
-  /* Warning */
-  --color-warning: #d97706;
-  --color-warning-subtle: rgba(217, 119, 6, 0.10);
-  --color-warning-fg: #b45309;
-
-  /* Error */
-  --color-error: #dc2626;
-  --color-error-subtle: rgba(220, 38, 38, 0.10);
-  --color-error-fg: #b91c1c;
-
-  /* Trust */
-  --color-trust-high: #16a34a;
-  --color-trust-medium: #d97706;
-  --color-trust-low: #dc2626;
-  --color-trust-unknown: #71717a;
-
-  /* App-level backgrounds */
-  --color-bg-app: #f8f8f8;
-  --color-bg-sidebar: #ffffff;
-
-  /* Sidebar width (CSS variable so JS can read it) */
-  --sidebar-width: 220px;
-  --topbar-height: 48px;
-}
-
-/* ─── Design tokens — Dark mode ─────────────────────────────────────────── */
-[data-theme="dark"] {
-  /* Surface */
-  --color-bg-base: #0a0a0b;
-  --color-bg-surface: #111113;
-  --color-bg-elevated: #18181b;
-  --color-bg-hover: #1f1f26;
-  --color-bg-overlay: rgba(0, 0, 0, 0.60);
+  --color-bg-base: #05070B;
+  --color-bg-surface: #0F1117;
+  --color-bg-elevated: #151923;
+  --color-bg-hover: #1A1F2E;
+  --color-bg-overlay: rgba(0, 0, 0, 0.70);
 
   /* Border */
   --color-border-subtle: rgba(255, 255, 255, 0.06);
@@ -74,42 +17,84 @@
   --color-border-strong: rgba(255, 255, 255, 0.18);
 
   /* Text */
-  --color-text-primary: #fafafa;
-  --color-text-secondary: #a1a1aa;
-  --color-text-tertiary: #52525b;
-  --color-text-disabled: #3f3f46;
-  --color-text-link: #60a5fa;
+  --color-text-primary: #F1F3F9;
+  --color-text-secondary: #8892AA;
+  --color-text-tertiary: #4A5168;
+  --color-text-disabled: #2A3050;
+  --color-text-link: #5B6EF0;
 
   /* Accent */
-  --color-accent: #3b82f6;
-  --color-accent-hover: #60a5fa;
-  --color-accent-subtle: rgba(59, 130, 246, 0.12);
-  --color-accent-fg: #93c5fd;
+  --color-accent: #5B6EF0;
+  --color-accent-hover: #6B7EF5;
+  --color-accent-subtle: rgba(91, 110, 240, 0.12);
+  --color-accent-fg: #A5AFFE;
 
   /* Success */
-  --color-success: #22c55e;
+  --color-success: #22C55E;
   --color-success-subtle: rgba(34, 197, 94, 0.12);
-  --color-success-fg: #86efac;
+  --color-success-fg: #86EFAC;
 
   /* Warning */
-  --color-warning: #f59e0b;
+  --color-warning: #F59E0B;
   --color-warning-subtle: rgba(245, 158, 11, 0.12);
-  --color-warning-fg: #fcd34d;
+  --color-warning-fg: #FDE68A;
 
   /* Error */
-  --color-error: #ef4444;
+  --color-error: #EF4444;
   --color-error-subtle: rgba(239, 68, 68, 0.12);
-  --color-error-fg: #fca5a5;
+  --color-error-fg: #FCA5A5;
 
   /* Trust */
-  --color-trust-high: #22c55e;
-  --color-trust-medium: #f59e0b;
-  --color-trust-low: #ef4444;
-  --color-trust-unknown: #71717a;
+  --color-trust-high: #22C55E;
+  --color-trust-medium: #F59E0B;
+  --color-trust-low: #EF4444;
+  --color-trust-unknown: #4A5168;
 
   /* App-level backgrounds */
-  --color-bg-app: #0a0a0b;
-  --color-bg-sidebar: #111113;
+  --color-bg-app: #05070B;
+  --color-bg-sidebar: #0C0F16;
+
+  /* Layout */
+  --sidebar-width: 280px;
+  --topbar-height: 56px;
+}
+
+/* Keep dark theme block for existing [data-theme="dark"] component compatibility */
+[data-theme="dark"] {
+  --color-bg-base: #05070B;
+  --color-bg-surface: #0F1117;
+  --color-bg-elevated: #151923;
+  --color-bg-hover: #1A1F2E;
+  --color-bg-overlay: rgba(0, 0, 0, 0.70);
+  --color-border-subtle: rgba(255, 255, 255, 0.06);
+  --color-border-default: rgba(255, 255, 255, 0.10);
+  --color-border-strong: rgba(255, 255, 255, 0.18);
+  --color-text-primary: #F1F3F9;
+  --color-text-secondary: #8892AA;
+  --color-text-tertiary: #4A5168;
+  --color-text-disabled: #2A3050;
+  --color-text-link: #5B6EF0;
+  --color-accent: #5B6EF0;
+  --color-accent-hover: #6B7EF5;
+  --color-accent-subtle: rgba(91, 110, 240, 0.12);
+  --color-accent-fg: #A5AFFE;
+  --color-success: #22C55E;
+  --color-success-subtle: rgba(34, 197, 94, 0.12);
+  --color-success-fg: #86EFAC;
+  --color-warning: #F59E0B;
+  --color-warning-subtle: rgba(245, 158, 11, 0.12);
+  --color-warning-fg: #FDE68A;
+  --color-error: #EF4444;
+  --color-error-subtle: rgba(239, 68, 68, 0.12);
+  --color-error-fg: #FCA5A5;
+  --color-trust-high: #22C55E;
+  --color-trust-medium: #F59E0B;
+  --color-trust-low: #EF4444;
+  --color-trust-unknown: #4A5168;
+  --color-bg-app: #05070B;
+  --color-bg-sidebar: #0C0F16;
+  --sidebar-width: 280px;
+  --topbar-height: 56px;
 }
 
 /* ─── Base reset ─────────────────────────────────────────────────────────── */
@@ -126,8 +111,8 @@
   }
 
   body {
-    background-color: var(--color-bg-base);
-    color: var(--color-text-primary);
+    background-color: #05070B;
+    color: #F1F3F9;
     font-family: var(--font-inter), system-ui, -apple-system, sans-serif;
     line-height: 1.5;
     min-height: 100dvh;

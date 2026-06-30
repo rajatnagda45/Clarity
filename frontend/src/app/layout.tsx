@@ -4,6 +4,7 @@ import { ClerkProvider } from '@clerk/nextjs';
 import { UIProvider } from '@/contexts/UIContext';
 import { WorkspaceProvider } from '@/contexts/WorkspaceContext';
 import { ToastProvider } from '@/contexts/ToastContext';
+import { QueryProvider } from '@/components/providers/QueryProvider';
 import './globals.css';
 
 const inter = Inter({ subsets: ['latin'], variable: '--font-inter' });
@@ -21,9 +22,11 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <body className={`${inter.variable} font-sans antialiased`}>
           <UIProvider>
             <WorkspaceProvider>
-              <ToastProvider>
-                {children}
-              </ToastProvider>
+              <QueryProvider>
+                <ToastProvider>
+                  {children}
+                </ToastProvider>
+              </QueryProvider>
             </WorkspaceProvider>
           </UIProvider>
         </body>

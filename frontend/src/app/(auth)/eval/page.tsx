@@ -2,7 +2,6 @@
 
 import { useEffect, useState } from 'react';
 import { useAuth } from '@clerk/nextjs';
-import { AppShell } from '@/components/shell/AppShell';
 import { useWorkspace } from '@/contexts/WorkspaceContext';
 import { ProgressBar } from '@/components/ds/Progress';
 import { Badge } from '@/components/ds/Badge';
@@ -99,7 +98,6 @@ export default function EvalPage() {
   }, [activeWorkspace, getToken]);
 
   return (
-    <AppShell breadcrumbs={[{ label: 'Eval Dashboard' }]}>
       <div className="mx-auto w-full max-w-3xl px-6 py-8 flex flex-col gap-6">
         <div>
           <h1 className="text-xl font-semibold text-[var(--color-text-primary)]">Evaluation Dashboard</h1>
@@ -139,6 +137,5 @@ export default function EvalPage() {
           </TabPanel>
         </Tabs>
       </div>
-    </AppShell>
   );
 }
