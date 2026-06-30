@@ -33,7 +33,7 @@ export function VerifiedClaimChip({
 }) {
   const tone = getClaimTone(claim);
   const label = getClaimLabel(claim);
-  const primaryCitation = citations.find((citation) => claim.citationKeys.includes(citation.citationKey)) ?? citations[0];
+  const primaryCitation = citations[0];
   const href = primaryCitation
     ? buildProvenanceHref({
         workspaceId,
@@ -42,9 +42,8 @@ export function VerifiedClaimChip({
         chunkId: primaryCitation.chunkId,
         citationKey: primaryCitation.citationKey,
         claimText: claim.text,
-        criticStatus: claim.criticStatus ?? null,
-        confidence: claim.confidence ?? null,
-        supportProbability: claim.supportProbability ?? null,
+        criticVerdict: claim.criticVerdict ?? null,
+        nliScore: claim.nliScore ?? null,
       })
     : undefined;
 
@@ -53,27 +52,47 @@ export function VerifiedClaimChip({
       <span aria-hidden="true" className="text-sm">{CHIP_SYMBOL[tone]}</span>
       <span className="font-semibold">{label}</span>
       <span className="text-slate-700">{claim.text}</span>
-      {claim.section ? <span className="rounded-full border border-current/20 px-2 py-0.5 text-xs">{claim.section}</span> : null}
     </>
   );
 
   const details = (
     <div className="mt-3 grid gap-2 text-xs text-slate-700">
-      <p><span className="font-semibold text-slate-900">Evidence:</span> {primaryCitation ? `${primaryCitation.citationKey} · pages ${primaryCitation.pageStart}-${primaryCitation.pageEnd}` : 'No citation key recorded.'}</p>
-      <p><span className="font-semibold text-slate-900">Critic note:</span> {claim.criticNote ?? 'No critic note recorded.'}</p>
-      <p><span className="font-semibold text-slate-900">Confidence:</span> {formatPercent(claim.confidence)}</p>
-      <p><span className="font-semibold text-slate-900">Support probability:</span> {formatPercent(claim.supportProbability)}</p>
+      <p>
+        <span className="font-semibold text-slate-900">Evidence:</span>{' '}
+        {primaryCitation
+          ? `${primaryCitation.citationKey} · pages ${primaryCitation.pageStart}–${primaryCitation.pageEnd}`
+          : 'No citation recorded.'}
+      </p>
+      <p>
+        <span className="font-semibold text-slate-900">Critic verdict:</span> {claim.criticVerdict}
+      </p>
+      {claim.nliLabel && (
+        <p>
+          <span className="font-semibold text-slate-900">NLI label:</span> {claim.nliLabel}
+        </p>
+      )}
+      {claim.nliScore != null && (
+        <p>
+          <span className="font-semibold text-slate-900">NLI score:</span>{' '}
+          {formatPercent(claim.nliScore)}
+        </p>
+      )}
     </div>
   );
 
   return (
     <details className={`rounded-2xl border px-4 py-3 ${CHIP_STYLES[tone]}`}>
-      <summary className="flex cursor-pointer list-none flex-wrap items-center gap-2 text-sm" aria-label={`${label} claim`}>
+      <summary
+        className="flex cursor-pointer list-none flex-wrap items-center gap-2 text-sm"
+        aria-label={`${label} claim`}
+      >
         {href ? (
           <Link href={href} className="contents">
             {body}
           </Link>
-        ) : body}
+        ) : (
+          body
+        )}
       </summary>
       {details}
     </details>

@@ -43,10 +43,9 @@ export function getTrustTone(trust: TrustScore | null | undefined): TrustTone {
 
 
 export function getClaimTone(claim: Claim): ClaimStatusTone {
-  if (claim.uncertain) return 'uncertain';
-  if (claim.criticStatus === 'partial') return 'partial';
-  if (claim.supported) return 'verified';
-  if (claim.criticStatus === 'unsupported') return 'unsupported';
+  if (claim.ensembleVerdict === 'uncertain') return 'uncertain';
+  if (claim.ensembleVerdict === 'supported') return 'verified';
+  if (claim.criticVerdict === 'unsupported') return 'unsupported';
   return 'uncertain';
 }
 
@@ -67,26 +66,26 @@ export function getClaimLabel(claim: Claim): string {
 
 export function getSupportRate(claims: Claim[]): number {
   if (claims.length === 0) return 0;
-  return claims.filter((claim) => claim.supported).length / claims.length;
+  return claims.filter((claim) => claim.ensembleVerdict === 'supported').length / claims.length;
 }
 
 
 export function getVerificationPasses(claims: Claim[], debateTurns: DebateTurn[]): number {
-  const claimPass = Math.max(0, ...claims.map((claim) => claim.verificationPass || 0));
-  const debatePass = Math.max(0, ...debateTurns.map((turn) => turn.round + 1));
+  const claimPass = Math.max(0, ...claims.map((claim) => claim.debateTurn || 0));
+  const debatePass = Math.max(0, ...debateTurns.map((turn) => turn.turn));
   return Math.max(claimPass, debatePass, 1);
 }
 
 
 export function getCitationCoverage(claims: Claim[]): number {
   if (claims.length === 0) return 0;
-  return claims.filter((claim) => claim.citationKeys.length > 0).length / claims.length;
+  return claims.filter((claim) => claim.evidenceSpans.length > 0).length / claims.length;
 }
 
 
 export function getClaimCoverage(claims: Claim[]): number {
   if (claims.length === 0) return 0;
-  return claims.filter((claim) => claim.spanIds.length > 0).length / claims.length;
+  return claims.filter((claim) => claim.evidenceSpans.length > 0).length / claims.length;
 }
 
 
@@ -95,7 +94,7 @@ export function getRetrievalConfidence(
   retrievedEvidence: RetrievalEvidence[],
 ): number | null {
   if (retrievedEvidence.length === 0 || claims.length === 0) return null;
-  const citedChunkIds = new Set(claims.flatMap((claim) => claim.spanIds));
+  const citedChunkIds = new Set(claims.flatMap((claim) => claim.evidenceSpans));
   const citedEvidence = retrievedEvidence.filter((evidence) => citedChunkIds.has(evidence.chunkId));
   const relevantEvidence = citedEvidence.length > 0 ? citedEvidence : retrievedEvidence;
   const scores = relevantEvidence.map((evidence) => evidence.rerankScore ?? evidence.finalScore);
@@ -107,10 +106,9 @@ export function getRetrievalConfidence(
 export function getCriticConfidence(claims: Claim[]): number | null {
   if (claims.length === 0) return null;
   const values: number[] = claims.map((claim) => {
-    if (claim.criticStatus === 'supported') return 1;
-    if (claim.criticStatus === 'partial') return 0.6;
-    if (claim.criticStatus === 'unsupported') return 0;
-    return claim.supported ? 1 : 0.35;
+    if (claim.criticVerdict === 'supported') return 1;
+    if (claim.criticVerdict === 'unsupported') return 0;
+    return claim.ensembleVerdict === 'supported' ? 1 : 0.35;
   });
   return values.reduce((sum, value) => sum + value, 0) / values.length;
 }
@@ -118,7 +116,7 @@ export function getCriticConfidence(claims: Claim[]): number | null {
 
 export function getNliConfidence(claims: Claim[]): number | null {
   const values = claims
-    .map((claim) => claim.supportProbability ?? claim.entailmentScore ?? null)
+    .map((claim) => claim.nliScore ?? null)
     .filter((value): value is number => value != null);
   if (values.length === 0) return null;
   return values.reduce((sum, value) => sum + value, 0) / values.length;
@@ -153,13 +151,13 @@ export function buildTrustBreakdown(
       id: 'citations',
       label: 'Citation Coverage',
       value: getCitationCoverage(claims),
-      description: 'Share of claims that retained explicit citation keys.',
+      description: 'Share of claims that retained explicit evidence spans.',
     },
     {
       id: 'claims',
       label: 'Claim Coverage',
       value: getClaimCoverage(claims),
-      description: 'Share of claims that remained anchored to stored chunk ids.',
+      description: 'Share of claims that remained anchored to stored evidence spans.',
     },
     {
       id: 'calibration',
@@ -184,9 +182,8 @@ export function buildVerificationTimeline(
   const claims = message.claims ?? [];
   const debateTurns = message.debateTurns ?? [];
   const hasClaims = claims.length > 0;
-  const hasCritic = debateTurns.some((turn) => turn.actor === 'critic');
-  const hasRevision = debateTurns.some((turn) => turn.action === 'revise');
-  const hasNli = claims.some((claim) => claim.entailmentLabel || claim.supportProbability != null);
+  const hasDebate = debateTurns.length > 0;
+  const hasNli = claims.some((claim) => claim.nliLabel != null || claim.nliScore != null);
   const hasTrust = message.trust != null;
   const hasAbstention = message.abstention != null;
 
@@ -200,13 +197,13 @@ export function buildVerificationTimeline(
     {
       id: 'critic',
       label: 'Critic',
-      status: hasCritic ? 'completed' : hasClaims && isStreaming ? 'running' : 'skipped',
-      summary: hasCritic ? 'Critic verdicts attached to the answer claims.' : 'No critic verdict yet.',
+      status: hasDebate ? 'completed' : hasClaims && isStreaming ? 'running' : 'skipped',
+      summary: hasDebate ? 'Critic verdicts attached to the answer claims.' : 'No critic verdict yet.',
     },
     {
       id: 'nli',
       label: 'NLI',
-      status: hasNli ? 'completed' : hasCritic && isStreaming ? 'running' : 'skipped',
+      status: hasNli ? 'completed' : hasDebate && isStreaming ? 'running' : 'skipped',
       summary: hasNli ? 'Independent entailment checks completed.' : 'NLI results not available yet.',
     },
     {
@@ -238,17 +235,17 @@ export function buildProvenanceHref(options: {
   chunkId?: string | null;
   citationKey?: string | null;
   claimText?: string | null;
-  criticStatus?: string | null;
+  criticVerdict?: string | null;
   confidence?: number | null;
-  supportProbability?: number | null;
+  nliScore?: number | null;
 }): string {
   const targetId = options.claimId || options.chunkId || '';
   const params = new URLSearchParams({ workspace: options.workspaceId });
   if (options.citationKey) params.set('citationKey', options.citationKey);
   if (options.claimText) params.set('claimText', options.claimText);
-  if (options.criticStatus) params.set('criticStatus', options.criticStatus);
+  if (options.criticVerdict) params.set('criticVerdict', options.criticVerdict);
   if (options.confidence != null) params.set('confidence', String(options.confidence));
-  if (options.supportProbability != null) params.set('supportProbability', String(options.supportProbability));
+  if (options.nliScore != null) params.set('nliScore', String(options.nliScore));
   return `/documents/${options.documentId}/provenance/${targetId}?${params.toString()}`;
 }
 

@@ -2,12 +2,200 @@
 @tailwind components;
 @tailwind utilities;
 
+/* ─── Design tokens — Light mode (default) ──────────────────────────────── */
 :root {
-  --foreground-rgb: 17, 24, 39;
-  --background-rgb: 249, 250, 251;
+  /* Surface */
+  --color-bg-base: #f8f8f8;
+  --color-bg-surface: #ffffff;
+  --color-bg-elevated: #f4f4f5;
+  --color-bg-hover: #f0f0f2;
+  --color-bg-overlay: rgba(0, 0, 0, 0.40);
+
+  /* Border */
+  --color-border-subtle: rgba(0, 0, 0, 0.06);
+  --color-border-default: rgba(0, 0, 0, 0.10);
+  --color-border-strong: rgba(0, 0, 0, 0.18);
+
+  /* Text */
+  --color-text-primary: #09090b;
+  --color-text-secondary: #52525b;
+  --color-text-tertiary: #a1a1aa;
+  --color-text-disabled: #d4d4d8;
+  --color-text-link: #2563eb;
+
+  /* Accent */
+  --color-accent: #3b82f6;
+  --color-accent-hover: #2563eb;
+  --color-accent-subtle: rgba(59, 130, 246, 0.10);
+  --color-accent-fg: #1d4ed8;
+
+  /* Success */
+  --color-success: #16a34a;
+  --color-success-subtle: rgba(22, 163, 74, 0.10);
+  --color-success-fg: #15803d;
+
+  /* Warning */
+  --color-warning: #d97706;
+  --color-warning-subtle: rgba(217, 119, 6, 0.10);
+  --color-warning-fg: #b45309;
+
+  /* Error */
+  --color-error: #dc2626;
+  --color-error-subtle: rgba(220, 38, 38, 0.10);
+  --color-error-fg: #b91c1c;
+
+  /* Trust */
+  --color-trust-high: #16a34a;
+  --color-trust-medium: #d97706;
+  --color-trust-low: #dc2626;
+  --color-trust-unknown: #71717a;
+
+  /* App-level backgrounds */
+  --color-bg-app: #f8f8f8;
+  --color-bg-sidebar: #ffffff;
+
+  /* Sidebar width (CSS variable so JS can read it) */
+  --sidebar-width: 220px;
+  --topbar-height: 48px;
 }
 
-body {
-  color: rgb(var(--foreground-rgb));
-  background: rgb(var(--background-rgb));
+/* ─── Design tokens — Dark mode ─────────────────────────────────────────── */
+[data-theme="dark"] {
+  /* Surface */
+  --color-bg-base: #0a0a0b;
+  --color-bg-surface: #111113;
+  --color-bg-elevated: #18181b;
+  --color-bg-hover: #1f1f26;
+  --color-bg-overlay: rgba(0, 0, 0, 0.60);
+
+  /* Border */
+  --color-border-subtle: rgba(255, 255, 255, 0.06);
+  --color-border-default: rgba(255, 255, 255, 0.10);
+  --color-border-strong: rgba(255, 255, 255, 0.18);
+
+  /* Text */
+  --color-text-primary: #fafafa;
+  --color-text-secondary: #a1a1aa;
+  --color-text-tertiary: #52525b;
+  --color-text-disabled: #3f3f46;
+  --color-text-link: #60a5fa;
+
+  /* Accent */
+  --color-accent: #3b82f6;
+  --color-accent-hover: #60a5fa;
+  --color-accent-subtle: rgba(59, 130, 246, 0.12);
+  --color-accent-fg: #93c5fd;
+
+  /* Success */
+  --color-success: #22c55e;
+  --color-success-subtle: rgba(34, 197, 94, 0.12);
+  --color-success-fg: #86efac;
+
+  /* Warning */
+  --color-warning: #f59e0b;
+  --color-warning-subtle: rgba(245, 158, 11, 0.12);
+  --color-warning-fg: #fcd34d;
+
+  /* Error */
+  --color-error: #ef4444;
+  --color-error-subtle: rgba(239, 68, 68, 0.12);
+  --color-error-fg: #fca5a5;
+
+  /* Trust */
+  --color-trust-high: #22c55e;
+  --color-trust-medium: #f59e0b;
+  --color-trust-low: #ef4444;
+  --color-trust-unknown: #71717a;
+
+  /* App-level backgrounds */
+  --color-bg-app: #0a0a0b;
+  --color-bg-sidebar: #111113;
+}
+
+/* ─── Base reset ─────────────────────────────────────────────────────────── */
+@layer base {
+  *, *::before, *::after {
+    box-sizing: border-box;
+  }
+
+  html {
+    font-size: 14px;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    text-rendering: optimizeLegibility;
+  }
+
+  body {
+    background-color: var(--color-bg-base);
+    color: var(--color-text-primary);
+    font-family: var(--font-inter), system-ui, -apple-system, sans-serif;
+    line-height: 1.5;
+    min-height: 100dvh;
+  }
+
+  /* Smooth scrolling, respect reduced motion */
+  @media (prefers-reduced-motion: no-preference) {
+    html {
+      scroll-behavior: smooth;
+    }
+  }
+
+  /* Focus ring — visible only on keyboard navigation */
+  :focus-visible {
+    outline: 2px solid var(--color-accent);
+    outline-offset: 2px;
+    border-radius: 4px;
+  }
+
+  /* Remove focus ring on mouse click */
+  :focus:not(:focus-visible) {
+    outline: none;
+  }
+
+  /* Scrollbar */
+  ::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+  }
+  ::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  ::-webkit-scrollbar-thumb {
+    background: var(--color-border-strong);
+    border-radius: 3px;
+  }
+  ::-webkit-scrollbar-thumb:hover {
+    background: var(--color-text-tertiary);
+  }
+
+  /* Selection */
+  ::selection {
+    background-color: var(--color-accent-subtle);
+    color: var(--color-text-primary);
+  }
+}
+
+/* ─── Skeleton shimmer ───────────────────────────────────────────────────── */
+@layer components {
+  .skeleton-shimmer {
+    background: linear-gradient(
+      90deg,
+      var(--color-bg-elevated) 25%,
+      var(--color-bg-hover) 50%,
+      var(--color-bg-elevated) 75%
+    );
+    background-size: 800px 100%;
+    animation: shimmer 1.6s linear infinite;
+  }
+}
+
+/* ─── Reduced motion overrides ───────────────────────────────────────────── */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
 }

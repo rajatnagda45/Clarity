@@ -88,15 +88,15 @@ describe('chat stream reducer', () => {
           {
             id: 'claim-1',
             text: 'It renews annually.',
-            spanIds: ['chunk-1'],
-            citationKeys: ['E1'],
-            verificationPass: 1,
-            supported: true,
-            uncertain: false,
-            criticStatus: 'supported',
+            criticVerdict: 'supported',
+            nliLabel: 'entail' as const,
+            nliScore: 0.93,
+            ensembleVerdict: 'supported',
+            evidenceSpans: ['The agreement renews annually.'],
+            debateTurn: 1,
           },
         ],
-        debateTurns: [{ round: 0, actor: 'critic', action: 'resolve', note: 'Supported by the cited clause.' }],
+        debateTurns: [{ turn: 1, claim: 'It renews annually.', verdict: 'supported', reasoning: 'Supported by the cited clause.' }],
         retrievedEvidence: [
           {
             workspaceId: 'ws-1',

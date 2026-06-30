@@ -22,16 +22,12 @@ const citation = {
 const claim = {
   id: 'claim-1',
   text: 'The agreement renews annually.',
-  spanIds: ['chunk-1'],
-  citationKeys: ['E1'],
-  section: 'Renewal',
-  verificationPass: 1,
-  supported: true,
-  uncertain: false,
-  criticStatus: 'supported' as const,
-  criticNote: 'Matches the cited renewal clause.',
-  supportProbability: 0.97,
-  confidence: 0.91,
+  criticVerdict: 'supported' as const,
+  nliLabel: 'entail' as const,
+  nliScore: 0.97,
+  ensembleVerdict: 'supported',
+  evidenceSpans: ['The agreement renews annually.'],
+  debateTurn: 1,
 };
 
 const trust = {
@@ -56,14 +52,14 @@ describe('verified answer helpers and components', () => {
     expect(trustMarkup).toContain('High trust');
     expect(trustMarkup).toContain('91%');
     expect(claimMarkup).toContain('Verified');
-    expect(claimMarkup).toContain('Matches the cited renewal clause.');
+    expect(claimMarkup).toContain('supported');
   });
 
   it('builds timeline and breakdown data from verification metadata', () => {
     const timeline = buildVerificationTimeline(
       {
         claims: [claim],
-        debateTurns: [{ round: 0, actor: 'critic', action: 'resolve', note: 'Verified.' }],
+        debateTurns: [{ turn: 1, claim: 'It renews annually.', verdict: 'supported', reasoning: 'Verified.' }],
         trust,
         abstention: null,
         retrievedEvidence: [
