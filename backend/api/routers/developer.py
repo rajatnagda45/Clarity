@@ -218,40 +218,31 @@ async def get_answer_explorer(
         claims_by_run.setdefault(str(answer_run_id), []).append(
             Claim(
                 id=str(row["id"]),
-                text=row["text"],
-                span_ids=row.get("span_ids") or [],
-                citationKeys=row.get("citation_keys") or [],
-                section=row.get("section"),
-                verificationPass=row.get("verification_pass", 1),
-                supported=row.get("supported", False),
-                uncertain=row.get("uncertain", False),
-                criticStatus=row.get("critic_status"),
-                criticNote=row.get("critic_note"),
-                correctedText=row.get("corrected_text"),
-                entailmentLabel=row.get("entailment_label"),
-                entailmentScore=float(row["entailment_score"]) if row.get("entailment_score") is not None else None,
-                supportProbability=float(row["support_probability"]) if row.get("support_probability") is not None else None,
-                contradictionProbability=float(row["contradiction_probability"]) if row.get("contradiction_probability") is not None else None,
-                confidence=float(row["confidence"]) if row.get("confidence") is not None else None,
+                text=row.get("claim_text") or row.get("text", ""),
+                criticVerdict=row.get("critic_verdict", "uncertain"),
+                nliLabel=row.get("nli_label"),
+                nliScore=float(row["nli_score"]) if row.get("nli_score") is not None else None,
+                ensembleVerdict=row.get("ensemble_verdict", "uncertain"),
+                evidenceSpans=list(row.get("evidence_spans") or []),
+                debateTurn=int(row.get("debate_turn") or 1),
             )
         )
-    debate_by_message: dict[str, list[DebateTurn]] = {}
+    debate_by_run: dict[str, list[DebateTurn]] = {}
     for row in debate_rows:
-        debate_by_message.setdefault(str(row["message_id"]), []).append(
+        debate_by_run.setdefault(str(row.get("answer_run_id", "")), []).append(
             DebateTurn(
-                round=row["round"],
-                actor=row["actor"],
-                action=row["action"],
-                claim_id=str(row["claim_id"]) if row.get("claim_id") else None,
-                created_at=row.get("created_at"),
-                note=row.get("note"),
+                turn=int(row.get("turn_number") or row.get("turn") or 1),
+                claim=row.get("claim_text") or row.get("claim", ""),
+                verdict=row.get("critic_verdict") or row.get("verdict", "uncertain"),
+                reasoning=row.get("reasoning", ""),
+                createdAt=row.get("created_at"),
             )
         )
-    abstention_by_message: dict[str, Abstention] = {}
+    abstention_by_run: dict[str, Abstention] = {}
     for row in abstention_rows:
-        abstention_by_message[str(row["message_id"])] = Abstention(
+        abstention_by_run[str(row.get("answer_run_id", ""))] = Abstention(
             reason=row["reason"],
-            missing_evidence_query=row.get("missing_evidence_query"),
+            missingEvidenceQuery=row.get("missing_evidence_query"),
             suggestedFollowUp=row.get("suggested_follow_up"),
         )
 
@@ -296,9 +287,9 @@ async def get_answer_explorer(
                 promptPayload=row.get("prompt_payload") or {},
                 finalAnswer=row.get("answer_markdown"),
                 trust=trust,
-                abstention=abstention_by_message.get(str(row.get("assistant_message_id"))),
+                abstention=abstention_by_run.get(str(row.get("id"))),
                 claims=claims_by_run.get(str(row["id"]), []),
-                debateTurns=debate_by_message.get(str(row.get("assistant_message_id")), []),
+                debateTurns=debate_by_run.get(str(row.get("id")), []),
                 citations=citations_by_run.get(str(row["id"]), []),
                 retrievedEvidence=evidence_by_run.get(str(row["retrieval_run_id"]), []),
                 streamEvents=events_by_run.get(str(row["id"]), []),

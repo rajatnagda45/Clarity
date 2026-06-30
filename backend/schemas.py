@@ -23,21 +23,13 @@ class BoundingBox(BaseModel):
 
 class Claim(BaseModel):
     id: str
-    text: str
-    span_ids: list[str] = Field(alias="spanIds")
-    citation_keys: list[str] = Field(default_factory=list, alias="citationKeys")
-    section: str | None = None
-    verification_pass: int = Field(default=1, alias="verificationPass")
-    supported: bool = False        # true only if Critic AND NLI entailment agree
-    uncertain: bool = False
-    critic_status: Literal["supported", "partial", "unsupported"] | None = Field(default=None, alias="criticStatus")
-    critic_note: str | None = Field(default=None, alias="criticNote")
-    corrected_text: str | None = Field(default=None, alias="correctedText")
-    entailment_label: Literal["entail", "neutral", "contradict"] | None = Field(default=None, alias="entailmentLabel")
-    entailment_score: float | None = Field(default=None, ge=0.0, le=1.0, alias="entailmentScore")
-    support_probability: float | None = Field(default=None, ge=0.0, le=1.0, alias="supportProbability")
-    contradiction_probability: float | None = Field(default=None, ge=0.0, le=1.0, alias="contradictionProbability")
-    confidence: float | None = Field(default=None, ge=0.0, le=1.0)  # calibrated
+    text: str = Field(alias="text")               # claim_text in DB, aliased for frontend
+    critic_verdict: str = Field(alias="criticVerdict")
+    nli_label: Literal["entail", "neutral", "contradict"] | None = Field(default=None, alias="nliLabel")
+    nli_score: float | None = Field(default=None, ge=0.0, le=1.0, alias="nliScore")
+    ensemble_verdict: str = Field(alias="ensembleVerdict")
+    evidence_spans: list[str] = Field(default_factory=list, alias="evidenceSpans")
+    debate_turn: int = Field(default=1, alias="debateTurn")
 
     model_config = {"populate_by_name": True}
 
@@ -62,12 +54,11 @@ class Abstention(BaseModel):
 
 
 class DebateTurn(BaseModel):
-    round: int = Field(ge=0, le=2)
-    actor: Literal["writer", "critic"]
-    action: Literal["draft", "flag", "revise", "reretrieve", "resolve"]
-    claim_id: str | None = Field(default=None, alias="claimId")
+    turn: int = Field(alias="turn")
+    claim: str
+    verdict: str
+    reasoning: str
     created_at: str | None = Field(default=None, alias="createdAt")
-    note: str | None = None
 
     model_config = {"populate_by_name": True}
 

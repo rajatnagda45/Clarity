@@ -579,21 +579,13 @@ async def test_answer_metrics_and_explorer_return_developer_summary(client, toke
             {
                 "id": "claim-1",
                 "answer_run_id": "answer-1",
-                "span_ids": ["chunk-1"],
-                "citation_keys": ["E1"],
-                "text": "It renews annually.",
-                "section": "Renewal",
-                "verification_pass": 1,
-                "supported": True,
-                "uncertain": False,
-                "critic_status": "supported",
-                "critic_note": None,
-                "corrected_text": None,
-                "entailment_label": "entail",
-                "entailment_score": 0.92,
-                "support_probability": 0.92,
-                "contradiction_probability": 0.03,
-                "confidence": 0.88,
+                "claim_text": "It renews annually.",
+                "critic_verdict": "supported",
+                "nli_label": "entail",
+                "nli_score": 0.92,
+                "ensemble_verdict": "supported",
+                "evidence_spans": ["Renews annually."],
+                "debate_turn": 1,
                 "claim_index": 0,
             }
         ]
@@ -604,12 +596,11 @@ async def test_answer_metrics_and_explorer_return_developer_summary(client, toke
     debate_query.execute.return_value = SimpleNamespace(
         data=[
             {
-                "message_id": "msg-assistant",
-                "round": 0,
-                "actor": "critic",
-                "action": "resolve",
-                "claim_id": "claim-1",
-                "note": "Critic+NLI agree",
+                "answer_run_id": "answer-1",
+                "turn_number": 1,
+                "claim_text": "It renews annually.",
+                "critic_verdict": "supported",
+                "reasoning": "Critic and NLI agree.",
             }
         ]
     )
@@ -661,5 +652,5 @@ async def test_answer_metrics_and_explorer_return_developer_summary(client, toke
     explorer_body = explorer_response.json()
     assert explorer_body["runs"][0]["answerRunId"] == "answer-1"
     assert explorer_body["runs"][0]["citations"][0]["citationKey"] == "E1"
-    assert explorer_body["runs"][0]["claims"][0]["criticStatus"] == "supported"
+    assert explorer_body["runs"][0]["claims"][0]["criticVerdict"] == "supported"
     assert explorer_body["runs"][0]["trust"]["confidenceBand"] == "high"

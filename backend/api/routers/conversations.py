@@ -52,21 +52,13 @@ def _build_citation(row: dict) -> MessageCitation:
 def _build_claim(row: dict) -> Claim:
     return Claim(
         id=str(row["id"]),
-        text=row["text"],
-        span_ids=[str(span_id) for span_id in (row.get("span_ids") or [])],
-        citationKeys=row.get("citation_keys") or [],
-        section=row.get("section"),
-        verificationPass=row.get("verification_pass", 1),
-        supported=bool(row.get("supported", False)),
-        uncertain=bool(row.get("uncertain", False)),
-        criticStatus=row.get("critic_status"),
-        criticNote=row.get("critic_note"),
-        correctedText=row.get("corrected_text"),
-        entailment_label=row.get("entailment_label"),
-        entailment_score=row.get("entailment_score"),
-        supportProbability=row.get("support_probability"),
-        contradictionProbability=row.get("contradiction_probability"),
-        confidence=row.get("confidence"),
+        text=row.get("claim_text") or row.get("text", ""),
+        criticVerdict=row.get("critic_verdict", "uncertain"),
+        nliLabel=row.get("nli_label"),
+        nliScore=row.get("nli_score"),
+        ensembleVerdict=row.get("ensemble_verdict", "uncertain"),
+        evidenceSpans=list(row.get("evidence_spans") or []),
+        debateTurn=int(row.get("debate_turn") or 1),
     )
 
 
@@ -98,14 +90,12 @@ def _build_abstention(row: dict | None) -> Abstention | None:
 
 
 def _build_debate_turn(row: dict) -> DebateTurn:
-    round_number = row["round"] if "round" in row else row["round_number"]
     return DebateTurn(
-        round=round_number,
-        actor=row["actor"],
-        action=row["action"],
-        claim_id=str(row["claim_id"]) if row.get("claim_id") else None,
-        created_at=row.get("created_at"),
-        note=row.get("note"),
+        turn=int(row.get("turn_number") or row.get("turn") or 1),
+        claim=row.get("claim_text") or row.get("claim", ""),
+        verdict=row.get("critic_verdict") or row.get("verdict", "uncertain"),
+        reasoning=row.get("reasoning", ""),
+        createdAt=row.get("created_at"),
     )
 
 
@@ -226,30 +216,38 @@ async def get_conversation(
             continue
         claims_by_run.setdefault(str(answer_run_id), []).append(_build_claim(row))
 
+    # Map answer_run_id → assistant_message_id for debate/abstention lookup
+    run_to_message = {
+        str(row["id"]): str(row["assistant_message_id"])
+        for row in answer_runs.data or []
+        if row.get("assistant_message_id")
+    }
+
     debate_rows = (
         tenant_query("debate_turns", workspace_id)
-        .in_("message_id", message_ids)
+        .in_("answer_run_id", answer_run_ids)
         .execute()
-        if message_ids
+        if answer_run_ids
         else None
     )
     debate_by_message: dict[str, list[DebateTurn]] = {}
     for row in (debate_rows.data if debate_rows is not None else []):
-        message_id = str(row["message_id"])
-        debate_by_message.setdefault(message_id, []).append(_build_debate_turn(row))
+        msg_id = run_to_message.get(str(row.get("answer_run_id", "")))
+        if msg_id:
+            debate_by_message.setdefault(msg_id, []).append(_build_debate_turn(row))
 
     abstention_rows = (
         tenant_query("abstentions", workspace_id)
-        .in_("message_id", message_ids)
+        .in_("answer_run_id", answer_run_ids)
         .execute()
-        if message_ids
+        if answer_run_ids
         else None
     )
-    abstention_by_message = {
-        str(row["message_id"]): _build_abstention(row)
-        for row in (abstention_rows.data if abstention_rows is not None else [])
-        if row.get("message_id")
-    }
+    abstention_by_message = {}
+    for row in (abstention_rows.data if abstention_rows is not None else []):
+        msg_id = run_to_message.get(str(row.get("answer_run_id", "")))
+        if msg_id:
+            abstention_by_message[msg_id] = _build_abstention(row)
 
     evidence_rows = (
         tenant_query("retrieval_run_evidence", workspace_id)

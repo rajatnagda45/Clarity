@@ -103,31 +103,24 @@ async def test_get_conversation_restores_verification_metadata(client, token_a, 
             {
                 "id": "claim-1",
                 "answer_run_id": "answer-1",
-                "text": "It renews annually.",
-                "span_ids": ["chunk-1"],
-                "citation_keys": ["E1"],
-                "verification_pass": 1,
-                "supported": True,
-                "uncertain": False,
-                "critic_status": "supported",
-                "critic_note": "Matches cited language.",
-                "entailment_label": "entail",
-                "entailment_score": 0.93,
-                "support_probability": 0.97,
-                "contradiction_probability": 0.01,
-                "confidence": 0.91,
+                "claim_text": "It renews annually.",
+                "critic_verdict": "supported",
+                "nli_label": "entail",
+                "nli_score": 0.93,
+                "ensemble_verdict": "supported",
+                "evidence_spans": ["The agreement renews annually."],
+                "debate_turn": 1,
             }
         ]
     )
     debate_rows = _query_with_rows(
         [
             {
-                "message_id": "msg-assistant",
-                "round": 0,
-                "actor": "writer",
-                "action": "draft",
-                "claim_id": None,
-                "note": "Prepared 1 claim for verification.",
+                "answer_run_id": "answer-1",
+                "turn_number": 1,
+                "claim_text": "It renews annually.",
+                "critic_verdict": "supported",
+                "reasoning": "Critic and NLI agree on annual renewal.",
             }
         ]
     )
@@ -189,6 +182,6 @@ async def test_get_conversation_restores_verification_metadata(client, token_a, 
     body = response.json()
     assistant = body["messages"][1]
     assert assistant["trust"]["confidenceBand"] == "high"
-    assert assistant["claims"][0]["criticStatus"] == "supported"
-    assert assistant["debateTurns"][0]["action"] == "draft"
+    assert assistant["claims"][0]["criticVerdict"] == "supported"
+    assert assistant["debateTurns"][0]["verdict"] == "supported"
     assert assistant["retrievedEvidence"][0]["finalScore"] == 0.93

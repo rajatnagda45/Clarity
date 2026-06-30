@@ -304,21 +304,13 @@ export interface BoundingBox {
 
 export interface Claim {
   id: string;
-  text: string;
-  spanIds: string[];
-  citationKeys: string[];
-  section?: string | null;
-  verificationPass: number;
-  supported: boolean;           // true only if Critic AND NLI entailment agree
-  uncertain: boolean;
-  criticStatus?: 'supported' | 'partial' | 'unsupported';
-  criticNote?: string | null;
-  correctedText?: string | null;
-  entailmentLabel?: EntailmentLabel;
-  entailmentScore?: number;     // 0..1
-  supportProbability?: number;
-  contradictionProbability?: number;
-  confidence?: number;          // 0..1, calibrated per-claim
+  text: string;                 // claim_text in DB
+  criticVerdict: string;        // supported | unsupported | uncertain
+  nliLabel?: EntailmentLabel | null;
+  nliScore?: number | null;     // 0..1
+  ensembleVerdict: string;      // supported | unsupported | uncertain
+  evidenceSpans: string[];
+  debateTurn: number;
 }
 
 export interface TrustScore {
@@ -337,12 +329,11 @@ export interface Abstention {
 }
 
 export interface DebateTurn {
-  round: number;                // 0 | 1 | 2
-  actor: 'writer' | 'critic';
-  action: 'draft' | 'flag' | 'revise' | 'reretrieve' | 'resolve';
-  claimId?: string | null;
+  turn: number;
+  claim: string;
+  verdict: string;
+  reasoning: string;
   createdAt?: string | null;
-  note?: string | null;
 }
 
 export interface Contradiction {
