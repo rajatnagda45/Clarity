@@ -4,18 +4,14 @@ import { redirect } from 'next/navigation';
 import { BackgroundEffects } from '@/components/landing/BackgroundEffects';
 import { LandingNavbar } from '@/components/landing/LandingNavbar';
 import { Footer } from '@/components/landing/Footer';
-import { PricingHero } from '@/components/landing/pricing/PricingHero';
-
-import { ComparisonTable } from '@/components/landing/pricing/ComparisonTable';
-import { EnterprisePanel } from '@/components/landing/pricing/EnterprisePanel';
-import { PipelineCostAnimation } from '@/components/landing/pricing/PipelineCostAnimation';
+import { PricingFAQ } from '@/components/landing/pricing/PricingFAQ';
 
 export const metadata = {
-  title: 'Pricing - Clarity AI Docs',
-  description: 'Simple pricing. Scale as your AI grows.',
+  title: 'FAQ - Clarity AI Docs',
+  description: 'Frequently Asked Questions about Clarity AI.',
 };
 
-export default async function PricingPage() {
+export default async function FAQPage() {
   const { userId } = await auth();
   
   if (userId) {
@@ -28,11 +24,7 @@ export default async function PricingPage() {
       <LandingNavbar />
       
       <div className="relative z-10 flex flex-col pt-32">
-        <PricingHero />
-        <PipelineCostAnimation />
-        <ComparisonTable />
-        <EnterprisePanel />
-
+        <PricingFAQ />
         <Footer />
       </div>
     </main>

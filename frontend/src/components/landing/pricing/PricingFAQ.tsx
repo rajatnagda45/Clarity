@@ -7,6 +7,8 @@ import { pricingFaqs } from "./data";
 
 export function PricingFAQ() {
   const [openIndex, setOpenIndex] = useState<number | null>(0);
+  const [showAll, setShowAll] = useState(false);
+  const visibleFaqs = showAll ? pricingFaqs : pricingFaqs.slice(0, 5);
 
   return (
     <section className="py-32 relative z-10 max-w-4xl mx-auto px-6">
@@ -16,7 +18,7 @@ export function PricingFAQ() {
       </div>
 
       <div className="space-y-4">
-        {pricingFaqs.map((faq, index) => {
+        {visibleFaqs.map((faq, index) => {
           const isOpen = openIndex === index;
 
           return (
@@ -60,6 +62,17 @@ export function PricingFAQ() {
           );
         })}
       </div>
+
+      {!showAll && pricingFaqs.length > 5 && (
+        <div className="mt-12 flex justify-center">
+          <button
+            onClick={() => setShowAll(true)}
+            className="px-8 py-3 rounded-full border border-white/10 text-white hover:bg-white/5 transition-colors font-medium"
+          >
+            Load More Questions
+          </button>
+        </div>
+      )}
     </section>
   );
 }

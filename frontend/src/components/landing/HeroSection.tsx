@@ -1,7 +1,7 @@
 "use client";
 
 import { motion, useMotionValue, useSpring, useTransform } from "framer-motion";
-import { SignInButton } from "@clerk/nextjs";
+import Link from "next/link";
 import { Play } from "lucide-react";
 import { useEffect, useState } from "react";
 import { MagneticButton } from "./ui/MagneticButton";
@@ -73,13 +73,11 @@ export function HeroSection() {
 
           <div className="flex flex-col sm:flex-row items-center gap-4 w-full sm:w-auto">
             <MagneticButton intensity={0.2}>
-              <SignInButton mode="modal">
-                <button className="w-full sm:w-auto px-8 py-4 text-base font-semibold text-white bg-gradient-to-r from-orange-500 to-orange-600 rounded-lg shadow-[0_0_30px_rgba(245,158,11,0.25)] hover:shadow-[0_0_40px_rgba(245,158,11,0.5)] transition-all duration-300 flex items-center justify-center gap-2 relative overflow-hidden group">
-                  <div className="absolute inset-0 bg-white/20 translate-y-[100%] group-hover:translate-y-[0%] transition-transform duration-300 ease-out" />
-                  <span className="relative z-10">Get started for free</span>
-                  <span className="relative z-10 ml-1 opacity-70 group-hover:translate-x-1 transition-transform">→</span>
-                </button>
-              </SignInButton>
+              <Link href="/signup" className="w-full sm:w-auto px-8 py-4 text-base font-semibold text-white bg-gradient-to-r from-orange-500 to-orange-600 rounded-lg shadow-[0_0_30px_rgba(245,158,11,0.25)] hover:shadow-[0_0_40px_rgba(245,158,11,0.5)] transition-all duration-300 flex items-center justify-center gap-2 relative overflow-hidden group block">
+                <div className="absolute inset-0 bg-white/20 translate-y-[100%] group-hover:translate-y-[0%] transition-transform duration-300 ease-out" />
+                <span className="relative z-10">Get started for free</span>
+                <span className="relative z-10 ml-1 opacity-70 group-hover:translate-x-1 transition-transform">→</span>
+              </Link>
             </MagneticButton>
             
             <MagneticButton intensity={0.1}>

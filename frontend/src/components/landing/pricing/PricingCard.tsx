@@ -24,6 +24,19 @@ export function PricingCard({ plan, isYearly, index }: PricingCardProps) {
       transition={{ duration: 0.6, delay: index * 0.15, type: "spring", bounce: 0.2 }}
       className={`relative h-full ${isPopular ? "z-10 -mt-4 mb-4" : "z-0"}`}
     >
+      {isPopular && (
+        <div className="absolute top-0 left-1/2 -translate-x-1/2 -translate-y-1/2 z-20">
+          <motion.div 
+            initial={{ opacity: 0, scale: 0.8 }}
+            animate={{ opacity: 1, scale: 1 }}
+            transition={{ delay: 0.5, type: "spring" }}
+            className="bg-gradient-to-r from-orange-500 to-orange-600 text-white text-[10px] font-bold uppercase tracking-wider py-1 px-3 rounded-full shadow-[0_0_20px_rgba(245,158,11,0.5)] border border-orange-400/50"
+          >
+            Most Popular
+          </motion.div>
+        </div>
+      )}
+
       <SpotlightCard 
         className={`h-full bg-[#0C0F16]/90 backdrop-blur-xl rounded-2xl flex flex-col transition-all duration-300
           ${isPopular 
@@ -32,18 +45,6 @@ export function PricingCard({ plan, isYearly, index }: PricingCardProps) {
           }`}
         spotlightColor={isPopular ? "rgba(245, 158, 11, 0.2)" : "rgba(255, 255, 255, 0.05)"}
       >
-        {isPopular && (
-          <div className="absolute top-0 left-1/2 -translate-x-1/2 -translate-y-1/2">
-            <motion.div 
-              initial={{ opacity: 0, scale: 0.8 }}
-              animate={{ opacity: 1, scale: 1 }}
-              transition={{ delay: 0.5, type: "spring" }}
-              className="bg-gradient-to-r from-orange-500 to-orange-600 text-white text-[10px] font-bold uppercase tracking-wider py-1 px-3 rounded-full shadow-[0_0_20px_rgba(245,158,11,0.5)] border border-orange-400/50"
-            >
-              Most Popular
-            </motion.div>
-          </div>
-        )}
 
         <div className="p-10 flex-1 flex flex-col">
           <h4 className="text-2xl font-bold text-white mb-3">{plan.name}</h4>

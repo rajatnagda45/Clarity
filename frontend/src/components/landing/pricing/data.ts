@@ -145,5 +145,17 @@ export const pricingFaqs = [
   {
     question: "Is there a free trial?",
     answer: "Yes! You can start using the Starter plan for free indefinitely with up to 50 documents. For Pro features, you can activate a 14-day free trial directly from the dashboard."
+  },
+  {
+    question: "Do you train AI models on my private data?",
+    answer: "Absolutely not. Clarity is built on a zero-trust architecture. We never use your proprietary documents, queries, or results to train foundational models. Your data is encrypted at rest and in transit."
+  },
+  {
+    question: "What document formats does the pipeline support?",
+    answer: "Our vision-based OCR engine natively processes complex PDFs (including scanned documents), Microsoft Word (.docx), Excel (.xlsx), and raw images (PNG/JPEG). It preserves layout, tables, and nested structures."
+  },
+  {
+    question: "How easy is it to integrate into our existing app?",
+    answer: "Very easy. We provide fully typed SDKs for Node.js, Python, and Go, along with a comprehensive REST API. You can bypass the UI and directly stream verified answers and citations into your own product."
   }
 ];
