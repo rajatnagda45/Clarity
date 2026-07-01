@@ -1,32 +1,53 @@
-import { SignInButton, SignedIn, SignedOut } from '@clerk/nextjs';
+import { auth } from '@clerk/nextjs/server';
+import { redirect } from 'next/navigation';
 
-export default function Home() {
+import { BackgroundEffects } from '@/components/landing/BackgroundEffects';
+import { LandingNavbar } from '@/components/landing/LandingNavbar';
+import { HeroSection } from '@/components/landing/HeroSection';
+import { PipelineVisualizer } from '@/components/landing/PipelineVisualizer';
+import { FeaturesBentoGrid } from '@/components/landing/FeaturesBentoGrid';
+import { HowClarityWorks } from '@/components/landing/HowClarityWorks';
+import { TrustAndVerification } from '@/components/landing/TrustAndVerification';
+import { EnterpriseWorkspace } from '@/components/landing/EnterpriseWorkspace';
+
+import { ReasoningTimeline } from '@/components/landing/ReasoningTimeline';
+import { ObservabilityDashboard } from '@/components/landing/ObservabilityDashboard';
+import { EnterpriseSecurity } from '@/components/landing/EnterpriseSecurity';
+import { CustomerStories } from '@/components/landing/CustomerStories';
+import { CTASection } from '@/components/landing/CTASection';
+import { Footer } from '@/components/landing/Footer';
+
+export const metadata = {
+  title: 'Clarity AI Docs - Verified Enterprise Intelligence',
+  description: 'Enterprise AI document analysis with verifiable citations.',
+};
+
+export default async function LandingPage() {
+  const { userId } = await auth();
+  
+  if (userId) {
+    redirect('/dashboard');
+  }
+
   return (
-    <main className="flex min-h-screen flex-col items-center justify-center p-8 bg-gray-50">
-      <div className="max-w-2xl w-full text-center space-y-6">
-        <h1 className="text-5xl font-bold text-gray-900">Clarity</h1>
-        <p className="text-xl text-gray-600">
-          Self-auditing contract intelligence. Every claim verified against the source. Every
-          answer carries a measured trust score.
-        </p>
-        <p className="text-sm text-gray-400 italic">
-          Not legal advice — Clarity flags and explains; it does not advise.
-        </p>
-        <SignedOut>
-          <SignInButton mode="modal">
-            <button className="inline-flex items-center px-6 py-3 bg-blue-600 text-white font-semibold rounded-lg hover:bg-blue-700 transition-colors">
-              Get started
-            </button>
-          </SignInButton>
-        </SignedOut>
-        <SignedIn>
-          <a
-            href="/dashboard"
-            className="inline-flex items-center px-6 py-3 bg-blue-600 text-white font-semibold rounded-lg hover:bg-blue-700 transition-colors"
-          >
-            Go to dashboard
-          </a>
-        </SignedIn>
+    <main className="relative min-h-screen text-white overflow-clip selection:bg-orange-500/30 selection:text-white bg-[#05070B]">
+      <BackgroundEffects />
+      <LandingNavbar />
+
+      <div className="relative z-10 flex flex-col">
+        <HeroSection />
+        <PipelineVisualizer />
+        <FeaturesBentoGrid />
+        <HowClarityWorks />
+        <TrustAndVerification />
+        <EnterpriseWorkspace />
+
+        <ReasoningTimeline />
+        <ObservabilityDashboard />
+        <EnterpriseSecurity />
+        <CustomerStories />
+        <CTASection />
+        <Footer />
       </div>
     </main>
   );
