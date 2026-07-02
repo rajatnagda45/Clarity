@@ -4,11 +4,12 @@ import { motion } from "framer-motion";
 import Link from "next/link";
 import { MagneticButton } from "./ui/MagneticButton";
 
+import { PremiumBackground } from "./PremiumBackground";
+
 export function CTASection() {
   return (
     <section className="py-32 relative overflow-hidden bg-[#05070B] border-t border-white/5">
-      {/* Massive Glow */}
-      <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-full max-w-4xl h-[400px] bg-gradient-to-tr from-orange-600/20 to-purple-600/20 rounded-full blur-[120px] pointer-events-none" />
+      <PremiumBackground glowOpacity={1} />
 
       <div className="max-w-4xl mx-auto px-6 relative z-10 text-center">
         <motion.div

@@ -5,6 +5,7 @@ import Link from "next/link";
 import { Play } from "lucide-react";
 import { useEffect, useState } from "react";
 import { MagneticButton } from "./ui/MagneticButton";
+import { PremiumBackground } from "./PremiumBackground";
 
 const pipelineStages = ["Upload", "Extract", "Chunk", "Embed", "Retrieve", "Verify", "Answer"];
 
@@ -38,11 +39,12 @@ export function HeroSection() {
 
   return (
     <section 
-      className="relative pt-40 pb-20 px-6 max-w-[1400px] mx-auto min-h-screen flex items-center"
+      className="relative pt-40 pb-20 px-6 min-h-screen flex items-center w-full overflow-hidden"
       onMouseMove={handleMouseMove}
       onMouseLeave={handleMouseLeave}
     >
-      <div className="grid lg:grid-cols-2 gap-16 items-center w-full">
+      <PremiumBackground glowOpacity={1} />
+      <div className="grid lg:grid-cols-2 gap-8 lg:gap-10 items-center w-full max-w-[1200px] mx-auto relative z-10">
         {/* Left: Copy & CTAs */}
         <motion.div 
           initial={{ opacity: 0, y: 30 }}

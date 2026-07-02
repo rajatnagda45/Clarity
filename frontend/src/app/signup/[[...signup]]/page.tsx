@@ -9,6 +9,7 @@ export default function SignUpPage() {
           routing="path"
           path="/signup"
           signInUrl="/login"
+          fallbackRedirectUrl="/dashboard"
           appearance={{
             elements: {
               rootBox: "w-full",
