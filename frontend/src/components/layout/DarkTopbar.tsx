@@ -53,6 +53,7 @@ export function DarkTopbar() {
       <div className="flex items-center gap-2">
         {/* Search */}
         <button
+          id="topbar-command-center"
           type="button"
           onClick={toggleCommand}
           className="hidden items-center gap-2 rounded-lg border border-[rgba(255,255,255,0.06)] bg-[#0F1117] px-3 text-sm text-[#4A5168] transition-colors hover:border-[rgba(255,255,255,0.1)] hover:text-[#8892AA] sm:flex"
@@ -66,6 +67,7 @@ export function DarkTopbar() {
         {/* Upload button — only on relevant pages */}
         {showUpload && (
           <button
+            id="topbar-upload-btn"
             type="button"
             className="hidden items-center gap-1.5 rounded-lg bg-[#5B6EF0] px-3 text-xs font-medium text-white transition-colors hover:bg-[#6B7EF5] sm:flex"
             style={{ height: 32 }}
@@ -77,6 +79,7 @@ export function DarkTopbar() {
 
         {/* Notifications */}
         <button
+          id="topbar-notifications"
           type="button"
           onClick={toggleNotifications}
           className="relative rounded-lg p-1.5 text-[#4A5168] hover:bg-[rgba(255,255,255,0.06)] hover:text-[#8892AA] transition-colors"

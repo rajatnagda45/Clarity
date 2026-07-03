@@ -7,6 +7,7 @@ import { useUser } from '@clerk/nextjs';
 import { motion } from 'framer-motion';
 import { X, FileText, Search, Layers, MessageCircle, ArrowRight, BookOpen } from 'lucide-react';
 import { usePathname } from 'next/navigation';
+import { useOnboarding } from '@/contexts/OnboardingContext';
 
 const suggestedPrompts = [
   { label: 'Summarize', icon: <FileText size={14} /> },
@@ -21,12 +22,13 @@ export function AIAssistantPanel() {
   const pathname = usePathname();
   const [query, setQuery] = useState('');
   const [visible, setVisible] = useState(true);
-
+  const { completeStep } = useOnboarding();
   const firstName = user?.firstName ?? 'there';
 
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     if (!query.trim()) return;
+    completeStep('ask_ai');
     router.push(`/chat?q=${encodeURIComponent(query.trim())}`);
     setQuery('');
   }

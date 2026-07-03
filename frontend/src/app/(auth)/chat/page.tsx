@@ -11,6 +11,7 @@ import { applyStreamEvent, createStreamingAnswerState } from '@/lib/chatStream';
 import { getConversation, listConversations, resumeAnswerStream, streamQuery } from '@/lib/api';
 import { parseMarkdownBlocks } from '@/lib/markdown';
 import type { Citation, Conversation, Message, StreamEvent } from '@/types/clarity';
+import { useOnboarding } from '@/contexts/OnboardingContext';
 
 import { PremiumBackground } from '@/components/landing/PremiumBackground';
 import { ChatSidebar } from '@/components/chat/ChatSidebar';
@@ -43,6 +44,7 @@ function MessageBody({ content }: { content: string }) {
 export default function ChatPage() {
   const searchParams = useSearchParams();
   const { activeWorkspace } = useWorkspace();
+  const { completeStep } = useOnboarding();
   const workspaceId = searchParams.get('workspace') || activeWorkspace?.id || '';
   const { getToken } = useAuth();
 
@@ -136,7 +138,10 @@ export default function ChatPage() {
 
   async function handleSubmit() {
     if (!workspaceId || !composer.trim() || isStreaming) return;
-
+    
+    // Complete onboarding step
+    completeStep('ask_ai');
+    
     const userText = composer.trim();
     const temporaryUserMessage: Message = {
       id: `local-${Date.now()}`,

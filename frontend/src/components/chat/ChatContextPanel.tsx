@@ -5,6 +5,7 @@ import { TrustBadge } from '@/components/chat/TrustBadge';
 import { DebatePanel, type DebateTurn } from '@/components/chat/DebatePanel';
 import { AbstentionCard } from '@/components/chat/AbstentionCard';
 import type { Citation, Workspace } from '@/types/clarity';
+import { useOnboarding } from '@/contexts/OnboardingContext';
 
 interface ChatContextPanelProps {
   workspaceId: string;
@@ -23,6 +24,7 @@ export function ChatContextPanel({
   streamingDebateTurns,
   streamingAbstention
 }: ChatContextPanelProps) {
+  const { completeStep } = useOnboarding();
   // Deduplicate citations by documentId for "Active Documents" list
   const activeDocs = Array.from(new Set(citations.map(c => c.documentId)));
 
@@ -105,6 +107,7 @@ export function ChatContextPanel({
                   </div>
                   <Link 
                     href={`/documents/${citation.documentId}/chunks?workspace=${encodeURIComponent(workspaceId)}&highlight=${encodeURIComponent(citation.chunkId)}`}
+                    onClick={() => completeStep('view_citations')}
                     className="text-white/40 hover:text-white transition-colors"
                     title="Open Document"
                   >

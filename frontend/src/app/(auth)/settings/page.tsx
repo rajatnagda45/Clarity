@@ -17,6 +17,7 @@ import { ConnectedAccountsTab } from '@/components/settings/ConnectedAccountsTab
 import { AIUsageTab } from '@/components/settings/AIUsageTab';
 import { ApiKeysTab } from '@/components/settings/ApiKeysTab';
 import { ActivityTab } from '@/components/settings/ActivityTab';
+import { AdvancedSettingsTab } from '@/components/settings/AdvancedSettingsTab';
 
 const NAV_GROUPS = [
   {
@@ -45,6 +46,7 @@ const NAV_GROUPS = [
     items: [
       { id: 'appearance', label: 'Appearance', icon: Palette },
       { id: 'notifications', label: 'Notifications', icon: Bell },
+      { id: 'advanced', label: 'Advanced', icon: Settings2 },
       { id: 'about', label: 'About', icon: Info },
     ]
   }
@@ -86,7 +88,9 @@ export default function SettingsHub() {
       case 'workspace': return <WorkspaceTab />;
       case 'billing': return <BillingTab />;
       
-      // Placeholders
+      // Advanced is now a real tab
+      case 'advanced': return <AdvancedSettingsTab />;
+      
       case 'appearance': return <PlaceholderTab title="Appearance" description="Customize themes, colors, and layout density." icon={Palette} />;
       case 'notifications': return <PlaceholderTab title="Notifications" description="Configure email and desktop alerts for your workspace." icon={Bell} />;
       case 'usage': return <PlaceholderTab title="Usage Quotas" description="Monitor detailed API, token, and storage consumption." icon={Activity} />;
@@ -94,7 +98,6 @@ export default function SettingsHub() {
       case 'ai': return <PlaceholderTab title="AI Preferences" description="Configure default models, streaming options, and context windows." icon={Cpu} />;
       case 'integrations': return <PlaceholderTab title="Integrations" description="Connect third-party services and data sources." icon={Puzzle} />;
       case 'api': return <PlaceholderTab title="API Keys" description="Manage developer keys and webhooks." icon={Key} />;
-      case 'advanced': return <PlaceholderTab title="Advanced" description="Developer mode, experimental features, and danger zone." icon={Settings2} />;
       case 'about': return <PlaceholderTab title="About" description="System status, versions, and documentation." icon={Info} />;
       
       default: return <AccountOverviewTab />;
