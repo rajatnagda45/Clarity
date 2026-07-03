@@ -3,248 +3,152 @@
 import { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
-  CreditCard, Sparkles, Receipt, Zap, ArrowRight, ShieldCheck, 
-  CheckCircle2, Clock, Calendar, Download, Building2, HardDrive, 
-  FileText, MessageSquare, Plus, Activity, X
+  User, Building2, Bell, Palette, ShieldCheck, Cpu, 
+  Puzzle, Key, CreditCard, Activity, Settings2, Info, Search
 } from 'lucide-react';
-import { useWorkspace } from '@/contexts/WorkspaceContext';
-import { useDocuments } from '@/hooks/useDocuments';
-import { useDashboardMetrics } from '@/hooks/useDashboardMetrics';
 import { PremiumBackground } from '@/components/landing/PremiumBackground';
-import { ProgressBar } from '@/components/ds/Progress';
+import { ProfileTab } from '@/components/settings/ProfileTab';
+import { WorkspaceTab } from '@/components/settings/WorkspaceTab';
+import { BillingTab } from '@/components/settings/BillingTab';
+import { PlaceholderTab } from '@/components/settings/PlaceholderTab';
 
-const PLANS = [
-  { name: 'hobby', label: 'Starter', price: '$0', storage: 50 * 1024 * 1024, queries: 100, seats: 1 },
-  { name: 'pro', label: 'Pro', price: '$49', storage: 5 * 1024 * 1024 * 1024, queries: 5000, seats: 5 },
-  { name: 'business', label: 'Business', price: '$199', storage: 20 * 1024 * 1024 * 1024, queries: 25000, seats: 20 },
+const NAV_GROUPS = [
+  {
+    title: 'Personal',
+    items: [
+      { id: 'profile', label: 'Profile', icon: User },
+      { id: 'appearance', label: 'Appearance', icon: Palette },
+      { id: 'notifications', label: 'Notifications', icon: Bell },
+    ]
+  },
+  {
+    title: 'Workspace',
+    items: [
+      { id: 'workspace', label: 'Workspace', icon: Building2 },
+      { id: 'billing', label: 'Billing & Plans', icon: CreditCard },
+      { id: 'usage', label: 'Usage', icon: Activity },
+      { id: 'security', label: 'Security', icon: ShieldCheck },
+    ]
+  },
+  {
+    title: 'Developers',
+    items: [
+      { id: 'ai', label: 'AI Preferences', icon: Cpu },
+      { id: 'integrations', label: 'Integrations', icon: Puzzle },
+      { id: 'api', label: 'API Keys', icon: Key },
+      { id: 'advanced', label: 'Advanced', icon: Settings2 },
+    ]
+  },
+  {
+    title: 'System',
+    items: [
+      { id: 'about', label: 'About', icon: Info },
+    ]
+  }
 ];
 
-function formatBytes(bytes: number) {
-  if (bytes === 0) return '0 B';
-  const k = 1024;
-  const sizes = ['B', 'KB', 'MB', 'GB', 'TB'];
-  const i = Math.floor(Math.log(bytes) / Math.log(k));
-  return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
-}
+export default function SettingsHub() {
+  const [activeTab, setActiveTab] = useState('profile');
+  const [search, setSearch] = useState('');
 
-function UpgradeModal({ open, onClose, currentPlan }: { open: boolean, onClose: () => void, currentPlan: string }) {
-  if (!open) return null;
-  return (
-    <AnimatePresence>
-      <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 sm:p-6">
-        <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={onClose} className="absolute inset-0 bg-[#05070B]/80 backdrop-blur-sm" />
-        <motion.div
-          initial={{ opacity: 0, scale: 0.95, y: 20 }}
-          animate={{ opacity: 1, scale: 1, y: 0 }}
-          exit={{ opacity: 0, scale: 0.95, y: 20 }}
-          className="relative w-full max-w-2xl bg-[#0F1117] border border-white/[0.08] rounded-[24px] shadow-2xl overflow-hidden p-8"
-        >
-          <div className="flex justify-between items-start mb-6">
-            <div>
-              <div className="w-12 h-12 rounded-xl bg-purple-500/10 border border-purple-500/20 flex items-center justify-center mb-4">
-                <Sparkles size={24} className="text-purple-400" />
-              </div>
-              <h2 className="text-2xl font-bold text-[#F1F3F9]">Upgrade to Pro</h2>
-              <p className="text-sm text-[#8892AA] mt-1">Unlock higher limits and priority support.</p>
-            </div>
-            <button onClick={onClose} className="p-2 text-[#4A5168] hover:text-[#F1F3F9] transition-colors"><X size={20} /></button>
-          </div>
-          <div className="bg-[#05070B] border border-white/[0.06] rounded-xl p-6 mb-8 text-center">
-            <CreditCard size={32} className="text-[#4A5168] mx-auto mb-4" />
-            <p className="text-[#8892AA] text-sm">Stripe checkout integration is initializing in your environment. You will be able to manage your subscription directly here once complete.</p>
-          </div>
-          <div className="flex justify-end gap-3">
-            <button onClick={onClose} className="px-5 py-2.5 rounded-xl text-sm font-medium text-[#8892AA] hover:text-[#F1F3F9] hover:bg-white/[0.04]">Cancel</button>
-            <button disabled className="px-6 py-2.5 rounded-xl text-sm font-semibold bg-purple-500 text-white opacity-50 cursor-not-allowed flex items-center gap-2">
-              <Lock size={16} /> Continue to Checkout
-            </button>
-          </div>
-        </motion.div>
-      </div>
-    </AnimatePresence>
-  );
-}
-
-export default function BillingPage() {
-  const { activeWorkspace } = useWorkspace();
-  const { data: documents } = useDocuments();
-  const { devDashboard, answerMetrics } = useDashboardMetrics();
-  
-  const [upgradeModalOpen, setUpgradeModalOpen] = useState(false);
-
-  if (!activeWorkspace) return null;
-
-  const currentPlanObj = PLANS.find(p => p.name === activeWorkspace.plan) || PLANS[0];
-  const storageUsed = devDashboard.data?.totalStorageBytes ?? 0;
-  const storagePct = Math.min(100, Math.round((storageUsed / currentPlanObj.storage) * 100));
-  
-  const queries = answerMetrics.data?.conversationsCreated ?? 0;
-  const queriesPct = Math.min(100, Math.round((queries / currentPlanObj.queries) * 100));
-
-  const docs = documents?.length ?? 0;
+  const renderContent = () => {
+    switch (activeTab) {
+      case 'profile': return <ProfileTab />;
+      case 'workspace': return <WorkspaceTab />;
+      case 'billing': return <BillingTab />;
+      
+      // Placeholders
+      case 'appearance': return <PlaceholderTab title="Appearance" description="Customize themes, colors, and layout density." icon={Palette} />;
+      case 'notifications': return <PlaceholderTab title="Notifications" description="Configure email and desktop alerts for your workspace." icon={Bell} />;
+      case 'usage': return <PlaceholderTab title="Usage Quotas" description="Monitor detailed API, token, and storage consumption." icon={Activity} />;
+      case 'security': return <PlaceholderTab title="Security" description="Configure 2FA, SSO, and audit logs." icon={ShieldCheck} />;
+      case 'ai': return <PlaceholderTab title="AI Preferences" description="Configure default models, streaming options, and context windows." icon={Cpu} />;
+      case 'integrations': return <PlaceholderTab title="Integrations" description="Connect third-party services and data sources." icon={Puzzle} />;
+      case 'api': return <PlaceholderTab title="API Keys" description="Manage developer keys and webhooks." icon={Key} />;
+      case 'advanced': return <PlaceholderTab title="Advanced" description="Developer mode, experimental features, and danger zone." icon={Settings2} />;
+      case 'about': return <PlaceholderTab title="About" description="System status, versions, and documentation." icon={Info} />;
+      
+      default: return <ProfileTab />;
+    }
+  };
 
   return (
     <div className="relative min-h-screen bg-[#05070B] selection:bg-purple-500/30 selection:text-white pb-32">
       <PremiumBackground glowOpacity={0.1} />
 
-      <div className="mx-auto flex w-full max-w-[1200px] flex-col px-6 pt-12 pb-8 relative z-10">
+      <div className="mx-auto flex w-full max-w-[1400px] flex-col lg:flex-row px-6 pt-12 pb-8 relative z-10 gap-12">
         
-        {/* Header */}
-        <div className="flex items-center justify-between mb-8">
-          <div>
-            <h1 className="text-2xl font-bold text-[#F1F3F9] tracking-tight flex items-center gap-3">
-              <CreditCard size={24} className="text-purple-400" /> Billing & Subscription
-            </h1>
-            <p className="text-xs text-[#8892AA] mt-1">Manage plans, usage limits, and invoices for {activeWorkspace.name}</p>
-          </div>
-        </div>
-
-        {/* Billing Hero */}
-        <div className="bg-[#0F1117] border border-purple-500/30 rounded-[32px] p-8 mb-8 relative overflow-hidden shadow-[0_0_40px_rgba(168,85,247,0.1)]">
-          <div className="absolute top-0 right-0 w-64 h-64 bg-purple-500/10 blur-[80px] rounded-full pointer-events-none" />
+        {/* Left Navigation Sidebar */}
+        <div className="w-full lg:w-64 shrink-0 flex flex-col gap-8">
           
-          <div className="flex flex-col md:flex-row justify-between items-start md:items-center relative z-10">
-            <div>
-              <div className="flex items-center gap-3 mb-2">
-                <span className="px-3 py-1 rounded-md text-xs font-bold tracking-wider uppercase bg-purple-500 text-white shadow-[0_0_15px_rgba(168,85,247,0.5)]">
-                  {currentPlanObj.label} Plan
-                </span>
-                <span className="flex items-center gap-1 text-[11px] font-semibold text-emerald-400 bg-emerald-500/10 border border-emerald-500/20 px-2 py-0.5 rounded">
-                  <CheckCircle2 size={10} /> Active
-                </span>
-              </div>
-              <h2 className="text-3xl font-bold text-[#F1F3F9]">{currentPlanObj.price} <span className="text-lg text-[#8892AA] font-normal">/ month</span></h2>
-              <p className="text-sm text-[#8892AA] mt-2 flex items-center gap-1.5">
-                <Clock size={14} /> Renews on {new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toLocaleDateString()}
-              </p>
-            </div>
-            
-            <div className="mt-6 md:mt-0 flex gap-3">
-              <button className="px-5 py-2.5 rounded-xl text-sm font-medium bg-white/[0.04] border border-white/[0.08] text-[#F1F3F9] hover:bg-white/[0.08] transition-colors">
-                Manage Subscription
-              </button>
-              <button onClick={() => setUpgradeModalOpen(true)} className="px-6 py-2.5 rounded-xl text-sm font-semibold bg-purple-500 text-white hover:bg-purple-600 shadow-[0_0_20px_rgba(168,85,247,0.3)] transition-all flex items-center gap-2">
-                <Zap size={16} /> Upgrade Plan
-              </button>
-            </div>
-          </div>
-        </div>
-
-        {/* Usage Quotas */}
-        <h2 className="text-lg font-bold text-[#F1F3F9] mb-4">Current Usage</h2>
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-12">
-          
-          {/* Storage */}
-          <div className="bg-[#0F1117] border border-white/[0.06] rounded-2xl p-6">
-            <div className="flex justify-between items-center mb-6">
-              <div className="flex items-center gap-2 text-[#8892AA]">
-                <HardDrive size={16} /> <span className="text-sm font-medium">Vector Storage</span>
-              </div>
-              <span className="text-xs font-mono text-[#F1F3F9]">{formatBytes(storageUsed)} / {formatBytes(currentPlanObj.storage)}</span>
-            </div>
-            <ProgressBar value={storagePct} size="sm" variant={storagePct > 80 ? 'error' : storagePct > 50 ? 'warning' : 'default'} />
-            <p className="text-[10px] text-[#4A5168] mt-3 uppercase tracking-wider">{storagePct}% utilized</p>
+          <div className="relative">
+            <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-[#4A5168]" />
+            <input 
+              type="text" 
+              placeholder="Search settings..."
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              className="w-full bg-[#0F1117] border border-white/[0.08] rounded-xl pl-9 pr-4 py-2.5 text-sm text-[#F1F3F9] placeholder:text-[#4A5168] focus:outline-none focus:border-purple-500/50 transition-colors"
+            />
           </div>
 
-          {/* AI Queries */}
-          <div className="bg-[#0F1117] border border-white/[0.06] rounded-2xl p-6">
-            <div className="flex justify-between items-center mb-6">
-              <div className="flex items-center gap-2 text-[#8892AA]">
-                <MessageSquare size={16} /> <span className="text-sm font-medium">Monthly AI Queries</span>
-              </div>
-              <span className="text-xs font-mono text-[#F1F3F9]">{queries} / {currentPlanObj.queries}</span>
-            </div>
-            <ProgressBar value={queriesPct} size="sm" variant={queriesPct > 80 ? 'error' : queriesPct > 50 ? 'warning' : 'default'} />
-            <p className="text-[10px] text-[#4A5168] mt-3 uppercase tracking-wider">{queriesPct}% utilized</p>
-          </div>
+          <div className="flex flex-col gap-6">
+            {NAV_GROUPS.map((group) => {
+              // Simple client-side search filter
+              const filteredItems = group.items.filter(item => item.label.toLowerCase().includes(search.toLowerCase()));
+              if (filteredItems.length === 0) return null;
 
-          {/* Documents */}
-          <div className="bg-[#0F1117] border border-white/[0.06] rounded-2xl p-6">
-            <div className="flex justify-between items-center mb-6">
-              <div className="flex items-center gap-2 text-[#8892AA]">
-                <FileText size={16} /> <span className="text-sm font-medium">Indexed Documents</span>
-              </div>
-              <span className="text-xs font-mono text-[#F1F3F9]">{docs}</span>
-            </div>
-            <ProgressBar value={10} size="sm" variant="default" />
-            <p className="text-[10px] text-[#4A5168] mt-3 uppercase tracking-wider">Unlimited on {currentPlanObj.label}</p>
-          </div>
-        </div>
-
-        {/* Pricing Plans */}
-        <h2 className="text-lg font-bold text-[#F1F3F9] mb-4">Available Plans</h2>
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-12">
-          {PLANS.map((plan) => {
-            const isCurrent = plan.name === activeWorkspace.plan;
-            return (
-              <div key={plan.name} className={`bg-[#0F1117] border rounded-2xl p-8 flex flex-col ${isCurrent ? 'border-purple-500/50 shadow-[0_0_30px_rgba(168,85,247,0.1)]' : 'border-white/[0.06]'}`}>
-                <h3 className="text-lg font-bold text-[#F1F3F9]">{plan.label}</h3>
-                <p className="text-2xl font-bold text-[#F1F3F9] mt-2 mb-6">{plan.price} <span className="text-sm font-normal text-[#8892AA]">/ mo</span></p>
-                <div className="flex-1 flex flex-col gap-4 text-sm text-[#8892AA]">
-                  <div className="flex items-center gap-2"><CheckCircle2 size={16} className="text-emerald-400" /> Up to {formatBytes(plan.storage)} storage</div>
-                  <div className="flex items-center gap-2"><CheckCircle2 size={16} className="text-emerald-400" /> {plan.queries.toLocaleString()} AI queries / mo</div>
-                  <div className="flex items-center gap-2"><CheckCircle2 size={16} className="text-emerald-400" /> {plan.seats} team {plan.seats === 1 ? 'member' : 'members'}</div>
+              return (
+                <div key={group.title} className="flex flex-col gap-1">
+                  <h3 className="px-3 text-[11px] font-bold uppercase tracking-wider text-[#4A5168] mb-2">{group.title}</h3>
+                  {filteredItems.map((item) => {
+                    const isActive = activeTab === item.id;
+                    return (
+                      <button
+                        key={item.id}
+                        onClick={() => setActiveTab(item.id)}
+                        className={`
+                          flex items-center gap-3 px-3 py-2 rounded-xl text-sm font-medium transition-all text-left relative
+                          ${isActive 
+                            ? 'text-[#F1F3F9] bg-white/[0.06] shadow-sm' 
+                            : 'text-[#8892AA] hover:text-[#F1F3F9] hover:bg-white/[0.02]'
+                          }
+                        `}
+                      >
+                        {isActive && (
+                          <motion.div 
+                            layoutId="activeNavBackground"
+                            className="absolute inset-0 bg-white/[0.06] rounded-xl border border-white/[0.04]"
+                            transition={{ type: "spring", bounce: 0.2, duration: 0.6 }}
+                          />
+                        )}
+                        <item.icon size={16} className={`relative z-10 ${isActive ? 'text-purple-400' : 'text-[#4A5168]'}`} />
+                        <span className="relative z-10">{item.label}</span>
+                      </button>
+                    );
+                  })}
                 </div>
-                <div className="mt-8 pt-6 border-t border-white/[0.06]">
-                  {isCurrent ? (
-                    <button disabled className="w-full py-2.5 rounded-xl text-sm font-semibold bg-white/[0.04] text-[#8892AA] cursor-default border border-white/[0.08]">
-                      Current Plan
-                    </button>
-                  ) : (
-                    <button onClick={() => setUpgradeModalOpen(true)} className="w-full py-2.5 rounded-xl text-sm font-semibold bg-white/[0.04] text-[#F1F3F9] hover:bg-white/[0.08] transition-colors border border-white/[0.08]">
-                      Upgrade to {plan.label}
-                    </button>
-                  )}
-                </div>
-              </div>
-            );
-          })}
+              );
+            })}
+          </div>
         </div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-          {/* Invoice Center (Empty State) */}
-          <div className="bg-[#0F1117] border border-white/[0.06] rounded-2xl p-6 flex flex-col min-h-[300px]">
-            <div className="flex items-center justify-between mb-8">
-              <h2 className="text-sm font-semibold text-[#F1F3F9] flex items-center gap-2">
-                <Receipt size={16} className="text-purple-400" /> Billing History
-              </h2>
-            </div>
-            <div className="flex-1 flex flex-col items-center justify-center text-center">
-              <div className="w-12 h-12 rounded-xl bg-white/[0.02] border border-white/[0.04] flex items-center justify-center mb-4">
-                <Receipt size={20} className="text-[#4A5168]" />
-              </div>
-              <h3 className="text-base font-bold text-[#F1F3F9] mb-2">No Invoices Yet</h3>
-              <p className="text-xs text-[#8892AA] max-w-[250px]">
-                Your billing history and downloadable PDFs will appear here once you upgrade.
-              </p>
-            </div>
-          </div>
-
-          {/* Payment Methods (Empty State) */}
-          <div className="bg-[#0F1117] border border-white/[0.06] rounded-2xl p-6 flex flex-col min-h-[300px]">
-            <div className="flex items-center justify-between mb-8">
-              <h2 className="text-sm font-semibold text-[#F1F3F9] flex items-center gap-2">
-                <CreditCard size={16} className="text-purple-400" /> Payment Methods
-              </h2>
-              <button className="text-xs font-medium text-purple-400 flex items-center gap-1 hover:text-purple-300">
-                <Plus size={14} /> Add Card
-              </button>
-            </div>
-            <div className="flex-1 flex flex-col items-center justify-center text-center">
-              <div className="w-12 h-12 rounded-xl bg-white/[0.02] border border-white/[0.04] flex items-center justify-center mb-4">
-                <ShieldCheck size={20} className="text-[#4A5168]" />
-              </div>
-              <h3 className="text-base font-bold text-[#F1F3F9] mb-2">Secure Payments</h3>
-              <p className="text-xs text-[#8892AA] max-w-[250px]">
-                We use Stripe to securely process and store your payment details. Add a card to begin.
-              </p>
-            </div>
-          </div>
+        {/* Main Content Area */}
+        <div className="flex-1 min-w-0 pb-32">
+          <AnimatePresence mode="wait">
+            <motion.div
+              key={activeTab}
+              initial={{ opacity: 0, x: 20 }}
+              animate={{ opacity: 1, x: 0 }}
+              exit={{ opacity: 0, x: -20 }}
+              transition={{ duration: 0.2 }}
+            >
+              {renderContent()}
+            </motion.div>
+          </AnimatePresence>
         </div>
 
       </div>
-
-      <UpgradeModal open={upgradeModalOpen} onClose={() => setUpgradeModalOpen(false)} currentPlan={activeWorkspace.plan} />
     </div>
   );
 }

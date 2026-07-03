@@ -282,6 +282,7 @@ export interface DeveloperDashboard {
   documents: DeveloperDashboardDocument[];
   statusCounts: Record<string, number>;
   failedJobs: DeveloperDashboardDocument[];
+  totalStorageBytes: number;
 }
 
 export interface SpanRef {

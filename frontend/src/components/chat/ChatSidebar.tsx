@@ -71,7 +71,7 @@ export function ChatSidebar({ conversations, selectedId, onSelect, onNewChat }: 
                     <MoreHorizontal size={14} className={`opacity-0 group-hover:opacity-100 transition-opacity ${isActive ? 'text-purple-400' : 'text-[#4A5168]'}`} />
                   </div>
                   <span className="text-[10px] text-[#4A5168] pl-6 font-medium">
-                    {formatRelativeTime(conv.updatedAt)}
+                    {formatRelativeTime(conv.lastMessageAt)}
                   </span>
                 </button>
               );

@@ -4,6 +4,7 @@ import { usePathname } from 'next/navigation';
 import { useUser } from '@clerk/nextjs';
 import { Menu, Search, Upload, Bell } from 'lucide-react';
 import { useUI } from '@/contexts/UIContext';
+import { useCommand } from '@/contexts/CommandContext';
 
 function getPageTitle(pathname: string): string {
   if (pathname === '/dashboard') return 'Dashboard';
@@ -11,7 +12,6 @@ function getPageTitle(pathname: string): string {
   if (pathname === '/chat') return 'AI Chat';
   if (pathname === '/eval') return 'Analytics';
   if (pathname === '/conversations') return 'Conversations';
-  if (pathname.startsWith('/settings/workspace')) return 'Workspace Settings';
   if (pathname.startsWith('/settings')) return 'Settings';
   if (pathname.startsWith('/contradictions')) return 'Contradictions';
   return 'Clarity';
@@ -19,7 +19,8 @@ function getPageTitle(pathname: string): string {
 
 export function DarkTopbar() {
   const pathname = usePathname();
-  const { toggleSidebar, openCommandPalette } = useUI();
+  const { toggleSidebar } = useUI();
+  const { toggle: toggleCommand } = useCommand();
   const { user } = useUser();
 
   const title = getPageTitle(pathname);
@@ -51,7 +52,7 @@ export function DarkTopbar() {
         {/* Search */}
         <button
           type="button"
-          onClick={openCommandPalette}
+          onClick={toggleCommand}
           className="hidden items-center gap-2 rounded-lg border border-[rgba(255,255,255,0.06)] bg-[#0F1117] px-3 text-sm text-[#4A5168] transition-colors hover:border-[rgba(255,255,255,0.1)] hover:text-[#8892AA] sm:flex"
           style={{ height: 32, width: 200 }}
         >

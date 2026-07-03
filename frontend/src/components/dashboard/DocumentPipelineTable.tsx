@@ -136,7 +136,7 @@ export function DocumentPipelineTable({ documents, loading }: DocumentPipelineTa
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2 text-xs font-medium text-[#8892AA]">
                   <Clock size={12} className="opacity-50" />
-                  {formatRelativeTime(new Date(doc.createdAt))}
+                  {formatRelativeTime(doc.createdAt)}
                 </div>
                 <button className="opacity-0 group-hover:opacity-100 transition-opacity text-xs font-semibold text-purple-400 bg-purple-500/10 px-2 py-1 rounded">
                   Inspect
