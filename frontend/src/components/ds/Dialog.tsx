@@ -8,6 +8,8 @@ import {
   type ReactNode,
 } from 'react';
 import { createPortal } from 'react-dom';
+import { motion, AnimatePresence } from 'framer-motion';
+import { X } from 'lucide-react';
 import { cn } from '@/lib/cn';
 
 interface DialogProps {
@@ -87,78 +89,89 @@ export function Dialog({
     if (e.target === e.currentTarget) onClose();
   }
 
-  if (!open) return null;
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => setMounted(true), []);
+  if (!mounted) return null;
 
   return createPortal(
-    <div
-      role="presentation"
-      className="fixed inset-0 z-[1000] flex items-center justify-center p-4"
-      onClick={handleBackdropClick}
-      onKeyDown={(e) => e.key === 'Escape' && onClose()}
-    >
-      {/* Backdrop */}
-      <div
-        aria-hidden="true"
-        className="absolute inset-0 bg-[var(--color-bg-overlay)] animate-fade-in"
-      />
-
-      {/* Panel */}
-      <div
-        ref={panelRef}
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby={title ? 'dialog-title' : undefined}
-        aria-describedby={description ? 'dialog-desc' : undefined}
-        tabIndex={-1}
-        onKeyDown={handleKeyDown}
-        className={cn(
-          'relative z-10 w-full rounded-2xl',
-          'bg-[var(--color-bg-surface)] border border-[var(--color-border-default)] shadow-xl',
-          'flex flex-col gap-5 p-6',
-          'animate-slide-up',
-          sizes[size],
-          className,
-        )}
-      >
-        {/* Header */}
-        {(title || description) && (
-          <div className="flex flex-col gap-1">
-            {title && (
-              <h2
-                id="dialog-title"
-                className="text-base font-semibold text-[var(--color-text-primary)]"
-              >
-                {title}
-              </h2>
-            )}
-            {description && (
-              <p id="dialog-desc" className="text-sm text-[var(--color-text-secondary)]">
-                {description}
-              </p>
-            )}
-          </div>
-        )}
-
-        {/* Close button */}
-        <button
-          type="button"
-          onClick={onClose}
-          aria-label="Close dialog"
-          className={cn(
-            'absolute right-4 top-4 flex h-7 w-7 items-center justify-center rounded-lg',
-            'text-[var(--color-text-tertiary)] transition-colors duration-fast',
-            'hover:bg-[var(--color-bg-hover)] hover:text-[var(--color-text-primary)]',
-            'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-accent)]',
-          )}
+    <AnimatePresence>
+      {open && (
+        <div
+          role="presentation"
+          className="fixed inset-0 z-[1000] flex items-center justify-center p-4"
+          onClick={handleBackdropClick}
+          onKeyDown={(e) => e.key === 'Escape' && onClose()}
         >
-          <svg width="14" height="14" viewBox="0 0 14 14" fill="currentColor" aria-hidden="true">
-            <path d="M2.293 2.293a1 1 0 0 1 1.414 0L7 5.586l3.293-3.293a1 1 0 0 1 1.414 1.414L8.414 7l3.293 3.293a1 1 0 0 1-1.414 1.414L7 8.414l-3.293 3.293a1 1 0 0 1-1.414-1.414L5.586 7 2.293 3.707a1 1 0 0 1 0-1.414z" />
-          </svg>
-        </button>
+          {/* Backdrop */}
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.15 }}
+            aria-hidden="true"
+            className="absolute inset-0 bg-[var(--color-bg-overlay)] backdrop-blur-sm"
+          />
 
-        {children}
-      </div>
-    </div>,
+          {/* Panel */}
+          <motion.div
+            ref={panelRef}
+            initial={{ opacity: 0, scale: 0.95, y: 10 }}
+            animate={{ opacity: 1, scale: 1, y: 0 }}
+            exit={{ opacity: 0, scale: 0.95, y: 10 }}
+            transition={{ type: 'spring', damping: 25, stiffness: 400 }}
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby={title ? 'dialog-title' : undefined}
+            aria-describedby={description ? 'dialog-desc' : undefined}
+            tabIndex={-1}
+            onKeyDown={handleKeyDown}
+            className={cn(
+              'relative z-10 w-full rounded-2xl',
+              'bg-[#151923]/90 backdrop-blur-xl border border-[rgba(255,255,255,0.08)] shadow-2xl',
+              'flex flex-col gap-5 p-6',
+              sizes[size],
+              className,
+            )}
+          >
+            {/* Header */}
+            {(title || description) && (
+              <div className="flex flex-col gap-1">
+                {title && (
+                  <h2
+                    id="dialog-title"
+                    className="text-base font-semibold text-[var(--color-text-primary)]"
+                  >
+                    {title}
+                  </h2>
+                )}
+                {description && (
+                  <p id="dialog-desc" className="text-sm text-[var(--color-text-secondary)]">
+                    {description}
+                  </p>
+                )}
+              </div>
+            )}
+
+            {/* Close button */}
+            <button
+              type="button"
+              onClick={onClose}
+              aria-label="Close dialog"
+              className={cn(
+                'absolute right-4 top-4 flex h-8 w-8 items-center justify-center rounded-full',
+                'text-[var(--color-text-tertiary)] transition-colors duration-fast',
+                'hover:bg-[rgba(255,255,255,0.1)] hover:text-[var(--color-text-primary)]',
+                'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-accent)]',
+              )}
+            >
+              <X size={18} />
+            </button>
+
+            {children}
+          </motion.div>
+        </div>
+      )}
+    </AnimatePresence>,
     document.body,
   );
 }

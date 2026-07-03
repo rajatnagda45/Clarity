@@ -6,6 +6,7 @@ import { useSearchParams } from 'next/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
 
 import { useWorkspace } from '@/contexts/WorkspaceContext';
+import { useToast } from '@/contexts/ToastContext';
 import { DocumentList } from '@/components/documents/DocumentList';
 import { Dropzone } from '@/components/upload/Dropzone';
 import { WorkspaceInsights } from '@/components/documents/WorkspaceInsights';
@@ -28,11 +29,10 @@ export default function DocumentsPage() {
   const { activeWorkspace } = useWorkspace();
   const workspaceId = searchParams.get('workspace') || activeWorkspace?.id || '';
   const { getToken } = useAuth();
+  const { toast } = useToast();
 
   const [documents, setDocuments] = useState<Document[]>([]);
   const [loadState, setLoadState] = useState<LoadState>('idle');
-  const [errorMessage, setErrorMessage] = useState('');
-  const [successMessage, setSuccessMessage] = useState('');
   const [isUploading, setIsUploading] = useState(false);
   const [uploadProgressText, setUploadProgressText] = useState('');
   const [pollRefreshKey, setPollRefreshKey] = useState(0);
@@ -48,12 +48,10 @@ export default function DocumentsPage() {
     async function loadDocuments(showLoading = true) {
       if (!workspaceId) {
         setLoadState('error');
-        setErrorMessage('No workspace selected.');
         return;
       }
 
       if (showLoading) setLoadState('loading');
-      setErrorMessage('');
 
       try {
         const token = await getToken();
@@ -70,7 +68,7 @@ export default function DocumentsPage() {
         }
       } catch (error) {
         if (cancelled) return;
-        setErrorMessage(error instanceof Error ? error.message : 'Failed to load documents.');
+        toast.error(error instanceof Error ? error.message : 'Failed to load documents.');
         setLoadState('error');
       }
     }
@@ -131,17 +129,17 @@ export default function DocumentsPage() {
 
   async function handleFilesSelected(files: File[]) {
     if (!workspaceId) {
-      setErrorMessage('Choose a workspace before uploading documents.');
+      toast.error('Choose a workspace before uploading documents.');
       return;
     }
 
     const validFiles = files.filter(file => {
       if (file.size > MAX_UPLOAD_BYTES) {
-        setErrorMessage(`File ${file.name} exceeds the 50MB limit.`);
+        toast.error(`File ${file.name} exceeds the 50MB limit.`);
         return false;
       }
       if (file.type && !ALLOWED_TYPES.has(file.type)) {
-        setErrorMessage(`File ${file.name} is not a supported format.`);
+        toast.error(`File ${file.name} is not a supported format.`);
         return false;
       }
       return true;
@@ -150,7 +148,6 @@ export default function DocumentsPage() {
     if (validFiles.length === 0) return;
 
     setIsUploading(true);
-    setErrorMessage('');
 
     try {
       const token = await getToken();
@@ -173,10 +170,9 @@ export default function DocumentsPage() {
         }
       }
       setLoadState('loaded');
-      setSuccessMessage(`Successfully uploaded ${validFiles.length} document${validFiles.length > 1 ? 's' : ''}.`);
-      setTimeout(() => setSuccessMessage(''), 3000);
+      toast.success(`Successfully uploaded ${validFiles.length} document${validFiles.length > 1 ? 's' : ''}.`);
     } catch (error) {
-      setErrorMessage(error instanceof Error ? error.message : 'Upload failed.');
+      toast.error(error instanceof Error ? error.message : 'Upload failed.');
     } finally {
       setIsUploading(false);
       setUploadProgressText('');
@@ -186,20 +182,6 @@ export default function DocumentsPage() {
   return (
     <div className="relative min-h-screen bg-[#05070B] selection:bg-purple-500/30 selection:text-white">
       <PremiumBackground glowOpacity={0.2} />
-
-      {/* Global Toast */}
-      <AnimatePresence>
-        {successMessage && (
-          <motion.div
-            initial={{ opacity: 0, y: -20, x: '-50%' }}
-            animate={{ opacity: 1, y: 0, x: '-50%' }}
-            exit={{ opacity: 0, y: -20, x: '-50%' }}
-            className="fixed top-8 left-1/2 z-50 px-6 py-3 rounded-full bg-green-500/10 border border-green-500/20 shadow-xl backdrop-blur-md"
-          >
-            <p className="text-sm font-medium text-green-400">{successMessage}</p>
-          </motion.div>
-        )}
-      </AnimatePresence>
 
       {/* Global Drag Overlay */}
       <AnimatePresence>

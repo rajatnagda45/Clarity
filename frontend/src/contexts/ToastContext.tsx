@@ -10,6 +10,8 @@ import {
   type ReactNode,
 } from 'react';
 import { createPortal } from 'react-dom';
+import { motion, AnimatePresence } from 'framer-motion';
+import { CheckCircle2, XCircle, AlertTriangle, Info, X } from 'lucide-react';
 
 export type ToastVariant = 'success' | 'error' | 'warning' | 'info';
 
@@ -18,7 +20,6 @@ export interface Toast {
   message: string;
   variant: ToastVariant;
   duration?: number;
-  removing?: boolean;
 }
 
 interface ToastContextValue {
@@ -36,22 +37,18 @@ const ToastContext = createContext<ToastContextValue | null>(null);
 const DEFAULT_DURATION = 4000;
 
 // Icons per variant
-const icons: Record<ToastVariant, string> = {
-  success: '✓',
-  error: '✕',
-  warning: '⚠',
-  info: 'ℹ',
+const icons: Record<ToastVariant, ReactNode> = {
+  success: <CheckCircle2 size={18} className="text-[#22C55E]" />,
+  error: <XCircle size={18} className="text-[#EF4444]" />,
+  warning: <AlertTriangle size={18} className="text-[#F59E0B]" />,
+  info: <Info size={18} className="text-[#5B6EF0]" />,
 };
 
 const styles: Record<ToastVariant, string> = {
-  success:
-    'bg-[var(--color-bg-surface)] border-[var(--color-border-default)] [&_[data-icon]]:text-[var(--color-success)]',
-  error:
-    'bg-[var(--color-bg-surface)] border-[var(--color-border-default)] [&_[data-icon]]:text-[var(--color-error)]',
-  warning:
-    'bg-[var(--color-bg-surface)] border-[var(--color-border-default)] [&_[data-icon]]:text-[var(--color-warning)]',
-  info:
-    'bg-[var(--color-bg-surface)] border-[var(--color-border-default)] [&_[data-icon]]:text-[var(--color-accent)]',
+  success: 'bg-[#151923] border-[#22C55E]/30',
+  error: 'bg-[#151923] border-[#EF4444]/30',
+  warning: 'bg-[#151923] border-[#F59E0B]/30',
+  info: 'bg-[#151923] border-[#5B6EF0]/30',
 };
 
 function ToastItem({
@@ -62,55 +59,53 @@ function ToastItem({
   onDismiss: (id: string) => void;
 }) {
   return (
-    <div
+    <motion.div
+      layout
+      initial={{ opacity: 0, y: 20, scale: 0.95 }}
+      animate={{ opacity: 1, y: 0, scale: 1 }}
+      exit={{ opacity: 0, y: -20, scale: 0.95 }}
+      transition={{ type: 'spring', stiffness: 400, damping: 25 }}
       role="status"
       aria-live="polite"
       aria-atomic="true"
       className={[
-        'flex items-start gap-3 rounded-xl border px-4 py-3 shadow-lg',
-        'min-w-[260px] max-w-[380px]',
-        toast.removing ? 'animate-toast-out' : 'animate-toast-in',
+        'flex items-center gap-3 rounded-2xl border px-4 py-3 shadow-2xl backdrop-blur-md',
+        'min-w-[280px] max-w-[400px] pointer-events-auto',
         styles[toast.variant],
       ].join(' ')}
     >
-      <span
-        data-icon
-        aria-hidden="true"
-        className="mt-px flex h-4 w-4 shrink-0 items-center justify-center text-xs font-bold leading-none"
-      >
+      <span aria-hidden="true" className="shrink-0">
         {icons[toast.variant]}
       </span>
-      <p className="flex-1 text-sm leading-5 text-[var(--color-text-primary)]">
+      <p className="flex-1 text-sm font-medium text-[#F1F3F9] leading-snug">
         {toast.message}
       </p>
       <button
         type="button"
         onClick={() => onDismiss(toast.id)}
         aria-label="Dismiss notification"
-        className="ml-1 shrink-0 text-[var(--color-text-tertiary)] transition-colors hover:text-[var(--color-text-primary)]"
+        className="shrink-0 p-1 rounded-full text-[#8892AA] hover:text-white hover:bg-[rgba(255,255,255,0.1)] transition-colors"
       >
-        <svg width="12" height="12" viewBox="0 0 12 12" fill="currentColor" aria-hidden="true">
-          <path d="M2.293 2.293a1 1 0 0 1 1.414 0L6 4.586l2.293-2.293a1 1 0 1 1 1.414 1.414L7.414 6l2.293 2.293a1 1 0 0 1-1.414 1.414L6 7.414 3.707 9.707a1 1 0 0 1-1.414-1.414L4.586 6 2.293 3.707a1 1 0 0 1 0-1.414z" />
-        </svg>
+        <X size={16} />
       </button>
-    </div>
+    </motion.div>
   );
 }
 
 function ToastContainer({ toasts, onDismiss }: { toasts: Toast[]; onDismiss: (id: string) => void }) {
   const [mounted, setMounted] = useState(false);
   useEffect(() => setMounted(true), []);
-  if (!mounted || toasts.length === 0) return null;
+  if (!mounted) return null;
   return createPortal(
     <div
       aria-label="Notifications"
-      className="pointer-events-none fixed bottom-4 right-4 z-[9999] flex flex-col-reverse gap-2"
+      className="pointer-events-none fixed top-4 right-4 z-[9999] flex flex-col gap-3"
     >
-      {toasts.map((t) => (
-        <div key={t.id} className="pointer-events-auto">
-          <ToastItem toast={t} onDismiss={onDismiss} />
-        </div>
-      ))}
+      <AnimatePresence mode="popLayout">
+        {toasts.map((t) => (
+          <ToastItem key={t.id} toast={t} onDismiss={onDismiss} />
+        ))}
+      </AnimatePresence>
     </div>,
     document.body,
   );
@@ -121,14 +116,12 @@ export function ToastProvider({ children }: { children: ReactNode }) {
   const timers = useRef<Map<string, ReturnType<typeof setTimeout>>>(new Map());
 
   const dismiss = useCallback((id: string) => {
-    // Mark as removing first for exit animation
-    setToasts((prev) => prev.map((t) => (t.id === id ? { ...t, removing: true } : t)));
-    // Then remove after animation
-    const timer = setTimeout(() => {
-      setToasts((prev) => prev.filter((t) => t.id !== id));
+    setToasts((prev) => prev.filter((t) => t.id !== id));
+    const timer = timers.current.get(id);
+    if (timer) {
+      clearTimeout(timer);
       timers.current.delete(id);
-    }, 220);
-    timers.current.set(`remove-${id}`, timer);
+    }
   }, []);
 
   const add = useCallback(
