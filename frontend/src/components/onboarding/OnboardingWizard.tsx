@@ -29,8 +29,6 @@ export function OnboardingWizard() {
   // Pipeline State
   const [pipelineStage, setPipelineStage] = useState(0);
 
-  if (!showWizard) return null;
-
   const handleCreateWorkspace = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsCreatingWs(true);
@@ -81,6 +79,8 @@ export function OnboardingWizard() {
       return () => clearInterval(interval);
     }
   }, [step, completeStep, markWizardComplete]);
+
+  if (!showWizard) return null;
 
   const PIPELINE_STAGES = [
     { label: 'Upload', icon: UploadCloud },

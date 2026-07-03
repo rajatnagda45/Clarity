@@ -1,0 +1,822 @@
+
+> clarity-frontend@0.1.0 dev
+> node ./node_modules/next/dist/bin/next dev
+
+   ▲ Next.js 15.5.19
+   - Local:        http://localhost:3000
+   - Network:      http://10.76.99.83:3000
+   - Environments: .env.local
+
+ ✓ Starting...
+ ✓ Ready in 5.9s
+ ✓ Compiled /middleware in 172ms (222 modules)
+ ○ Compiling / ...
+ ✓ Compiled / in 9.3s (2179 modules)
+ ✓ Compiled in 564ms (918 modules)
+ GET / 307 in 52ms
+ ○ Compiling /dashboard ...
+ ✓ Compiled /dashboard in 535ms (2257 modules)
+ GET /dashboard 200 in 885ms
+ POST /dashboard 200 in 14ms
+ ✓ Compiled /documents in 347ms (2302 modules)
+ GET /documents 200 in 403ms
+ GET /documents 200 in 16ms
+ GET /dashboard 200 in 27ms
+ ○ Compiling /settings ...
+ ✓ Compiled /settings in 506ms (2355 modules)
+ GET /settings 200 in 570ms
+ GET /dashboard 200 in 27ms
+ ✓ Compiled in 651ms (2312 modules)
+ GET /dashboard 200 in 133ms
+ ⨯ ./src/app/(auth)/settings/page.tsx:13:1
+Module not found: Can't resolve '@/components/settings/AccountOverviewTab'
+  11 | import { Bill ✓ Compiled in 301ms (965 modules)
+ ✓ Compiled in 263ms (965 modules)
+ ✓ Compiled in 355ms (965 modules)
+ ✓ Compiled in 304ms (965 modules)
+ ✓ Compiled in 405ms (965 modules)
+ ✓ Compiled in 288ms (965 modules)
+ ✓ Compiled in 435ms (965 modules)
+ ✓ Compiled in 258ms (965 modules)
+ ✓ Compiled in 575ms (965 modules)
+ ✓ Compiled in 273ms (965 modules)
+ ✓ Compiled in 273ms (965 modules)
+ ✓ Compiled in 248ms (965 modules)
+ ✓ Compiled in 258ms (965 modules)
+ ✓ Compiled in 230ms (965 modules)
+ ✓ Compiled in 256ms (965 modules)
+ ✓ Compiled in 253ms (965 modules)
+ ✓ Compiled in 265ms (965 modules)
+ ✓ Compiled in 263ms (965 modules)
+ ✓ Compiled in 235ms (965 modules)
+ ✓ Compiled in 223ms (965 modules)
+ ✓ Compiled in 265ms (965 modules)
+ ✓ Compiled in 530ms (965 modules)
+ ✓ Compiled in 226ms (965 modules)
+ ✓ Compiled in 219ms (965 modules)
+ ✓ Compiled in 424ms (966 modules)
+ ✓ Compiled in 302ms (966 modules)
+ ✓ Compiled in 476ms (966 modules)
+ ✓ Compiled in 492ms (1174 modules)
+ ✓ Compiled in 586ms (1174 modules)
+ ✓ Compiled in 762ms (1174 modules)
+ ✓ Compiled in 216ms (966 modules)
+ ✓ Compiled in 441ms (966 modules)
+ ✓ Compiled in 236ms (966 modules)
+ ✓ Compiled in 249ms (966 modules)
+ ✓ Compiled in 284ms (966 modules)
+ ✓ Compiled in 469ms (966 modules)
+ ✓ Compiled in 240ms (966 modules)
+ ✓ Compiled in 316ms (966 modules)
+ ✓ Compiled in 219ms (966 modules)
+ ✓ Compiled in 297ms (966 modules)
+ ✓ Compiled in 232ms (966 modules)
+ ✓ Compiled in 328ms (968 modules)
+ ✓ Compiled in 416ms (968 modules)
+ ✓ Compiled in 220ms (968 modules)
+ ✓ Compiled in 609ms (968 modules)
+ ✓ Compiled in 234ms (968 modules)
+ ✓ Compiled in 360ms (968 modules)
+ ✓ Compiled in 284ms (968 modules)
+ ✓ Compiled in 229ms (968 modules)
+ ✓ Compiled in 643ms (980 modules)
+ ✓ Compiled in 332ms (980 modules)
+ ✓ Compiled in 311ms (980 modules)
+ ✓ Compiled in 246ms (980 modules)
+ ✓ Compiled in 370ms (980 modules)
+ ✓ Compiled in 235ms (980 modules)
+ ✓ Compiled in 467ms (980 modules)
+ ✓ Compiled in 393ms (980 modules)
+ ✓ Compiled in 302ms (980 modules)
+ ✓ Compiled in 251ms (980 modules)
+ ✓ Compiled in 292ms (980 modules)
+ ✓ Compiled in 288ms (980 modules)
+ ✓ Compiled in 311ms (980 modules)
+ ✓ Compiled in 380ms (980 modules)
+ ✓ Compiled in 286ms (980 modules)
+ ✓ Compiled in 410ms (980 modules)
+ ✓ Compiled in 284ms (980 modules)
+ ✓ Compiled in 351ms (980 modules)
+ ✓ Compiled in 388ms (980 modules)
+ ✓ Compiled in 394ms (980 modules)
+ ✓ Compiled in 333ms (982 modules)
+ ✓ Compiled in 668ms (982 modules)
+ ✓ Compiled in 256ms (982 modules)
+ ⨯ ./src/components/layout/DarkAppLayout.tsx
+Error:   [31mx[0m Expected a semicolon
+     ,-[[36;1;4m/Users/rajatnagda/Desktop/clarity-docs/frontend/src/components/layout/DarkAppLayout.tsx[0m:116:1]
+ [2m113[0m |             title="Stay Updated"
+ [2m114[0m |             description="We'll notify you here when your documents finish indexing or when team members invite you to collections."
+ [2m115[0m |             placement="bottom"
+ [2m116[0m |             condition={pathname === '/documents'}
+     : [35;1m                                ^^^[0m
+ [2m117[0m |           />
+ [2m118[0m |           
+ [2m119[0m |         </NotificationProvider>
+     `----
+  [31mx[0m Expression expected
+     ,-[[36;1;4m/Users/rajatnagda/Desktop/clarity-docs/frontend/src/components/layout/DarkAppLayout.tsx[0m:116:1]
+ [2m113[0m |             title="Stay Updated"
+ [2m114[0m |             description="We'll notify you here when your documents finish indexing or when team members invite you to collections."
+ [2m115[0m |             placement="bottom"
+ [2m116[0m |             condition={pathname === '/documents'}
+     : [35;1m                                ^^^[0m
+ [2m117[0m |           />
+ [2m118[0m |           
+ [2m119[0m |         </NotificationProvider>
+     `----
+  [31mx[0m Expression expected
+     ,-[[36;1;4m/Users/rajatnagda/Desktop/clarity-docs/frontend/src/components/layout/DarkAppLayout.tsx[0m:116:1]
+ [2m113[0m |             title="Stay Updated"
+ [2m114[0m |             description="We'll notify you here when your documents finish indexing or when team members invite you to collections."
+ [2m115[0m |             placement="bottom"
+ [2m116[0m |             condition={pathname === '/documents'}
+     : [35;1m                                                ^[0m
+ [2m117[0m |           />
+ [2m118[0m |           
+ [2m119[0m |         </NotificationProvider>
+     `----
+
+Caused by:
+    Syntax Error
+
+Import trace for requested module:
+./src/components/layout/DarkAppLayout.tsx
+ ✓ Compiled in 385ms (982 modules)
+ ✓ Compiled in 560ms (982 modules)
+ ✓ Compiled in 594ms (982 modules)
+ ✓ Compiled in 325ms (968 modules)
+ ✓ Compiled in 248ms (982 modules)
+ ✓ Compiled in 281ms (982 modules)
+ ✓ Compiled in 357ms (982 modules)
+ ✓ Compiled in 1097ms (984 modules)
+ ✓ Compiled in 532ms (984 modules)
+ ✓ Compiled in 512ms (984 modules)
+ ✓ Compiled in 343ms (984 modules)
+esh had to perform a full reload due to a runtime error.
+ GET /dashboard 200 in 391ms
+ POST /dashboard 200 in 14ms
+ ✓ Compiled in 597ms (1186 modules)
+ GET /dashboard 200 in 29ms
+ GET /documents 200 in 46ms
+<w> [webpack.cache.PackFileCacheStrategy] Caching failed for pack: Error: ENOENT: no such file or directory, rename '/Users/rajatnagda/Desktop/clarity-docs/frontend/.next/cache/webpack/client-development/0.pack.gz_' -> '/Users/rajatnagda/Desktop/clarity-docs/frontend/.next/cache/webpack/client-development/0.pack.gz'
+ ✓ Compiled /chat in 398ms (2733 modules)
+ GET /chat 200 in 478ms
+ GET /chat 200 in 23ms
+ ✓ Compiled /collections in 321ms (2750 modules)
+ GET /collections 200 in 371ms
+ GET /chat 200 in 22ms
+ ✓ Compiled in 269ms (1212 modules)
+ GET /chat 200 in 24ms
+ ✓ Compiled in 576ms (2764 modules)
+ GET /chat 200 in 76ms
+ ✓ Compiled in 441ms (2754 modules)
+ GET /chat 200 in 46ms
+ GET /dashboard 200 in 32ms
+ ✓ Compiled in 440ms (2754 modules)
+ GET /dashboard 200 in 50ms
+ ✓ Compiled in 491ms (2754 modules)
+ GET /settings 200 in 79ms
+ GET /settings 200 in 15ms
+ GET /settings 200 in 17ms
+ ✓ Compiled /_not-found in 306ms (2745 modules)
+ GET /noise.png 404 in 442ms
+ ⚠ Fast Refresh had to perform a full reload due to a runtime error.
+ GET /dashboard 200 in 175ms
+ POST /dashboard 200 in 18ms
+ GET /settings 200 in 46ms
+ GET /noise.png 404 in 49ms
+ ✓ Compiled in 561ms (2759 modules)
+ GET /settings 200 in 67ms
+ GET /noise.png 404 in 69ms
+ ✓ Compiled in 648ms (2759 modules)
+ GET /settings 200 in 88ms
+ GET /noise.png 404 in 86ms
+ ✓ Compiled in 446ms (2759 modules)
+ GET /settings 200 in 49ms
+ ⚠ Fast Refresh had to perform a full reload due to a runtime error.
+ GET /settings 200 in 151ms
+ POST /settings 200 in 10ms
+ ⚠ Fast Refresh had to perform a full reload due to a runtime error.
+ ✓ Compiled in 660ms (2759 modules)
+ GET /settings 200 in 578ms
+ POST /settings 200 in 15ms
+ GET /noise.png 404 in 47ms
+ ✓ Compiled in 421ms (2759 modules)
+ GET /settings 200 in 53ms
+ GET /noise.png 404 in 102ms
+ ✓ Compiled in 501ms (2759 modules)
+ GET /settings 200 in 59ms
+ GET /noise.png 404 in 84ms
+ ✓ Compiled in 659ms (2759 modules)
+ GET /settings 200 in 51ms
+ GET /noise.png 404 in 78ms
+ GET /dashboard 200 in 43ms
+ GET /settings 200 in 41ms
+ ○ Compiling /eval ...
+ ✓ Compiled /eval in 931ms (2751 modules)
+ GET /eval 200 in 1048ms
+ GET /eval 200 in 15ms
+ GET /settings 200 in 45ms
+ GET /dashboard 200 in 45ms
+ GET /settings 200 in 25ms
+ GET /dashboard 200 in 38ms
+ GET /dashboard 200 in 255ms
+ POST /dashboard 200 in 14ms
+ GET /dashboard 200 in 137ms
+ POST /dashboard 200 in 15ms
+ ✓ Compiled in 1377ms (2765 modules)
+ GET /dashboard 200 in 69ms
+ ✓ Compiled in 430ms (2765 modules)
+ GET /dashboard 200 in 48ms
+ ✓ Compiled in 512ms (2765 modules)
+ GET /dashboard 200 in 72ms
+ ⚠ Fast Refresh had to perform a full reload. Read more: https://nextjs.org/docs/messages/fast-refresh-reload
+ ✓ Compiled in 1168ms (2765 modules)
+ ⨯ ReferenceError: Building2 is not defined
+    at eval (src/components/layout/DarkSidebar.tsx:44:65)
+    at (ssr)/./src/components/layout/DarkSidebar.tsx (.next/server/app/(auth)/dashboard/page.js:322:1)
+    at eval (webpack-internal:///(ssr)/./src/components/layout/DarkAppLayout.tsx:10:70)
+    at (ssr)/./src/components/layout/DarkAppLayout.tsx (.next/server/app/(auth)/dashboard/page.js:311:1)
+  42 |
+  43 | const bottomNavItems: NavItem[] = [
+> 44 |   { label: 'Workspace', href: '/settings?tab=workspace', icon: <Building2 size={16} /> },
+     |                                                                 ^
+  45 |   { label: 'Billing', href: '/settings?tab=billing', icon: <CreditCard size={16} /> },
+  46 |   { label: 'Settings', href: '/settings', icon: <Settings size={16} /> },
+  47 | ]; {
+  digest: '3966150600'
+}
+ GET /dashboard 200 in 478ms
+ GET /dashboard 500 in 903ms
+ ✓ Compiled in 533ms (2765 modules)
+ ⚠ Fast Refresh had to perform a full reload due to a runtime error.
+ GET /dashboard 200 in 220ms
+ POST /dashboard 200 in 13ms
+ GET /settings?tab=billing 200 in 47ms
+ GET /settings?tab=workspace 200 in 23ms
+ GET /settings?tab=billing 200 in 19ms
+ GET /settings?tab=billing 200 in 25ms
+ GET /settings?tab=billing 200 in 18ms
+ GET /settings 200 in 25ms
+ GET /settings?tab=workspace 200 in 16ms
+ GET /settings?tab=billing 200 in 30ms
+ GET /settings?tab=billing 200 in 26ms
+ GET /settings?tab=workspace 200 in 28ms
+ GET /eval 200 in 37ms
+ GET /settings?tab=workspace 200 in 29ms
+<w> [webpack.cache.PackFileCacheStrategy] Caching failed for pack: Error: ENOENT: no such file or directory, rename '/Users/rajatnagda/Desktop/clarity-docs/frontend/.next/cache/webpack/client-development/1.pack.gz_' -> '/Users/rajatnagda/Desktop/clarity-docs/frontend/.next/cache/webpack/client-development/1.pack.gz'
+ GET /settings?tab=workspace 200 in 23ms
+ GET /settings?tab=workspace 200 in 28ms
+ GET /settings?tab=workspace 200 in 23ms
+ GET /settings?tab=billing 200 in 28ms
+ GET /settings?tab=workspace 200 in 38ms
+ GET /settings?tab=billing 200 in 29ms
+ GET /dashboard 200 in 28ms
+ ✓ Compiled in 1225ms (2765 modules)
+ GET /dashboard 200 in 60ms
+ ✓ Compiled in 1204ms (2973 modules)
+ GET /dashboard 200 in 51ms
+ ✓ Compiled in 1134ms (2973 modules)
+ GET /dashboard 200 in 689ms
+ GET /dashboard 200 in 19ms
+ ○ Compiling /workspace ...
+ ✓ Compiled /workspace in 554ms (2758 modules)
+ GET /workspace 200 in 604ms
+ GET /dashboard 200 in 263ms
+ POST /dashboard 200 in 13ms
+ GET /workspace 200 in 35ms
+ ✓ Compiled /billing in 355ms (2765 modules)
+ GET /billing 200 in 404ms
+ GET /billing 200 in 22ms
+ GET /workspace 200 in 27ms
+ GET /billing 200 in 23ms
+ GET /settings 200 in 41ms
+ ○ Compiling /_not-found ...
+ ✓ Compiled /_not-found in 599ms (2747 modules)
+ GET /noise.png 404 in 752ms
+ GET /settings?tab=workspace 200 in 47ms
+ GET /settings?tab=workspace 200 in 21ms
+ GET /settings?tab=billing 200 in 20ms
+ GET /settings?tab=usage 200 in 24ms
+ GET /billing 200 in 32ms
+ GET /workspace 200 in 41ms
+ GET /eval 200 in 33ms
+ ✓ Compiled /collections in 407ms (1548 modules)
+ GET /collections 200 in 512ms
+ GET /chat 200 in 29ms
+ ✓ Compiled /documents in 273ms (1570 modules)
+ GET /documents 200 in 342ms
+ GET /dashboard 200 in 46ms
+ ✓ Compiled in 2.2s (2924 modules)
+ GET /dashboard 200 in 85ms
+ GET /dashboard 200 in 19ms
+ ✓ Compiled in 299ms (1220 modules)
+ GET /dashboard 200 in 23ms
+ GET /dashboard 200 in 315ms
+ POST /dashboard 200 in 21ms
+ ✓ Compiled in 414ms (1220 modules)
+ GET /dashboard 200 in 33ms
+ GET /dashboard 200 in 138ms
+ POST /dashboard 200 in 17ms
+ ○ Compiling /settings ...
+ ✓ Compiled /settings in 588ms (1536 modules)
+ GET /settings 200 in 715ms
+ ⚠ Fast Refresh had to perform a full reload. Read more: https://nextjs.org/docs/messages/fast-refresh-reload
+ ✓ Compiled /_not-found in 391ms (2747 modules)
+ GET /noise.png 404 in 694ms
+ GET /settings 200 in 641ms
+ POST /settings 200 in 12ms
+ GET /noise.png 404 in 57ms
+ ✓ Compiled in 288ms (1224 modules)
+ GET /settings 200 in 29ms
+ GET /noise.png 404 in 38ms
+ GET /settings?tab=notifications 200 in 21ms
+ GET /settings?tab=appearance 200 in 20ms
+ GET /settings?tab=about 200 in 23ms
+ GET /settings?tab=overview 200 in 20ms
+ GET /settings?tab=overview 200 in 21ms
+ GET /settings?tab=personal-info 200 in 19ms
+ GET /settings?tab=ai-usage 200 in 29ms
+ ✓ Compiled in 346ms (1224 modules)
+ GET /settings?tab=ai-usage 200 in 38ms
+ GET /billing 200 in 39ms
+ ✓ Compiled in 402ms (1224 modules)
+ GET /billing 200 in 19ms
+ GET /billing 200 in 69ms
+ POST /billing 200 in 19ms
+ GET /dashboard 200 in 42ms
+ ✓ Compiled in 540ms (1220 modules)
+ GET /dashboard 200 in 38ms
+ ✓ Compiled in 433ms (1220 modules)
+ GET /dashboard 200 in 35ms
+ GET /dashboard 200 in 148ms
+ POST /dashboard 200 in 11ms
+ ✓ Compiled in 334ms (1220 modules)
+ GET /dashboard 200 in 21ms
+ GET /dashboard 200 in 149ms
+ POST /dashboard 200 in 15ms
+ ✓ Compiled in 271ms (1220 modules)
+ GET /dashboard 200 in 20ms
+ ✓ Compiled in 372ms (1220 modules)
+ GET /dashboard 200 in 27ms
+ ✓ Compiled in 273ms (1220 modules)
+ GET /dashboard 200 in 21ms
+ ✓ Compiled in 1708ms (2737 modules)
+ GET /dashboard 200 in 91ms
+ ✓ Compiled /chat in 298ms (1538 modules)
+ GET /chat 200 in 415ms
+ GET /chat 200 in 24ms
+ ○ Compiling /help ...
+ ⚠ ./src/components/help/AboutTab.tsx
+Attempted import error: 'MapMap' is not exported from '__barrel_optimize__?names=Book,FileText,Github,Info,MapMap,Shield,Sparkles,Twitter!=!lucide-react' (imported as 'MapMap').
+
+Import trace for requested module:
+./src/components/help/AboutTab.tsx
+./src/app/(auth)/help/page.tsx
+
+./src/components/help/AboutTab.tsx
+Attempted import error: 'Github' is not exported from '__barrel_optimize__?names=Book,FileText,Github,Info,MapMap,Shield,Sparkles,Twitter!=!lucide-react' (imported as 'Github').
+
+Import trace for requested module:
+./src/components/help/AboutTab.tsx
+./src/app/(auth)/help/page.tsx
+
+./src/components/help/AboutTab.tsx
+Attempted import error: 'Twitter' is not exported from '__barrel_optimize__?names=Book,FileText,Github,Info,MapMap,Shield,Sparkles,Twitter!=!lucide-react' (imported as 'Twitter').
+
+Import trace for requested module:
+./src/components/help/AboutTab.tsx
+./src/app/(auth)/help/page.tsx
+
+./src/components/help/AboutTab.tsx
+Attempted import error: 'MapMap' is not exported from '__barrel_optimize__?names=Book,FileText,Github,Info,MapMap,Shield,Sparkles,Twitter!=!lucide-react' (imported as 'MapMap').
+
+Import trace for requested module:
+./src/components/help/AboutTab.tsx
+./src/app/(auth)/help/page.tsx
+
+./src/components/help/AboutTab.tsx
+Attempted import error: 'Github' is not exported from '__barrel_optimize__?names=Book,FileText,Github,Info,MapMap,Shield,Sparkles,Twitter!=!lucide-react' (imported as 'Github').
+
+Import trace for requested module:
+./src/components/help/AboutTab.tsx
+./src/app/(auth)/help/page.tsx
+
+./src/components/help/AboutTab.tsx
+Attempted import error: 'Twitter' is not exported from '__barrel_optimize__?names=Book,FileText,Github,Info,MapMap,Shield,Sparkles,Twitter!=!lucide-react' (imported as 'Twitter').
+
+Import trace for requested module:
+./src/components/help/AboutTab.tsx
+./src/app/(auth)/help/page.tsx
+ GET /help 200 in 985ms
+ GET /workspace 200 in 21ms
+ ✓ Compiled /help in 579ms (2843 modules)
+ GET /workspace 200 in 51ms
+ ✓ Compiled in 460ms (2845 modules)
+ GET /workspace 200 in 46ms
+ GET /help 200 in 62ms
+ GET /help?tab=getting-started 200 in 34ms
+ GET /help?tab=documentation 200 in 26ms
+ GET /help?tab=documentation 200 in 26ms
+ GET /help?tab=documentation 200 in 26ms
+ GET /help?tab=documentation 200 in 35ms
+ GET /help?tab=shortcuts 200 in 29ms
+ GET /help?tab=shortcuts 200 in 24ms
+ GET /help?tab=release-notes 200 in 26ms
+ GET /help?tab=release-notes 200 in 26ms
+ GET /help?tab=changelog 200 in 25ms
+ GET /help?tab=feature-requests 200 in 25ms
+ GET /help?tab=support 200 in 27ms
+ GET /help?tab=support 200 in 19ms
+ GET /help?tab=support 200 in 27ms
+ GET /help?tab=support 200 in 27ms
+ GET /help?tab=support 200 in 30ms
+ GET /help?tab=faq 200 in 27ms
+ GET /help?tab=system-status 200 in 32ms
+ GET /help?tab=system-status 200 in 29ms
+ GET /help?tab=about 200 in 29ms
+ GET /help?tab=documentation 200 in 30ms
+ GET /dashboard 200 in 41ms
+ GET /help 200 in 38ms
+ GET /settings 200 in 45ms
+ GET /settings 200 in 28ms
+ GET /dashboard 200 in 32ms
+ ○ Compiling /documents ...
+ ✓ Compiled /documents in 1217ms (1597 modules)
+ GET /documents 200 in 1304ms
+ GET /documents 200 in 34ms
+ GET /dashboard 200 in 65ms
+ GET /dashboard 200 in 51ms
+ GET /settings 200 in 53ms
+ ○ Compiling /_not-found ...
+ ✓ Compiled /_not-found in 1322ms (2849 modules)
+ GET /noise.png 404 in 1439ms
+ GET /dashboard 200 in 35ms
+ ✓ Compiled in 513ms (1270 modules)
+ GET /dashboard 200 in 259ms
+ POST /dashboard 200 in 34ms
+ ✓ Compiled in 352ms (1270 modules)
+ ⚠ Fast Refresh had to perform a full reload. Read more: https://nextjs.org/docs/messages/fast-refresh-reload
+ GET /dashboard 200 in 164ms
+ GET /dashboard 200 in 161ms
+ POST /dashboard 200 in 12ms
+ ✓ Compiled in 377ms (1266 modules)
+ GET /dashboard 200 in 24ms
+ ✓ Compiled in 352ms (1266 modules)
+ GET /dashboard 200 in 22ms
+ ✓ Compiled in 339ms (1266 modules)
+ GET /dashboard 200 in 20ms
+ ○ Compiling /_not-found ...
+ ✓ Compiled /_not-found in 3.7s (2867 modules)
+ GET /grid.svg 404 in 2224ms
+ GET /dashboard 200 in 32ms
+ GET /grid.svg 404 in 39ms
+ ✓ Compiled in 1136ms (2881 modules)
+ GET /dashboard 200 in 62ms
+ GET /grid.svg 404 in 135ms
+ ⨯ ./src/app/(auth)/settings/page.tsx
+Error:   [31mx[0m 'import', and 'export' cannot be used outside of module code
+    ,-[[36;1;4m/Users/rajatnagda/Desktop/clarity-docs/frontend/src/app/(auth)/settings/page.tsx[0m:90:1]
+ [2m87[0m |       case 'workspace': return <WorkspaceTab />;
+ [2m88[0m |       case 'billing': return <BillingTab />;
+ [2m89[0m |       
+ [2m90[0m | import { AdvancedSettingsTab } from '@/components/settings/AdvancedSettingsTab';
+    : [35;1m^^^^^^[0m
+ [2m91[0m | 
+ [2m92[0m |       // Advanced is now a real tab
+ [2m93[0m |       case 'advanced': return <AdvancedSettingsTab />;
+    `----
+
+Caused by:
+    Syntax Error
+
+Import trace for requested module:
+./src/app/(auth)/settings/page.tsx
+ GET /dashboard 500 in 15ms
+ GET /dashboard 500 in 11ms
+ ⚠ Fast Refresh had to perform a full reload due to a runtime error.
+ ⚠ Fast Refresh had to perform a full reload due to a runtime error.
+ GET /dashboard 200 in 26ms
+ ⚠ Fast Refresh had to perform a full reload due to a runtime error.
+ ✓ Compiled in 1472ms (2867 modules)
+ GET /dashboard 200 in 257ms
+ GET /dashboard 200 in 84ms
+ GET /grid.svg 404 in 55ms
+ POST /dashboard 200 in 70ms
+ ⨯ ./src/app/(auth)/settings/page.tsx:20:1
+Module not found: Can't resolve '@/components/settings/AdvancedSettingsTab'
+  18 | import { ApiKeysTab } from '@/components/settings/ApiKeysTab';
+  19 | import { ActivityTab } from '@/components/settings/ActivityTab';
+> 20 | import { AdvancedSettingsTab } from '@/components/settings/AdvancedSettingsTab';
+     | ^
+  21 |
+  22 | const NAV_GROUPS = [
+  23 |   {
+
+https://nextjs.org/docs/messages/module-not-found
+ ✓ Compiled in 1293ms (2887 modules)
+ GET /dashboard 200 in 79ms
+ ⚠ Fast Refresh had to perform a full reload due to a runtime error.
+ ✓ Compiled in 1542ms (2887 modules)
+ ⨯ ReferenceError: useOnboarding is not defined
+    at AIAssistantPanel (src/components/layout/AIAssistantPanel.tsx:24:28)
+  22 |   const [query, setQuery] = useState('');
+  23 |   const [visible, setVisible] = useState(true);
+> 24 |   const { completeStep } = useOnboarding();
+     |                            ^
+  25 |   const firstName = user?.firstName ?? 'there';
+  26 |
+  27 |   function handleSubmit(e: React.FormEvent) { {
+  digest: '2428585195'
+}
+ GET /dashboard 500 in 916ms
+ ⚠ Fast Refresh had to perform a full reload due to a runtime error.
+ ✓ Compiled in 2.2s (2887 modules)
+ GET /dashboard 200 in 988ms
+ GET /grid.svg 404 in 51ms
+ POST /dashboard 200 in 73ms
+ ⚠ Fast Refresh had to perform a full reload due to a runtime error.
+ ✓ Compiled in 1252ms (2887 modules)
+ GET /dashboard 200 in 513ms
+ GET /grid.svg 404 in 43ms
+ POST /dashboard 200 in 54ms
+ ✓ Compiled in 573ms (2887 modules)
+ GET /dashboard 200 in 323ms
+ POST /dashboard 200 in 10ms
+ GET /grid.svg 404 in 36ms
+ ✓ Compiled in 574ms (2887 modules)
+ GET /dashboard 200 in 203ms
+ GET /grid.svg 404 in 136ms
+ POST /dashboard 200 in 167ms
+ ⚠ Fast Refresh had to perform a full reload due to a runtime error.
+ ✓ Compiled in 637ms (2887 modules)
+ GET /documents 200 in 526ms
+ GET /grid.svg 404 in 409ms
+ POST /documents 200 in 25ms
+ ⚠ Fast Refresh had to perform a full reload due to a runtime error.
+ ✓ Compiled in 752ms (2887 modules)
+ GET /documents 200 in 518ms
+ GET /grid.svg 404 in 113ms
+ POST /documents 200 in 119ms
+ ✓ Compiled in 1356ms (2887 modules)
+ GET /documents 200 in 69ms
+ ✓ Compiled in 1065ms (2887 modules)
+ GET /documents 200 in 56ms
+ ✓ Compiled in 2s (2887 modules)
+ GET /documents 200 in 60ms
+ ✓ Compiled in 913ms (2887 modules)
+ GET /documents 200 in 73ms
+ GET /grid.svg 404 in 296ms
+ ✓ Compiled in 614ms (2887 modules)
+ ✓ Compiled in 1496ms (2887 modules)
+ ✓ Compiled in 1531ms (2887 modules)
+ ✓ Compiled in 1758ms (2891 modules)
+ ○ Compiling / ...
+ ✓ Compiled / in 1304ms (1659 modules)
+ GET / 307 in 1579ms
+ GET /dashboard 200 in 260ms
+ GET / 307 in 141ms
+ GET /dashboard 200 in 148ms
+ POST /dashboard 200 in 31ms
+ ○ Compiling /_not-found ...
+ ✓ Compiled /_not-found in 817ms (2930 modules)
+ GET /grid.svg 404 in 956ms
+ ⚠ Fast Refresh had to perform a full reload due to a runtime error.
+ ✓ Compiled in 1828ms (2886 modules)
+ GET /dashboard 200 in 836ms
+ POST /dashboard 200 in 10ms
+ ✓ Compiled in 513ms (2886 modules)
+ GET /dashboard 200 in 63ms
+ ⚠ Fast Refresh had to perform a full reload due to a runtime error.
+ GET /dashboard 200 in 172ms
+ POST /dashboard 200 in 10ms
+ ○ Compiling /_not-found ...
+ ✓ Compiled /_not-found in 509ms (2877 modules)
+ GET /grid.svg 404 in 716ms
+ ○ Compiling / ...
+ ✓ Compiled / in 1363ms (1660 modules)
+ GET / 307 in 1491ms
+ GET /dashboard 200 in 143ms
+ POST /dashboard 200 in 13ms
+ POST /dashboard 200 in 66ms
+ GET / 200 in 29ms
+ GET / 200 in 28ms
+ ○ Compiling /signup/[[...signup]] ...
+ ✓ Compiled /signup/[[...signup]] in 2s (2944 modules)
+ GET /signup 200 in 2889ms
+ GET /signup/SignUp_clerk_catchall_check_1783080666536 200 in 1256ms
+ ○ Compiling /login/[[...login]] ...
+ ✓ Compiled /login/[[...login]] in 1596ms (2946 modules)
+ GET /login 200 in 2024ms
+ GET /login/SignIn_clerk_catchall_check_1783080670516 200 in 148ms
+ GET /dashboard 200 in 197ms
+ POST /dashboard 200 in 19ms
+ GET /documents 200 in 55ms
+ GET / 307 in 124ms
+ GET /dashboard 200 in 135ms
+ POST /dashboard 200 in 13ms
+ GET /documents 200 in 27ms
+ GET /documents 200 in 105ms
+ POST /documents 200 in 20ms
+ GET / 307 in 65ms
+ GET /dashboard 200 in 134ms
+ POST /dashboard 200 in 10ms
+ GET /chats 404 in 75ms
+ POST /chats 404 in 4ms
+ ⨯ ./src/components/layout/DarkAppLayout.tsx
+Error:   [31mx[0m Expected a semicolon
+     ,-[[36;1;4m/Users/rajatnagda/Desktop/clarity-docs/frontend/src/components/layout/DarkAppLayout.tsx[0m:116:1]
+ [2m113[0m |             title="Stay Updated"
+ [2m114[0m |             description="We'll notify you here when your documents finish indexing or when team members invite you to collections."
+ [2m115[0m |             placement="bottom"
+ [2m116[0m |             condition={pathname === '/documents'}
+     : [35;1m                                ^^^[0m
+ [2m117[0m |           />
+ [2m118[0m |           
+ [2m119[0m |         </NotificationProvider>
+     `----
+  [31mx[0m Expression expected
+     ,-[[36;1;4m/Users/rajatnagda/Desktop/clarity-docs/frontend/src/components/layout/DarkAppLayout.tsx[0m:116:1]
+ [2m113[0m |             title="Stay Updated"
+ [2m114[0m |             description="We'll notify you here when your documents finish indexing or when team members invite you to collections."
+ [2m115[0m |             placement="bottom"
+ [2m116[0m |             condition={pathname === '/documents'}
+     : [35;1m                                ^^^[0m
+ [2m117[0m |           />
+ [2m118[0m |           
+ [2m119[0m |         </NotificationProvider>
+     `----
+  [31mx[0m Expression expected
+     ,-[[36;1;4m/Users/rajatnagda/Desktop/clarity-docs/frontend/src/components/layout/DarkAppLayout.tsx[0m:116:1]
+ [2m113[0m |             title="Stay Updated"
+ [2m114[0m |             description="We'll notify you here when your documents finish indexing or when team members invite you to collections."
+ [2m115[0m |             placement="bottom"
+ [2m116[0m |             condition={pathname === '/documents'}
+     : [35;1m                                                ^[0m
+ [2m117[0m |           />
+ [2m118[0m |           
+ [2m119[0m |         </NotificationProvider>
+     `----
+
+Caused by:
+    Syntax Error
+
+Import trace for requested module:
+./src/components/layout/DarkAppLayout.tsx
+./src/app/(auth)/layout.tsx
+ ✓ Compiled in 1818ms (2873 modules)
+ GET / 307 in 201ms
+ GET /dashboard 200 in 173ms
+ POST /dashboard 200 in 22ms
+ GET /documents 200 in 48ms
+ GET / 307 in 81ms
+ GET /dashboard 200 in 124ms
+ POST /dashboard 200 in 30ms
+ ○ Compiling /chat ...
+ ✓ Compiled /chat in 2s (1619 modules)
+ GET /chat 200 in 2122ms
+ GET /chat 200 in 12ms
+ ○ Compiling /collections ...
+ ✓ Compiled /collections in 2.8s (1582 modules)
+ GET /collections 200 in 2869ms
+ ✓ Compiled /eval in 326ms (1590 modules)
+ GET /eval 200 in 404ms
+ GET /documents 200 in 28ms
+ ✓ Compiled in 1951ms (2816 modules)
+ ○ Compiling / ...
+ ✓ Compiled / in 1768ms (1582 modules)
+ GET / 307 in 1952ms
+ GET /dashboard 200 in 167ms
+ POST /dashboard 200 in 17ms
+ GET /documents 200 in 104ms
+ ✓ Compiled in 1923ms (2808 modules)
+ GET /documents 200 in 108ms
+ GET /dashboard 200 in 46ms
+ GET /documents 200 in 36ms
+ GET /dashboard 200 in 36ms
+ GET /chat 200 in 46ms
+ GET /chat 200 in 30ms
+ GET /collections 200 in 39ms
+ GET /dashboard 200 in 22ms
+ GET /collections 200 in 73ms
+ ○ Compiling /eval ...
+ ✓ Compiled /eval in 1193ms (1531 modules)
+ GET /eval 200 in 1274ms
+ GET /dashboard 200 in 50ms
+ GET /documents 200 in 63ms
+ ✓ Compiled in 2.6s (2793 modules)
+ ⚠ Fast Refresh had to perform a full reload. Read more: https://nextjs.org/docs/messages/fast-refresh-reload
+ GET /documents 200 in 354ms
+ POST /documents 200 in 20ms
+ ✓ Compiled in 1506ms (2807 modules)
+ GET /documents 200 in 77ms
+ ✓ Compiled in 1012ms (2807 modules)
+ ⚠ Fast Refresh had to perform a full reload due to a runtime error.
+ GET /documents 200 in 224ms
+ POST /documents 200 in 8ms
+ ✓ Compiled in 1162ms (2807 modules)
+ GET /documents 200 in 54ms
+ ✓ Compiled in 3.8s (2811 modules)
+ GET /dashboard 200 in 1294ms
+ ○ Compiling /_not-found ...
+ ✓ Compiled /_not-found in 985ms (2802 modules)
+ GET /grid.svg 404 in 1101ms
+ GET /dashboard 200 in 58ms
+ GET /grid.svg 404 in 47ms
+ GET /developer 404 in 25ms
+ GET /developer 404 in 42ms
+ POST /developer 404 in 16ms
+ GET /dashboard 200 in 239ms
+ GET /grid.svg 404 in 36ms
+ POST /dashboard 200 in 43ms
+ GET /developer 404 in 18ms
+ GET /developer 404 in 39ms
+ POST /developer 404 in 7ms
+ GET /developer 404 in 31ms
+ POST /developer 404 in 6ms
+ ○ Compiling / ...
+ ✓ Compiled / in 1723ms (1584 modules)
+ GET / 307 in 1942ms
+ GET /dashboard 200 in 190ms
+ GET /grid.svg 404 in 45ms
+ POST /dashboard 200 in 17ms
+ ○ Compiling /workspace ...
+ ✓ Compiled /workspace in 1367ms (1596 modules)
+ GET /workspace 200 in 1459ms
+ GET /developer 404 in 35ms
+ GET /developer 404 in 106ms
+ POST /developer 404 in 8ms
+ GET / 307 in 71ms
+ GET /dashboard 200 in 166ms
+ GET /grid.svg 404 in 21ms
+ POST /dashboard 200 in 28ms
+ GET /eval 200 in 41ms
+ GET /dashboard 200 in 148ms
+ GET /grid.svg 404 in 29ms
+ POST /dashboard 200 in 18ms
+ GET /dashboard 200 in 183ms
+ GET /grid.svg 404 in 36ms
+ POST /dashboard 200 in 17ms
+ GET /dashboard 200 in 166ms
+ GET /grid.svg 404 in 30ms
+ POST /dashboard 200 in 27ms
+ GET /documents 200 in 37ms
+ GET /chat 200 in 52ms
+ ○ Compiling /collections ...
+ ✓ Compiled /collections in 2.9s (2820 modules)
+ ✓ Compiled (2830 modules)
+ GET /collections 200 in 1717ms
+ GET /collections 200 in 21ms
+ GET /grid.svg 404 in 165ms
+ GET /eval 200 in 40ms
+ ✓ Compiled /developer/dashboard in 466ms (2823 modules)
+ GET /developer/dashboard 200 in 524ms
+ GET /workspace 200 in 51ms
+ ○ Compiling /billing ...
+ ✓ Compiled /billing in 1507ms (1553 modules)
+ GET /billing 200 in 1580ms
+ ○ Compiling /settings ...
+ ✓ Compiled /settings in 2.1s (1595 modules)
+ GET /settings 200 in 2147ms
+ GET /noise.png 404 in 571ms
+ GET /developer/dashboard 200 in 46ms
+ ⨯ ./src/app/(auth)/developer/dashboard/page.tsx
+Error:   [31mx[0m Expression expected
+     ,-[[36;1;4m/Users/rajatnagda/Desktop/clarity-docs/frontend/src/app/(auth)/developer/dashboard/page.tsx[0m:467:1]
+ [2m464[0m |       </div>
+ [2m465[0m |     </>
+ [2m466[0m |   );
+ [2m467[0m | }  );
+     : [35;1m   ^[0m
+ [2m468[0m | }
+     `----
+
+Caused by:
+    Syntax Error
+
+Import trace for requested module:
+./src/app/(auth)/developer/dashboard/page.tsx
+ GET /developer/dashboard 500 in 24ms
+ GET /developer/dashboard 500 in 22ms
+ GET /developer/dashboard 500 in 28ms
+ ⚠ Fast Refresh had to perform a full reload due to a runtime error.
+ ⚠ Fast Refresh had to perform a full reload due to a runtime error.
+ ✓ Compiled in 2.7s (2836 modules)
+ ⚠ Fast Refresh had to perform a full reload due to a runtime error.
+ ✓ Compiled / in 275ms (1607 modules)
+ GET / 307 in 454ms
+ ✓ Compiled /dashboard in 217ms (1621 modules)
+ GET /dashboard 200 in 528ms
+ GET / 307 in 50ms
+ GET /dashboard 200 in 137ms
+ ○ Compiling /_not-found ...
+ ✓ Compiled /_not-found in 1042ms (2908 modules)
+ GET /grid.svg 404 in 1345ms
+ POST /dashboard 200 in 32ms
+ GET /developer/dashboard 200 in 54ms
+ ○ Compiling /workspace ...
+ ✓ Compiled /workspace in 1355ms (1605 modules)
+ GET /workspace 200 in 1492ms
+ GET /workspace 200 in 15ms
+ GET /dashboard 200 in 40ms

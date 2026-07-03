@@ -15,9 +15,12 @@ interface UIContextValue {
   theme: Theme;
   setTheme: (theme: Theme) => void;
   toggleTheme: () => void;
-  sidebarOpen: boolean;
+  sidebarOpen: boolean; // Mobile open state
   setSidebarOpen: (open: boolean) => void;
   toggleSidebar: () => void;
+  sidebarCollapsed: boolean; // Desktop collapsed state
+  setSidebarCollapsed: (collapsed: boolean) => void;
+  toggleSidebarCollapsed: () => void;
   commandPaletteOpen: boolean;
   setCommandPaletteOpen: (open: boolean) => void;
   openCommandPalette: () => void;
@@ -28,6 +31,7 @@ const UIContext = createContext<UIContextValue | null>(null);
 
 const THEME_KEY = 'clarity:theme';
 const SIDEBAR_KEY = 'clarity:sidebar-open';
+const COLLAPSED_KEY = 'clarity:sidebar-collapsed';
 
 function readStoredTheme(): Theme {
   if (typeof window === 'undefined') return 'light';
@@ -58,6 +62,7 @@ function applyTheme(theme: Theme) {
 export function UIProvider({ children }: { children: ReactNode }) {
   const [theme, setThemeState] = useState<Theme>('system');
   const [sidebarOpen, setSidebarOpenState] = useState(true);
+  const [sidebarCollapsed, setSidebarCollapsedState] = useState(false);
   const [commandPaletteOpen, setCommandPaletteOpen] = useState(false);
 
   // Hydrate from localStorage on mount
@@ -70,6 +75,11 @@ export function UIProvider({ children }: { children: ReactNode }) {
     // Default sidebar open on desktop, closed on mobile
     const defaultOpen = window.innerWidth >= 768;
     setSidebarOpenState(storedSidebar !== null ? storedSidebar === 'true' : defaultOpen);
+
+    const storedCollapsed = localStorage.getItem(COLLAPSED_KEY);
+    if (storedCollapsed !== null) {
+      setSidebarCollapsedState(storedCollapsed === 'true');
+    }
   }, []);
 
   const setTheme = useCallback((next: Theme) => {
@@ -96,6 +106,19 @@ export function UIProvider({ children }: { children: ReactNode }) {
     setSidebarOpenState((prev) => {
       const next = !prev;
       localStorage.setItem(SIDEBAR_KEY, String(next));
+      return next;
+    });
+  }, []);
+
+  const setSidebarCollapsed = useCallback((collapsed: boolean) => {
+    setSidebarCollapsedState(collapsed);
+    localStorage.setItem(COLLAPSED_KEY, String(collapsed));
+  }, []);
+
+  const toggleSidebarCollapsed = useCallback(() => {
+    setSidebarCollapsedState((prev) => {
+      const next = !prev;
+      localStorage.setItem(COLLAPSED_KEY, String(next));
       return next;
     });
   }, []);

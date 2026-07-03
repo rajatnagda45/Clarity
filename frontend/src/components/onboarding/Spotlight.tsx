@@ -23,18 +23,29 @@ export function Spotlight({ id, targetId, title, description, placement = 'botto
   useEffect(() => {
     if (!shouldShow) return;
 
+    let prevRectString = '';
+
     const updateRect = () => {
       const el = document.getElementById(targetId);
       if (el) {
-        setRect(el.getBoundingClientRect());
+        const r = el.getBoundingClientRect();
+        const newRectString = `${Math.round(r.top)},${Math.round(r.left)},${Math.round(r.width)},${Math.round(r.height)}`;
+        if (newRectString !== prevRectString) {
+          prevRectString = newRectString;
+          setRect(r);
+        }
       } else {
-        setRect(null);
+        if (prevRectString !== '') {
+          prevRectString = '';
+          setRect(null);
+        }
       }
     };
 
     updateRect();
     
     // Create an observer to catch layout changes or element appearing
+    // Throttle or avoid unnecessary state updates by checking string equality above
     const observer = new MutationObserver(updateRect);
     observer.observe(document.body, { childList: true, subtree: true, attributes: true });
     
@@ -52,61 +63,42 @@ export function Spotlight({ id, targetId, title, description, placement = 'botto
 
   // Calculate tooltip position
   const MARGIN = 16;
+  const TOOLTIP_WIDTH = 288; // w-72 = 288px
+  const TOOLTIP_HEIGHT = 160; // Approx height
+
   let top = 0;
   let left = 0;
 
   switch (placement) {
     case 'bottom':
       top = rect.bottom + MARGIN;
-      left = rect.left + rect.width / 2;
+      left = rect.left + rect.width / 2 - TOOLTIP_WIDTH / 2;
       break;
     case 'top':
-      top = rect.top - MARGIN;
-      left = rect.left + rect.width / 2;
+      top = rect.top - MARGIN - TOOLTIP_HEIGHT;
+      left = rect.left + rect.width / 2 - TOOLTIP_WIDTH / 2;
       break;
     case 'left':
-      top = rect.top + rect.height / 2;
-      left = rect.left - MARGIN;
+      top = rect.top + rect.height / 2 - TOOLTIP_HEIGHT / 2;
+      left = rect.left - MARGIN - TOOLTIP_WIDTH;
       break;
     case 'right':
-      top = rect.top + rect.height / 2;
+      top = rect.top + rect.height / 2 - TOOLTIP_HEIGHT / 2;
       left = rect.right + MARGIN;
       break;
+  }
+
+  // Constrain to viewport bounds
+  if (typeof window !== 'undefined') {
+    left = Math.max(MARGIN, Math.min(left, window.innerWidth - TOOLTIP_WIDTH - MARGIN));
+    top = Math.max(MARGIN, Math.min(top, window.innerHeight - TOOLTIP_HEIGHT - MARGIN));
   }
 
   return (
     <AnimatePresence>
       <div className="fixed inset-0 z-40 pointer-events-none">
-        {/* Soft highlight overlay - SVG Mask approach for premium feel */}
-        <svg className="absolute inset-0 w-full h-full">
-          <defs>
-            <mask id={`spotlight-mask-${id}`}>
-              <rect width="100%" height="100%" fill="white" />
-              <motion.rect
-                initial={{ rx: 8, ry: 8 }}
-                animate={{ 
-                  x: rect.left - 8, 
-                  y: rect.top - 8, 
-                  width: rect.width + 16, 
-                  height: rect.height + 16,
-                  rx: 16,
-                  ry: 16
-                }}
-                transition={{ type: 'spring', bounce: 0.2 }}
-                fill="black"
-              />
-            </mask>
-          </defs>
-          <rect 
-            width="100%" 
-            height="100%" 
-            fill="rgba(5, 7, 11, 0.6)" 
-            mask={`url(#spotlight-mask-${id})`} 
-            className="transition-all duration-300 pointer-events-auto"
-          />
-        </svg>
-
-        {/* Highlight border on the element */}
+        
+        {/* Highlight border on the element - No more dark screen mask! */}
         <motion.div
           animate={{
             left: rect.left - 8,
@@ -115,7 +107,7 @@ export function Spotlight({ id, targetId, title, description, placement = 'botto
             height: rect.height + 16,
           }}
           transition={{ type: 'spring', bounce: 0.2 }}
-          className="absolute border-2 border-purple-500/50 rounded-2xl shadow-[0_0_30px_rgba(168,85,247,0.3)] pointer-events-none"
+          className="absolute border-2 border-purple-500/80 rounded-2xl shadow-[0_0_30px_rgba(168,85,247,0.5)] pointer-events-none"
         />
 
         {/* Coach Mark Tooltip */}
@@ -126,10 +118,7 @@ export function Spotlight({ id, targetId, title, description, placement = 'botto
           style={{ 
             position: 'absolute', 
             top, 
-            left,
-            transform: placement === 'bottom' || placement === 'top' 
-              ? 'translateX(-50%)' 
-              : 'translateY(-50%)'
+            left
           }}
           className="w-72 bg-[#0F1117] border border-white/[0.1] rounded-2xl p-5 shadow-2xl pointer-events-auto"
         >

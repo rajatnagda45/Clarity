@@ -20,7 +20,7 @@ function getPageTitle(pathname: string): string {
 
 export function DarkTopbar() {
   const pathname = usePathname();
-  const { toggleSidebar } = useUI();
+  const { toggleSidebar, sidebarCollapsed } = useUI();
   const { toggle: toggleCommand } = useCommand();
   const { toggle: toggleNotifications, unreadCount } = useNotifications();
   const { user } = useUser();
@@ -31,8 +31,10 @@ export function DarkTopbar() {
   const initials =
     (user?.firstName?.[0] ?? '') + (user?.lastName?.[0] ?? user?.emailAddresses?.[0]?.emailAddress?.[0] ?? '');
 
+  const leftOffset = sidebarCollapsed ? 'md:left-[80px]' : 'md:left-[288px]';
+
   return (
-    <header className="fixed left-0 right-0 top-0 z-30 flex h-14 items-center border-b border-[rgba(255,255,255,0.06)] bg-[rgba(5,7,11,0.8)] px-4 backdrop-blur-xl md:left-[280px]">
+    <header className={`fixed left-0 right-0 top-0 z-30 flex h-14 items-center border-b border-[rgba(255,255,255,0.06)] bg-[rgba(5,7,11,0.8)] px-4 backdrop-blur-xl transition-all duration-300 ease-in-out ${leftOffset}`}>
       {/* Mobile hamburger */}
       <button
         type="button"
