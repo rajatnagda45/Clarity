@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import Link from 'next/link';
-import { usePathname } from 'next/navigation';
+import { usePathname, useRouter } from 'next/navigation';
 import { useUser, useClerk } from '@clerk/nextjs';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
@@ -31,6 +31,7 @@ import { useUI } from '@/contexts/UIContext';
 import { useCommand } from '@/contexts/CommandContext';
 import { useDocuments } from '@/hooks/useDocuments';
 import { useDashboardMetrics } from '@/hooks/useDashboardMetrics';
+import { useGlobalUpload } from '@/hooks/useGlobalUpload';
 
 interface NavItem {
   label: string;
@@ -128,9 +129,14 @@ function NavItemRow({
   return (
     <Tooltip text={item.label} show={collapsed}>
       {item.isAction ? (
-        <div className="w-full" onClick={(e) => { e.preventDefault(); onClick?.(); }}>
+        <button
+          type="button"
+          aria-label={item.label}
+          className="w-full text-left outline-none"
+          onClick={(e) => { e.preventDefault(); onClick?.(); }}
+        >
           {content}
-        </div>
+        </button>
       ) : (
         <Link href={item.href} className="w-full block">
           {content}
@@ -142,6 +148,7 @@ function NavItemRow({
 
 function SidebarContent() {
   const pathname = usePathname();
+  const router = useRouter();
   const { activeWorkspace, workspaces, setActiveWorkspace } = useWorkspace();
   const { user } = useUser();
   const { signOut } = useClerk();
@@ -149,6 +156,7 @@ function SidebarContent() {
   const { devDashboard } = useDashboardMetrics();
   const { sidebarCollapsed, toggleSidebarCollapsed, toggleSidebar } = useUI();
   const { toggle: toggleCommand } = useCommand();
+  const { triggerUpload, isUploading } = useGlobalUpload();
 
   const [wsDropdownOpen, setWsDropdownOpen] = useState(false);
   const [userMenuOpen, setUserMenuOpen] = useState(false);
@@ -224,16 +232,25 @@ function SidebarContent() {
           <div className="grid grid-cols-4 gap-2">
             {[
               { icon: <Search size={16} />, label: 'Search', action: toggleCommand },
-              { icon: <Upload size={16} />, label: 'Upload', action: () => {} },
-              { icon: <MessageSquare size={16} />, label: 'New Chat', action: () => {} },
-              { icon: <FolderPlus size={16} />, label: 'Collection', action: () => {} },
+              { 
+                icon: <Upload size={16} className={isUploading ? 'animate-bounce' : ''} />, 
+                label: isUploading ? 'Uploading' : 'Upload', 
+                action: triggerUpload,
+                disabled: isUploading 
+              },
+              { icon: <MessageSquare size={16} />, label: 'New Chat', action: () => router.push('/chat') },
+              { icon: <FolderPlus size={16} />, label: 'Collection', action: () => router.push('/collections') },
             ].map((action, i) => (
               <Tooltip key={i} text={action.label} show={true}>
                 <motion.button
-                  whileHover={{ scale: 1.05, y: -2 }}
-                  whileTap={{ scale: 0.95 }}
-                  onClick={action.action}
-                  className="flex h-10 w-full items-center justify-center rounded-xl border border-[rgba(255,255,255,0.04)] bg-[#151923] text-[#8892AA] transition-colors hover:border-[rgba(255,255,255,0.1)] hover:bg-[#1A1F2E] hover:text-[#F1F3F9] shadow-sm"
+                  whileHover={{ scale: action.disabled ? 1 : 1.05, y: action.disabled ? 0 : -2 }}
+                  whileTap={{ scale: action.disabled ? 1 : 0.95 }}
+                  onClick={action.disabled ? undefined : action.action}
+                  className={`flex h-10 w-full items-center justify-center rounded-xl border border-[rgba(255,255,255,0.04)] bg-[#151923] text-[#8892AA] transition-colors shadow-sm ${
+                    action.disabled 
+                      ? 'opacity-50 cursor-not-allowed' 
+                      : 'hover:border-[rgba(255,255,255,0.1)] hover:bg-[#1A1F2E] hover:text-[#F1F3F9]'
+                  }`}
                 >
                   {action.icon}
                 </motion.button>

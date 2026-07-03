@@ -2,10 +2,12 @@
 
 import { usePathname } from 'next/navigation';
 import { useUser } from '@clerk/nextjs';
+import { motion, AnimatePresence } from 'framer-motion';
 import { Menu, Search, Upload, Bell } from 'lucide-react';
 import { useUI } from '@/contexts/UIContext';
 import { useCommand } from '@/contexts/CommandContext';
 import { useNotifications } from '@/contexts/NotificationContext';
+import { useGlobalUpload } from '@/hooks/useGlobalUpload';
 
 function getPageTitle(pathname: string): string {
   if (pathname === '/dashboard') return 'Dashboard';
@@ -24,6 +26,7 @@ export function DarkTopbar() {
   const { toggle: toggleCommand } = useCommand();
   const { toggle: toggleNotifications, unreadCount } = useNotifications();
   const { user } = useUser();
+  const { triggerUpload, isUploading } = useGlobalUpload();
 
   const title = getPageTitle(pathname);
   const showUpload = pathname === '/dashboard' || pathname === '/documents';
@@ -51,10 +54,11 @@ export function DarkTopbar() {
       {/* Spacer */}
       <div className="flex-1" />
 
-      {/* Right actions */}
       <div className="flex items-center gap-2">
         {/* Search */}
-        <button
+        <motion.button
+          whileHover={{ scale: 1.02 }}
+          whileTap={{ scale: 0.98 }}
           id="topbar-command-center"
           type="button"
           onClick={toggleCommand}
@@ -64,23 +68,29 @@ export function DarkTopbar() {
           <Search size={14} />
           <span className="flex-1 text-left text-xs">Search...</span>
           <span className="rounded bg-[#1A1F2E] px-1.5 py-0.5 text-[10px] text-[#4A5168]">⌘K</span>
-        </button>
+        </motion.button>
 
         {/* Upload button — only on relevant pages */}
         {showUpload && (
-          <button
+          <motion.button
+            whileHover={{ scale: 1.02 }}
+            whileTap={{ scale: 0.98 }}
             id="topbar-upload-btn"
             type="button"
-            className="hidden items-center gap-1.5 rounded-lg bg-[#5B6EF0] px-3 text-xs font-medium text-white transition-colors hover:bg-[#6B7EF5] sm:flex"
+            onClick={triggerUpload}
+            disabled={isUploading}
+            className="hidden items-center gap-1.5 rounded-lg bg-[#5B6EF0] px-3 text-xs font-medium text-white transition-colors hover:bg-[#6B7EF5] disabled:opacity-50 disabled:cursor-not-allowed sm:flex shadow-[0_0_12px_rgba(91,110,240,0.3)]"
             style={{ height: 32 }}
           >
-            <Upload size={14} />
-            Upload
-          </button>
+            <Upload size={14} className={isUploading ? 'animate-bounce' : ''} />
+            {isUploading ? 'Uploading...' : 'Upload'}
+          </motion.button>
         )}
 
         {/* Notifications */}
-        <button
+        <motion.button
+          whileHover={{ scale: 1.05 }}
+          whileTap={{ scale: 0.95 }}
           id="topbar-notifications"
           type="button"
           onClick={toggleNotifications}
@@ -88,21 +98,30 @@ export function DarkTopbar() {
           aria-label="Notifications"
         >
           <Bell size={18} />
-          {unreadCount > 0 && (
-            <span className="absolute right-1 top-1 flex h-3 w-3 items-center justify-center rounded-full bg-purple-500 text-[8px] font-bold text-white shadow-[0_0_10px_rgba(168,85,247,0.5)]">
-              {unreadCount > 9 ? '9+' : unreadCount}
-            </span>
-          )}
-        </button>
+          <AnimatePresence>
+            {unreadCount > 0 && (
+              <motion.span
+                initial={{ scale: 0, opacity: 0 }}
+                animate={{ scale: 1, opacity: 1 }}
+                exit={{ scale: 0, opacity: 0 }}
+                className="absolute right-1 top-1 flex h-3 w-3 items-center justify-center rounded-full bg-purple-500 text-[8px] font-bold text-white shadow-[0_0_10px_rgba(168,85,247,0.5)]"
+              >
+                {unreadCount > 9 ? '9+' : unreadCount}
+              </motion.span>
+            )}
+          </AnimatePresence>
+        </motion.button>
 
         {/* Avatar */}
-        <button
+        <motion.button
+          whileHover={{ scale: 1.05 }}
+          whileTap={{ scale: 0.95 }}
           type="button"
           className="flex h-8 w-8 items-center justify-center rounded-full bg-[rgba(91,110,240,0.2)] text-xs font-semibold uppercase text-[#5B6EF0]"
           aria-label="Profile"
         >
           {initials || '?'}
-        </button>
+        </motion.button>
       </div>
     </header>
   );

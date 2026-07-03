@@ -12,7 +12,7 @@ interface CardProps extends HTMLAttributes<HTMLDivElement> {
 
 const elevations: Record<CardElevation, string> = {
   1: 'bg-[var(--color-bg-surface)] border border-[var(--color-border-subtle)] shadow-xs',
-  2: 'bg-[var(--color-bg-elevated)] border border-[var(--color-border-default)] shadow-sm',
+  2: 'bg-[var(--color-bg-elevated)]/80 backdrop-blur-md border border-[rgba(255,255,255,0.08)] shadow-lg',
 };
 
 const paddings = {
@@ -30,11 +30,11 @@ export const Card = forwardRef<HTMLDivElement, CardProps>(function Card(
     <div
       ref={ref}
       className={cn(
-        'rounded-xl',
+        'rounded-2xl',
         elevations[elevation],
         paddings[padding],
         hoverable &&
-          'cursor-pointer transition-[border-color,box-shadow] duration-normal ease-default hover:border-[var(--color-border-default)] hover:shadow-md',
+          'cursor-pointer transition-all duration-200 ease-out hover:-translate-y-0.5 hover:shadow-xl hover:border-[rgba(255,255,255,0.15)]',
         className,
       )}
       {...props}
