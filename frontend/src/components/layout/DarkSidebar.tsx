@@ -37,11 +37,11 @@ const topNavItems: NavItem[] = [
   { label: 'AI Chat', href: '/chat', icon: <MessageSquare size={16} /> },
   { label: 'Collections', href: '/collections', icon: <Grid3X3 size={16} /> },
   { label: 'Search', href: '#', icon: <Search size={16} />, disabled: true },
+  { label: 'Analytics', href: '/eval', icon: <BarChart2 size={16} /> },
 ];
 
 const bottomNavItems: NavItem[] = [
-  { label: 'Analytics', href: '/eval', icon: <BarChart2 size={16} /> },
-  { label: 'Team', href: '/settings/workspace', icon: <Users size={16} /> },
+  { label: 'Workspace', href: '/settings/workspace', icon: <Users size={16} /> },
   { label: 'Billing', href: '/settings', icon: <CreditCard size={16} /> },
   { label: 'Settings', href: '/settings', icon: <Settings size={16} /> },
 ];
