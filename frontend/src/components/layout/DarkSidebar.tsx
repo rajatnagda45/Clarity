@@ -18,6 +18,7 @@ import {
   ChevronDown,
   MoreHorizontal,
   Sparkles,
+  Building2,
 } from 'lucide-react';
 import { useWorkspace } from '@/contexts/WorkspaceContext';
 import { useUI } from '@/contexts/UIContext';
@@ -41,6 +42,8 @@ const topNavItems: NavItem[] = [
 ];
 
 const bottomNavItems: NavItem[] = [
+  { label: 'Workspace', href: '/settings?tab=workspace', icon: <Building2 size={16} /> },
+  { label: 'Billing', href: '/settings?tab=billing', icon: <CreditCard size={16} /> },
   { label: 'Settings', href: '/settings', icon: <Settings size={16} /> },
 ];
 

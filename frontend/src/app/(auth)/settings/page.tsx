@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
   User, Building2, Bell, Palette, ShieldCheck, Cpu, 
@@ -50,8 +50,27 @@ const NAV_GROUPS = [
   }
 ];
 
+import { useSearchParams, useRouter } from 'next/navigation';
+
 export default function SettingsHub() {
-  const [activeTab, setActiveTab] = useState('overview');
+  const searchParams = useSearchParams();
+  const router = useRouter();
+  
+  const queryTab = searchParams.get('tab');
+  const [activeTab, setActiveTab] = useState(queryTab || 'overview');
+
+  // Update URL when tab changes, and update tab when URL changes
+  useEffect(() => {
+    if (queryTab && queryTab !== activeTab) {
+      setActiveTab(queryTab);
+    }
+  }, [queryTab]);
+
+  const handleTabChange = (tabId: string) => {
+    setActiveTab(tabId);
+    router.push(`/settings?tab=${tabId}`);
+  };
+
   const [search, setSearch] = useState('');
 
   const renderContent = () => {
@@ -116,10 +135,9 @@ export default function SettingsHub() {
                     return (
                       <button
                         key={item.id}
-                        onClick={() => setActiveTab(item.id)}
-                        className={`
-                          flex items-center gap-3 px-3 py-2 rounded-xl text-sm font-medium transition-all text-left relative
-                          ${isActive 
+                        onClick={() => handleTabChange(item.id)}
+                        className={`flex w-full items-center gap-3 rounded-xl px-4 py-3 text-sm font-medium transition-colors ${
+                          isActive 
                             ? 'text-[#F1F3F9] bg-white/[0.06] shadow-sm' 
                             : 'text-[#8892AA] hover:text-[#F1F3F9] hover:bg-white/[0.02]'
                           }
