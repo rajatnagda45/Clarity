@@ -244,16 +244,6 @@ export default function DocumentsPage() {
           uploadProgressText={uploadProgressText}
         />
 
-        {errorMessage && (
-          <motion.p 
-            initial={{ opacity: 0, y: -10 }}
-            animate={{ opacity: 1, y: 0 }}
-            className="text-sm text-red-400 bg-red-400/10 border border-red-400/20 px-4 py-3 rounded-xl"
-          >
-            {errorMessage}
-          </motion.p>
-        )}
-
         {/* Document Library */}
         <section className="flex flex-col gap-6 mt-4">
           <div className="flex items-center justify-between">
