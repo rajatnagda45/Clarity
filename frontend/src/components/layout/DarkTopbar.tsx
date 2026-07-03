@@ -5,6 +5,7 @@ import { useUser } from '@clerk/nextjs';
 import { Menu, Search, Upload, Bell } from 'lucide-react';
 import { useUI } from '@/contexts/UIContext';
 import { useCommand } from '@/contexts/CommandContext';
+import { useNotifications } from '@/contexts/NotificationContext';
 
 function getPageTitle(pathname: string): string {
   if (pathname === '/dashboard') return 'Dashboard';
@@ -21,6 +22,7 @@ export function DarkTopbar() {
   const pathname = usePathname();
   const { toggleSidebar } = useUI();
   const { toggle: toggleCommand } = useCommand();
+  const { toggle: toggleNotifications, unreadCount } = useNotifications();
   const { user } = useUser();
 
   const title = getPageTitle(pathname);
@@ -76,11 +78,16 @@ export function DarkTopbar() {
         {/* Notifications */}
         <button
           type="button"
+          onClick={toggleNotifications}
           className="relative rounded-lg p-1.5 text-[#4A5168] hover:bg-[rgba(255,255,255,0.06)] hover:text-[#8892AA] transition-colors"
           aria-label="Notifications"
         >
           <Bell size={18} />
-          <span className="absolute right-1.5 top-1.5 h-1.5 w-1.5 rounded-full bg-[#EF4444]" />
+          {unreadCount > 0 && (
+            <span className="absolute right-1 top-1 flex h-3 w-3 items-center justify-center rounded-full bg-purple-500 text-[8px] font-bold text-white shadow-[0_0_10px_rgba(168,85,247,0.5)]">
+              {unreadCount > 9 ? '9+' : unreadCount}
+            </span>
+          )}
         </button>
 
         {/* Avatar */}

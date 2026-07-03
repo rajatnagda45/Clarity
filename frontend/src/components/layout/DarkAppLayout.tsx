@@ -7,7 +7,9 @@ import { DarkTopbar } from './DarkTopbar';
 import { AIAssistantPanel } from './AIAssistantPanel';
 
 import { CommandProvider } from '@/contexts/CommandContext';
+import { NotificationProvider } from '@/contexts/NotificationContext';
 import { CommandCenter } from './CommandCenter';
+import { NotificationDrawer } from './NotificationDrawer';
 
 export function DarkAppLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
@@ -15,32 +17,35 @@ export function DarkAppLayout({ children }: { children: React.ReactNode }) {
 
   return (
     <CommandProvider>
-      <div className="flex h-screen bg-[#05070B] text-[#F1F3F9]">
-        <DarkSidebar />
-        <div className={`flex flex-1 flex-col min-w-0 ${showAIPanel ? 'mr-[280px]' : ''}`}>
-          <DarkTopbar />
-          <main className="flex-1 overflow-y-auto pt-14 md:ml-[280px]">
-            <AnimatePresence mode="wait">
-              <motion.div
-                key={pathname}
-                initial={{ opacity: 0, y: 4 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, y: -4 }}
-                transition={{ duration: 0.2 }}
-                className="min-h-full"
-              >
-                {children}
-              </motion.div>
-            </AnimatePresence>
-          </main>
-        </div>
-        {showAIPanel && (
-          <div className="fixed right-0 top-0 h-full w-[280px] z-20">
-            <AIAssistantPanel />
+      <NotificationProvider>
+        <div className="flex h-screen bg-[#05070B] text-[#F1F3F9]">
+          <DarkSidebar />
+          <div className={`flex flex-1 flex-col min-w-0 ${showAIPanel ? 'mr-[280px]' : ''}`}>
+            <DarkTopbar />
+            <main className="flex-1 overflow-y-auto pt-14 md:ml-[280px]">
+              <AnimatePresence mode="wait">
+                <motion.div
+                  key={pathname}
+                  initial={{ opacity: 0, y: 4 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: -4 }}
+                  transition={{ duration: 0.2 }}
+                  className="min-h-full"
+                >
+                  {children}
+                </motion.div>
+              </AnimatePresence>
+            </main>
           </div>
-        )}
-      </div>
-      <CommandCenter />
+          {showAIPanel && (
+            <div className="fixed right-0 top-0 h-full w-[280px] z-20">
+              <AIAssistantPanel />
+            </div>
+          )}
+        </div>
+        <CommandCenter />
+        <NotificationDrawer />
+      </NotificationProvider>
     </CommandProvider>
   );
 }

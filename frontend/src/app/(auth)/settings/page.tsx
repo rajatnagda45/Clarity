@@ -7,53 +7,63 @@ import {
   Puzzle, Key, CreditCard, Activity, Settings2, Info, Search
 } from 'lucide-react';
 import { PremiumBackground } from '@/components/landing/PremiumBackground';
-import { ProfileTab } from '@/components/settings/ProfileTab';
 import { WorkspaceTab } from '@/components/settings/WorkspaceTab';
 import { BillingTab } from '@/components/settings/BillingTab';
 import { PlaceholderTab } from '@/components/settings/PlaceholderTab';
+import { AccountOverviewTab } from '@/components/settings/AccountOverviewTab';
+import { PersonalInfoTab } from '@/components/settings/PersonalInfoTab';
+import { SecurityTab } from '@/components/settings/SecurityTab';
+import { ConnectedAccountsTab } from '@/components/settings/ConnectedAccountsTab';
+import { AIUsageTab } from '@/components/settings/AIUsageTab';
+import { ApiKeysTab } from '@/components/settings/ApiKeysTab';
+import { ActivityTab } from '@/components/settings/ActivityTab';
 
 const NAV_GROUPS = [
   {
-    title: 'Personal',
+    title: 'Account',
     items: [
-      { id: 'profile', label: 'Profile', icon: User },
-      { id: 'appearance', label: 'Appearance', icon: Palette },
-      { id: 'notifications', label: 'Notifications', icon: Bell },
+      { id: 'overview', label: 'Overview', icon: User },
+      { id: 'personal-info', label: 'Personal Information', icon: User },
+      { id: 'security', label: 'Security & Sessions', icon: ShieldCheck },
+      { id: 'connected-accounts', label: 'Connected Accounts', icon: Puzzle },
+      { id: 'ai-usage', label: 'AI Usage', icon: Cpu },
+      { id: 'api-keys', label: 'API Keys', icon: Key },
+      { id: 'preferences', label: 'Preferences', icon: Settings2 },
+      { id: 'activity', label: 'Activity', icon: Activity },
     ]
   },
   {
     title: 'Workspace',
     items: [
-      { id: 'workspace', label: 'Workspace', icon: Building2 },
+      { id: 'workspace', label: 'Workspace Settings', icon: Building2 },
       { id: 'billing', label: 'Billing & Plans', icon: CreditCard },
-      { id: 'usage', label: 'Usage', icon: Activity },
-      { id: 'security', label: 'Security', icon: ShieldCheck },
-    ]
-  },
-  {
-    title: 'Developers',
-    items: [
-      { id: 'ai', label: 'AI Preferences', icon: Cpu },
-      { id: 'integrations', label: 'Integrations', icon: Puzzle },
-      { id: 'api', label: 'API Keys', icon: Key },
-      { id: 'advanced', label: 'Advanced', icon: Settings2 },
+      { id: 'usage', label: 'Workspace Usage', icon: Activity },
     ]
   },
   {
     title: 'System',
     items: [
+      { id: 'appearance', label: 'Appearance', icon: Palette },
+      { id: 'notifications', label: 'Notifications', icon: Bell },
       { id: 'about', label: 'About', icon: Info },
     ]
   }
 ];
 
 export default function SettingsHub() {
-  const [activeTab, setActiveTab] = useState('profile');
+  const [activeTab, setActiveTab] = useState('overview');
   const [search, setSearch] = useState('');
 
   const renderContent = () => {
     switch (activeTab) {
-      case 'profile': return <ProfileTab />;
+      case 'overview': return <AccountOverviewTab />;
+      case 'personal-info': return <PersonalInfoTab />;
+      case 'security': return <SecurityTab />;
+      case 'connected-accounts': return <ConnectedAccountsTab />;
+      case 'ai-usage': return <AIUsageTab />;
+      case 'api-keys': return <ApiKeysTab />;
+      case 'activity': return <ActivityTab />;
+      
       case 'workspace': return <WorkspaceTab />;
       case 'billing': return <BillingTab />;
       
@@ -68,7 +78,7 @@ export default function SettingsHub() {
       case 'advanced': return <PlaceholderTab title="Advanced" description="Developer mode, experimental features, and danger zone." icon={Settings2} />;
       case 'about': return <PlaceholderTab title="About" description="System status, versions, and documentation." icon={Info} />;
       
-      default: return <ProfileTab />;
+      default: return <AccountOverviewTab />;
     }
   };
 
