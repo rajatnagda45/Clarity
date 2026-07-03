@@ -42,8 +42,8 @@ const topNavItems: NavItem[] = [
 ];
 
 const bottomNavItems: NavItem[] = [
-  { label: 'Workspace', href: '/settings?tab=workspace', icon: <Building2 size={16} /> },
-  { label: 'Billing', href: '/settings?tab=billing', icon: <CreditCard size={16} /> },
+  { label: 'Workspace', href: '/workspace', icon: <Building2 size={16} /> },
+  { label: 'Billing', href: '/billing', icon: <CreditCard size={16} /> },
   { label: 'Settings', href: '/settings', icon: <Settings size={16} /> },
 ];
 
