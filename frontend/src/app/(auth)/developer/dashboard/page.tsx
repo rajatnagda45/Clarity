@@ -404,7 +404,7 @@ export default function DeveloperDashboardPage() {
                           <p className="font-semibold text-sm text-white truncate max-w-[200px]">{doc.filename}</p>
                           <span className={`text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-md ${
                             doc.status === 'indexed' ? 'bg-[#22C55E]/10 text-[#22C55E]' : 
-                            doc.status === 'error' ? 'bg-red-500/10 text-red-500' : 'bg-yellow-500/10 text-yellow-500'
+                            doc.status === 'failed' ? 'bg-red-500/10 text-red-500' : 'bg-yellow-500/10 text-yellow-500'
                           }`}>
                             {doc.status}
                           </span>
