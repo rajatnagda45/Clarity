@@ -41,10 +41,13 @@ const topNavItems: NavItem[] = [
   { label: 'Analytics', href: '/eval', icon: <BarChart2 size={16} /> },
 ];
 
+import { HelpCircle } from 'lucide-react'; // Ensure this is imported
+
 const bottomNavItems: NavItem[] = [
   { label: 'Workspace', href: '/workspace', icon: <Building2 size={16} /> },
   { label: 'Billing', href: '/billing', icon: <CreditCard size={16} /> },
   { label: 'Settings', href: '/settings', icon: <Settings size={16} /> },
+  { label: 'Help Center', href: '/help', icon: <HelpCircle size={16} /> },
 ];
 
 function NavItemRow({ item, active }: { item: NavItem; active: boolean }) {
