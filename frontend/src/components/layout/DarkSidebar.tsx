@@ -35,7 +35,7 @@ const topNavItems: NavItem[] = [
   { label: 'Dashboard', href: '/dashboard', icon: <LayoutDashboard size={16} /> },
   { label: 'Documents', href: '/documents', icon: <FileText size={16} /> },
   { label: 'AI Chat', href: '/chat', icon: <MessageSquare size={16} /> },
-  { label: 'Collections', href: '#', icon: <Grid3X3 size={16} />, disabled: true },
+  { label: 'Collections', href: '/collections', icon: <Grid3X3 size={16} /> },
   { label: 'Search', href: '#', icon: <Search size={16} />, disabled: true },
 ];
 

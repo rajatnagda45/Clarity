@@ -52,10 +52,18 @@ function SkeletonRow() {
 
 export function RecentDocumentsTable({ documents, loading }: RecentDocumentsTableProps) {
   return (
-    <div className="overflow-hidden rounded-2xl border border-[rgba(255,255,255,0.06)] bg-[#0F1117]">
+    <div className="flex h-full flex-col overflow-hidden rounded-2xl border border-[rgba(255,255,255,0.06)] bg-[#0F1117] shadow-xl">
       {/* Header */}
-      <div className="flex items-center justify-between px-4 py-4">
-        <span className="font-semibold text-[#F1F3F9]">Recent Documents</span>
+      <div className="flex items-center justify-between px-6 py-5 border-b border-white/[0.04]">
+        <div className="flex items-center gap-3">
+          <div className="rounded-xl bg-purple-500/10 p-2 text-purple-400">
+            <FileText size={20} />
+          </div>
+          <div>
+            <h3 className="font-semibold text-[#F1F3F9] tracking-tight text-lg">Recent Documents</h3>
+            <p className="text-xs text-[#8892AA]">Latest uploaded files and status</p>
+          </div>
+        </div>
         <Link
           href="/documents"
           className="text-xs text-[#5B6EF0] hover:text-[#6B7EF5] transition-colors"

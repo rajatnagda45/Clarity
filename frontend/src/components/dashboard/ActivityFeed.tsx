@@ -70,51 +70,64 @@ export function ActivityFeed({ documents, conversations, loading }: ActivityFeed
   const isEmpty = !loading && documents.length === 0 && conversations.length === 0;
 
   return (
-    <div className="flex flex-col gap-4 rounded-2xl border border-[rgba(255,255,255,0.06)] bg-[#0F1117] p-5">
-      <span className="font-semibold text-[#F1F3F9]">Activity</span>
-
-      {loading ? (
-        <div className="flex flex-col">
-          {Array.from({ length: 5 }).map((_, i) => (
-            <SkeletonItem key={i} />
-          ))}
+    <div className="flex h-full flex-col overflow-hidden rounded-2xl border border-[rgba(255,255,255,0.06)] bg-[#0F1117] shadow-xl">
+      {/* Header */}
+      <div className="flex items-center justify-between px-6 py-5 border-b border-white/[0.04]">
+        <div className="flex items-center gap-3">
+          <div className="rounded-xl bg-orange-500/10 p-2 text-orange-400">
+            <Activity size={20} />
+          </div>
+          <div>
+            <h3 className="font-semibold text-[#F1F3F9] tracking-tight text-lg">Activity Feed</h3>
+            <p className="text-xs text-[#8892AA]">Recent workspace events</p>
+          </div>
         </div>
-      ) : isEmpty ? (
-        <EmptyState
-          icon={<Activity size={18} />}
-          title="No recent activity"
-          description="Activity will appear as you use the workspace."
-        />
-      ) : (
-        <div className="flex flex-col">
-          {items.map((item, index) => (
-            <motion.div
-              key={`${item.type}-${item.time}-${index}`}
-              initial={{ opacity: 0, x: -8 }}
-              animate={{ opacity: 1, x: 0 }}
-              transition={{ delay: index * 0.05, duration: 0.2 }}
-              className="flex gap-3"
-            >
-              {/* Timeline */}
-              <div className="flex flex-col items-center">
-                <div
-                  className="mt-1 h-3 w-3 shrink-0 rounded-full"
-                  style={{ background: DOT_COLORS[item.type] }}
-                />
-                {index < items.length - 1 && (
-                  <div className="flex-1 w-px bg-[rgba(255,255,255,0.06)]" style={{ minHeight: 20 }} />
-                )}
-              </div>
+      </div>
+      
+      <div className="p-6 h-full overflow-y-auto">
+        {loading ? (
+          <div className="flex flex-col">
+            {Array.from({ length: 5 }).map((_, i) => (
+              <SkeletonItem key={i} />
+            ))}
+          </div>
+        ) : isEmpty ? (
+          <EmptyState
+            icon={<Activity size={18} />}
+            title="No recent activity"
+            description="Activity will appear as you use the workspace."
+          />
+        ) : (
+          <div className="flex flex-col">
+            {items.map((item, index) => (
+              <motion.div
+                key={`${item.type}-${item.time}-${index}`}
+                initial={{ opacity: 0, x: -8 }}
+                animate={{ opacity: 1, x: 0 }}
+                transition={{ delay: index * 0.05, duration: 0.2 }}
+                className="flex gap-3"
+              >
+                {/* Timeline */}
+                <div className="flex flex-col items-center">
+                  <div
+                    className="mt-1 h-3 w-3 shrink-0 rounded-full"
+                    style={{ background: DOT_COLORS[item.type] }}
+                  />
+                  {index < items.length - 1 && (
+                    <div className="flex-1 w-px bg-[rgba(255,255,255,0.06)]" style={{ minHeight: 20 }} />
+                  )}
+                </div>
 
-              {/* Content */}
-              <div className="flex-1 pb-4">
-                <p className="truncate text-sm text-[#F1F3F9]">{item.label}</p>
-                <p className="mt-0.5 text-xs text-[#4A5168]">{formatRelativeTime(item.time)}</p>
-              </div>
-            </motion.div>
-          ))}
-        </div>
-      )}
+                {/* Content */}
+                <div className="flex-1 pb-4">
+                  <p className="truncate text-sm text-[#F1F3F9]">{item.label}</p>
+                  <p className="mt-0.5 text-xs text-[#4A5168]">{formatRelativeTime(item.time)}</p>
+                </div>
+              </motion.div>
+            ))}
+          </div>
+        )}
+      </div>
     </div>
   );
 }

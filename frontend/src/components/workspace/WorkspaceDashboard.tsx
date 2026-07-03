@@ -1,10 +1,13 @@
 'use client';
 
+import { motion } from 'framer-motion';
 import { DashboardHero } from '@/components/dashboard/DashboardHero';
 import { AnalyticsChart } from '@/components/dashboard/AnalyticsChart';
-import { StorageCard } from '@/components/dashboard/StorageCard';
+import { PipelineWidget } from '@/components/dashboard/PipelineWidget';
+import { AIAssistantPanel } from '@/components/dashboard/AIAssistantPanel';
 import { RecentDocumentsTable } from '@/components/dashboard/RecentDocumentsTable';
 import { ActivityFeed } from '@/components/dashboard/ActivityFeed';
+import { PremiumBackground } from '@/components/landing/PremiumBackground';
 import { useDocuments } from '@/hooks/useDocuments';
 import { useConversations } from '@/hooks/useConversations';
 import { useDashboardMetrics } from '@/hooks/useDashboardMetrics';
@@ -19,32 +22,47 @@ export function WorkspaceDashboard() {
   );
 
   return (
-    <div className="mx-auto max-w-[1800px] px-6 py-6 space-y-6">
-      <DashboardHero />
+    <div className="relative min-h-screen bg-[#05070B] selection:bg-orange-500/30 selection:text-white">
+      {/* Background layer */}
+      <PremiumBackground glowOpacity={0.3} />
 
-      {/* Row 2: Analytics + Storage */}
-      <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
-        <div className="lg:col-span-2">
-          <AnalyticsChart data={[]} loading={false} />
-        </div>
-        <StorageCard
-          indexedDocs={devDashboard.data?.statusCounts?.indexed ?? 0}
-          totalDocs={documents.length}
-          totalChunks={embeddingMetrics.data?.chunksProcessed ?? 0}
-          loading={devDashboard.isLoading || embeddingMetrics.isLoading}
+      <div className="mx-auto max-w-[1600px] px-6 py-8 relative z-10 space-y-8">
+        <DashboardHero 
+          documents={documents} 
+          conversations={conversations} 
+          devDashboard={devDashboard}
+          docsLoading={docsLoading}
+          convsLoading={convsLoading}
         />
-      </div>
 
-      {/* Row 3: Recent Docs + Activity */}
-      <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
-        <div className="lg:col-span-2">
-          <RecentDocumentsTable documents={sortedDocs.slice(0, 5)} loading={docsLoading} />
+        <div className="grid grid-cols-1 gap-8 xl:grid-cols-3">
+          {/* LEFT COLUMN: Data & Workflows */}
+          <div className="xl:col-span-2 space-y-8">
+            <PipelineWidget 
+              devDashboard={devDashboard.data ?? null} 
+              documents={documents}
+              loading={devDashboard.isLoading || docsLoading} 
+            />
+
+            <AnalyticsChart data={[]} loading={false} />
+
+            <RecentDocumentsTable 
+              documents={sortedDocs.slice(0, 5)} 
+              loading={docsLoading} 
+            />
+          </div>
+
+          {/* RIGHT COLUMN: AI & Activity */}
+          <div className="space-y-8">
+            <AIAssistantPanel />
+            
+            <ActivityFeed
+              documents={documents}
+              conversations={conversations}
+              loading={docsLoading || convsLoading}
+            />
+          </div>
         </div>
-        <ActivityFeed
-          documents={documents}
-          conversations={conversations}
-          loading={docsLoading || convsLoading}
-        />
       </div>
     </div>
   );

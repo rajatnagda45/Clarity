@@ -8,6 +8,9 @@ interface PremiumBackgroundProps {
 }
 
 export function PremiumBackground({ glowOpacity = 1 }: PremiumBackgroundProps) {
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => setMounted(true), []);
+
   // Mouse Parallax Logic
   const mouseX = useMotionValue(0);
   const mouseY = useMotionValue(0);
@@ -127,7 +130,7 @@ export function PremiumBackground({ glowOpacity = 1 }: PremiumBackgroundProps) {
         LAYER 9: Tiny Floating Particles 
       */}
       <div className="absolute inset-0 z-40 pointer-events-none">
-        {[...Array(12)].map((_, i) => (
+        {mounted && [...Array(12)].map((_, i) => (
           <motion.div
             key={i}
             animate={{

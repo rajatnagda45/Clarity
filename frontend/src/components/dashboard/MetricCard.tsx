@@ -1,26 +1,18 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
-import { motion } from 'framer-motion';
+import { motion, useMotionTemplate, useMotionValue } from 'framer-motion';
 
 interface MetricCardProps {
   label: string;
-  value: number | null | undefined;
-  prefix?: string;
-  suffix?: string;
+  value: number | string | null | undefined;
   icon: React.ReactNode;
   iconBg: string;
+  iconColor?: string;
   loading?: boolean;
-  formatValue?: (v: number) => string;
 }
 
-function AnimatedNumber({
-  value,
-  formatValue,
-}: {
-  value: number;
-  formatValue?: (v: number) => string;
-}) {
+function AnimatedNumber({ value }: { value: number }) {
   const [display, setDisplay] = useState(0);
   const prevRef = useRef(0);
   const rafRef = useRef<number | null>(null);
@@ -58,53 +50,86 @@ function AnimatedNumber({
     };
   }, [value]);
 
-  const formatted = formatValue
-    ? formatValue(display)
-    : Math.round(display).toLocaleString();
-
-  return <span>{formatted}</span>;
+  return <>{Math.round(display).toLocaleString()}</>;
 }
 
 export function MetricCard({
   label,
   value,
-  prefix,
-  suffix,
   icon,
   iconBg,
-  loading,
-  formatValue,
+  iconColor = '#fff',
+  loading = false,
 }: MetricCardProps) {
-  return (
-    <motion.div
-      whileHover={{ y: -2, boxShadow: '0 8px 30px rgba(0,0,0,0.3)' }}
-      className="flex flex-col gap-3 rounded-2xl border border-[rgba(255,255,255,0.06)] bg-[#0F1117] p-5"
-    >
-      {/* Top row */}
-      <div className="flex items-center gap-3">
-        <div
-          className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl text-[#F1F3F9]"
-          style={{ background: iconBg }}
-        >
-          {icon}
-        </div>
-        <span className="text-sm text-[#8892AA]">{label}</span>
-      </div>
+  const mouseX = useMotionValue(0);
+  const mouseY = useMotionValue(0);
 
-      {/* Value */}
-      <div className="text-3xl font-bold text-[#F1F3F9]">
-        {loading ? (
-          <div className="h-9 w-24 rounded-lg bg-[rgba(255,255,255,0.06)] skeleton-shimmer" />
-        ) : value == null ? (
-          <span className="text-[#4A5168]">—</span>
-        ) : (
-          <>
-            {prefix && <span className="text-xl text-[#8892AA]">{prefix}</span>}
-            <AnimatedNumber value={value} formatValue={formatValue} />
-            {suffix && <span className="text-xl text-[#8892AA]"> {suffix}</span>}
-          </>
-        )}
+  function handleMouseMove({ currentTarget, clientX, clientY }: React.MouseEvent) {
+    const { left, top } = currentTarget.getBoundingClientRect();
+    mouseX.set(clientX - left);
+    mouseY.set(clientY - top);
+  }
+
+  return (
+    <div
+      onMouseMove={handleMouseMove}
+      className="group relative flex flex-col rounded-2xl bg-[#0F1117] p-6 overflow-hidden border border-[rgba(255,255,255,0.06)] hover:border-[rgba(255,255,255,0.15)] transition-colors"
+    >
+      {/* Premium Hover Glow Effect */}
+      <motion.div
+        className="pointer-events-none absolute -inset-px rounded-2xl opacity-0 transition duration-300 group-hover:opacity-100"
+        style={{
+          background: useMotionTemplate`
+            radial-gradient(
+              350px circle at ${mouseX}px ${mouseY}px,
+              rgba(255,255,255,0.06),
+              transparent 80%
+            )
+          `,
+        }}
+      />
+      <motion.div
+        className="pointer-events-none absolute -inset-px rounded-2xl opacity-0 transition duration-300 group-hover:opacity-100"
+        style={{
+          background: useMotionTemplate`
+            radial-gradient(
+              250px circle at ${mouseX}px ${mouseY}px,
+              ${iconColor}15,
+              transparent 80%
+            )
+          `,
+        }}
+      />
+
+      <div className="relative z-10">
+        <div className="flex items-center justify-between mb-4">
+          <div
+            className="flex h-10 w-10 items-center justify-center rounded-xl shadow-inner transition-transform group-hover:scale-110 duration-300"
+            style={{ backgroundColor: iconBg, color: iconColor }}
+          >
+            {icon}
+          </div>
+          {/* Decorative subtle dot */}
+          <div className="w-1.5 h-1.5 rounded-full bg-white/10 group-hover:bg-white/30 transition-colors" />
+        </div>
+
+        <div>
+          <p className="text-sm font-medium text-[#8892AA] mb-1">{label}</p>
+          {loading ? (
+            <div className="mt-2 h-8 w-16 animate-pulse rounded-md bg-[rgba(255,255,255,0.05)]" />
+          ) : (
+            <p className="text-3xl font-bold tracking-tight text-[#F1F3F9] flex items-baseline gap-1">
+              {typeof value === 'number' ? (
+                <AnimatedNumber value={value} />
+              ) : value != null ? (
+                <span>{value}</span>
+              ) : (
+                '0'
+              )}
+            </p>
+          )}
+        </div>
       </div>
-    </motion.div>
+    </div>
   );
 }

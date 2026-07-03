@@ -1,16 +1,19 @@
 'use client';
 
-import Link from 'next/link';
 import { useAuth } from '@clerk/nextjs';
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import { useSearchParams } from 'next/navigation';
+import { motion, AnimatePresence } from 'framer-motion';
 
+import { useWorkspace } from '@/contexts/WorkspaceContext';
 import { DocumentList } from '@/components/documents/DocumentList';
 import { Dropzone } from '@/components/upload/Dropzone';
+import { WorkspaceInsights } from '@/components/documents/WorkspaceInsights';
 import { listDocuments, uploadDocument } from '@/lib/api';
 import { shouldPollDocuments, shouldStartPollingForUpload } from '@/lib/documentPolling';
 import type { Document } from '@/types/clarity';
-
+import { PremiumBackground } from '@/components/landing/PremiumBackground';
+import { Search, SlidersHorizontal, LayoutGrid, List, UploadCloud } from 'lucide-react';
 
 type LoadState = 'idle' | 'loading' | 'loaded' | 'error';
 
@@ -20,17 +23,23 @@ const ALLOWED_TYPES = new Set([
   'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
 ]);
 
-
 export default function DocumentsPage() {
   const searchParams = useSearchParams();
-  const workspaceId = searchParams.get('workspace') ?? '';
+  const { activeWorkspace } = useWorkspace();
+  const workspaceId = searchParams.get('workspace') || activeWorkspace?.id || '';
   const { getToken } = useAuth();
 
   const [documents, setDocuments] = useState<Document[]>([]);
   const [loadState, setLoadState] = useState<LoadState>('idle');
   const [errorMessage, setErrorMessage] = useState('');
+  const [successMessage, setSuccessMessage] = useState('');
   const [isUploading, setIsUploading] = useState(false);
+  const [uploadProgressText, setUploadProgressText] = useState('');
   const [pollRefreshKey, setPollRefreshKey] = useState(0);
+  const [globalDragActive, setGlobalDragActive] = useState(false);
+  
+  // Ref for global drag counter to prevent flicker when dragging over children
+  const dragCounter = useRef(0);
 
   useEffect(() => {
     let cancelled = false;
@@ -39,20 +48,16 @@ export default function DocumentsPage() {
     async function loadDocuments(showLoading = true) {
       if (!workspaceId) {
         setLoadState('error');
-        setErrorMessage('Choose a workspace from the dashboard before uploading documents.');
+        setErrorMessage('No workspace selected.');
         return;
       }
 
-      if (showLoading) {
-        setLoadState('loading');
-      }
+      if (showLoading) setLoadState('loading');
       setErrorMessage('');
 
       try {
         const token = await getToken();
-        if (!token) {
-          throw new Error('Clerk session token unavailable.');
-        }
+        if (!token) throw new Error('Clerk session token unavailable.');
 
         const docs = await listDocuments({ token, workspaceId });
         if (cancelled) return;
@@ -60,11 +65,8 @@ export default function DocumentsPage() {
         setDocuments(docs);
         setLoadState('loaded');
 
-        const shouldPoll = shouldPollDocuments(docs);
-        if (shouldPoll) {
-          pollTimer = setTimeout(() => {
-            void loadDocuments(false);
-          }, 2000);
+        if (shouldPollDocuments(docs)) {
+          pollTimer = setTimeout(() => void loadDocuments(false), 2000);
         }
       } catch (error) {
         if (cancelled) return;
@@ -76,102 +78,220 @@ export default function DocumentsPage() {
     void loadDocuments();
     return () => {
       cancelled = true;
-      if (pollTimer) {
-        clearTimeout(pollTimer);
-      }
+      if (pollTimer) clearTimeout(pollTimer);
     };
   }, [getToken, workspaceId, pollRefreshKey]);
 
-  async function handleFileSelected(file: File) {
+  // Global Drag Events
+  useEffect(() => {
+    function handleDragEnter(e: DragEvent) {
+      e.preventDefault();
+      dragCounter.current += 1;
+      if (e.dataTransfer?.items && e.dataTransfer.items.length > 0) {
+        setGlobalDragActive(true);
+      }
+    }
+    function handleDragLeave(e: DragEvent) {
+      e.preventDefault();
+      dragCounter.current -= 1;
+      if (dragCounter.current === 0) {
+        setGlobalDragActive(false);
+      }
+    }
+    function handleDragOver(e: DragEvent) {
+      e.preventDefault();
+    }
+    function handleDrop(e: DragEvent) {
+      e.preventDefault();
+      dragCounter.current = 0;
+      setGlobalDragActive(false);
+      
+      if (!disabled && e.dataTransfer?.files) {
+        const files = Array.from(e.dataTransfer.files);
+        if (files.length > 0) {
+          void handleFilesSelected(files);
+        }
+      }
+    }
+
+    window.addEventListener('dragenter', handleDragEnter);
+    window.addEventListener('dragleave', handleDragLeave);
+    window.addEventListener('dragover', handleDragOver);
+    window.addEventListener('drop', handleDrop);
+
+    return () => {
+      window.removeEventListener('dragenter', handleDragEnter);
+      window.removeEventListener('dragleave', handleDragLeave);
+      window.removeEventListener('dragover', handleDragOver);
+      window.removeEventListener('drop', handleDrop);
+    };
+  }); // Note: omitting deps to always have fresh disabled state in closure, though it's better to use refs.
+
+  const disabled = !workspaceId || isUploading;
+
+  async function handleFilesSelected(files: File[]) {
     if (!workspaceId) {
       setErrorMessage('Choose a workspace before uploading documents.');
       return;
     }
 
-    if (file.size > MAX_UPLOAD_BYTES) {
-      setErrorMessage('File exceeds the 50MB upload limit.');
-      return;
-    }
+    const validFiles = files.filter(file => {
+      if (file.size > MAX_UPLOAD_BYTES) {
+        setErrorMessage(`File ${file.name} exceeds the 50MB limit.`);
+        return false;
+      }
+      if (file.type && !ALLOWED_TYPES.has(file.type)) {
+        setErrorMessage(`File ${file.name} is not a supported format.`);
+        return false;
+      }
+      return true;
+    });
 
-    if (file.type && !ALLOWED_TYPES.has(file.type)) {
-      setErrorMessage('Only PDF and DOCX documents are supported.');
-      return;
-    }
+    if (validFiles.length === 0) return;
 
     setIsUploading(true);
     setErrorMessage('');
 
     try {
       const token = await getToken();
-      if (!token) {
-        throw new Error('Clerk session token unavailable.');
-      }
+      if (!token) throw new Error('Clerk session token unavailable.');
 
-      const created = await uploadDocument({ token, workspaceId }, file);
-      setDocuments((current) => [created, ...current]);
-      setLoadState('loaded');
-      if (shouldStartPollingForUpload(created)) {
-        setPollRefreshKey((current) => current + 1);
+      // Sequential Upload Queue
+      for (let i = 0; i < validFiles.length; i++) {
+        const file = validFiles[i];
+        if (validFiles.length > 1) {
+          setUploadProgressText(`Uploading ${i + 1} of ${validFiles.length}...`);
+        } else {
+          setUploadProgressText('Uploading...');
+        }
+        
+        const created = await uploadDocument({ token, workspaceId }, file);
+        setDocuments((current) => [created, ...current]);
+        
+        if (shouldStartPollingForUpload(created)) {
+          setPollRefreshKey((current) => current + 1);
+        }
       }
+      setLoadState('loaded');
+      setSuccessMessage(`Successfully uploaded ${validFiles.length} document${validFiles.length > 1 ? 's' : ''}.`);
+      setTimeout(() => setSuccessMessage(''), 3000);
     } catch (error) {
       setErrorMessage(error instanceof Error ? error.message : 'Upload failed.');
     } finally {
       setIsUploading(false);
+      setUploadProgressText('');
     }
   }
 
   return (
-    <div className="mx-auto flex w-full max-w-5xl flex-col gap-6 px-6 py-10">
-      <div className="flex flex-col gap-2">
-        <p className="text-sm font-medium uppercase tracking-[0.2em] text-blue-600">Phase A</p>
-        <h1 className="text-3xl font-semibold text-slate-900">Documents</h1>
-        <p className="text-sm text-slate-600">
-          Uploads now move through extraction, clause mapping, chunk generation, embedding generation,
-          and vector indexing. Open any document to review its clause map, then use chat and
-          provenance links to inspect exact evidence.
-        </p>
-      </div>
+    <div className="relative min-h-screen bg-[#05070B] selection:bg-purple-500/30 selection:text-white">
+      <PremiumBackground glowOpacity={0.2} />
 
-      <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <p className="text-sm text-slate-500">
-            Active workspace:{' '}
-            <span className="font-mono text-slate-800">{workspaceId || 'not selected'}</span>
-          </p>
-          {workspaceId ? (
-            <Link
-              href={`/developer/dashboard?workspace=${encodeURIComponent(workspaceId)}`}
-              className="inline-flex rounded-full border border-slate-300 px-4 py-2 text-sm font-medium text-slate-700"
-            >
-              Open developer dashboard
-            </Link>
-          ) : null}
-        </div>
-        {!workspaceId ? (
-          <Link
-            href="/dashboard"
-            className="mt-4 inline-flex rounded-full border border-slate-300 px-4 py-2 text-sm font-medium text-slate-700"
+      {/* Global Toast */}
+      <AnimatePresence>
+        {successMessage && (
+          <motion.div
+            initial={{ opacity: 0, y: -20, x: '-50%' }}
+            animate={{ opacity: 1, y: 0, x: '-50%' }}
+            exit={{ opacity: 0, y: -20, x: '-50%' }}
+            className="fixed top-8 left-1/2 z-50 px-6 py-3 rounded-full bg-green-500/10 border border-green-500/20 shadow-xl backdrop-blur-md"
           >
-            Back to dashboard
-          </Link>
-        ) : null}
-      </div>
+            <p className="text-sm font-medium text-green-400">{successMessage}</p>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
-      <Dropzone disabled={!workspaceId || isUploading} onFileSelected={handleFileSelected} />
+      {/* Global Drag Overlay */}
+      <AnimatePresence>
+        {globalDragActive && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-50 flex items-center justify-center bg-[#05070B]/80 backdrop-blur-md border-[4px] border-purple-500/50 m-4 rounded-[32px]"
+          >
+            <div className="flex flex-col items-center pointer-events-none text-purple-400">
+              <UploadCloud size={64} className="mb-6 animate-bounce" />
+              <h2 className="text-4xl font-bold text-white tracking-tight">Drop files to upload</h2>
+              <p className="text-[#8892AA] mt-4">Release to instantly add to {activeWorkspace?.name || 'workspace'}</p>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
-      {isUploading ? <p className="text-sm text-slate-500">Uploading and queueing ingestion…</p> : null}
-      {loadState === 'loading' ? <p className="text-sm text-slate-500">Loading documents…</p> : null}
-      {errorMessage ? <p className="text-sm text-red-600">{errorMessage}</p> : null}
+      <div className="mx-auto flex w-full max-w-[1600px] flex-col gap-8 px-6 py-8 relative z-10">
+        
+        {/* Header Toolbar */}
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-white/[0.04] pb-6">
+          <div className="flex items-center gap-4">
+            <h1 className="text-2xl font-bold text-[#F1F3F9] tracking-tight">Documents</h1>
+            <div className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-white/[0.03] border border-white/[0.06]">
+              <div className="w-2 h-2 rounded-full bg-green-500 shadow-[0_0_8px_rgba(34,197,94,0.5)]" />
+              <span className="text-xs font-medium text-[#8892AA]">{activeWorkspace?.name || 'Loading workspace...'}</span>
+            </div>
+          </div>
 
-      <section className="grid gap-4">
-        <div className="flex items-center justify-between">
-          <h2 className="text-lg font-semibold text-slate-900">Stored documents</h2>
-          <span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-medium text-slate-600">
-            {documents.length} total
-          </span>
+          <div className="flex items-center gap-3">
+            <div className="relative">
+              <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-[#8892AA]" />
+              <input 
+                type="text" 
+                placeholder="Search documents... (⌘K)" 
+                className="bg-[#0F1117] border border-white/[0.08] rounded-xl pl-9 pr-4 py-2 text-sm text-[#F1F3F9] placeholder:text-[#4A5168] focus:outline-none focus:border-purple-500/50 focus:ring-1 focus:ring-purple-500/50 w-64 transition-all"
+              />
+            </div>
+            <button className="p-2 rounded-xl border border-white/[0.08] bg-[#0F1117] text-[#8892AA] hover:text-[#F1F3F9] hover:bg-white/[0.04] transition-all">
+              <SlidersHorizontal size={16} />
+            </button>
+            <div className="flex items-center p-1 rounded-xl border border-white/[0.08] bg-[#0F1117]">
+              <button className="p-1.5 rounded-lg bg-white/[0.06] text-[#F1F3F9]">
+                <LayoutGrid size={14} />
+              </button>
+              <button className="p-1.5 rounded-lg text-[#4A5168] hover:text-[#8892AA] transition-colors">
+                <List size={14} />
+              </button>
+            </div>
+          </div>
         </div>
-        <DocumentList documents={documents} workspaceId={workspaceId} />
-      </section>
+
+        {/* Hero Dropzone */}
+        <Dropzone 
+          disabled={disabled} 
+          onFilesSelected={handleFilesSelected} 
+          isUploading={isUploading}
+          uploadProgressText={uploadProgressText}
+        />
+
+        {errorMessage && (
+          <motion.p 
+            initial={{ opacity: 0, y: -10 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="text-sm text-red-400 bg-red-400/10 border border-red-400/20 px-4 py-3 rounded-xl"
+          >
+            {errorMessage}
+          </motion.p>
+        )}
+
+        {/* Document Library */}
+        <section className="flex flex-col gap-6 mt-4">
+          <div className="flex items-center justify-between">
+            <h2 className="text-xl font-bold text-[#F1F3F9] tracking-tight">Document Library</h2>
+            <div className="flex items-center gap-3">
+              <span className="text-xs font-medium text-[#4A5168]">
+                {documents.length} document{documents.length !== 1 ? 's' : ''}
+              </span>
+            </div>
+          </div>
+          
+          <WorkspaceInsights documents={documents} />
+
+          <DocumentList 
+            documents={documents} 
+            workspaceId={workspaceId} 
+            loading={loadState === 'loading'}
+          />
+        </section>
+      </div>
     </div>
   );
 }

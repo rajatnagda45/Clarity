@@ -62,10 +62,17 @@ export function AnalyticsChart({ data, loading }: AnalyticsChartProps) {
   const [activeRange, setActiveRange] = useState<DateRange>('30D');
 
   return (
-    <div className="flex flex-col gap-4 rounded-2xl border border-[rgba(255,255,255,0.06)] bg-[#0F1117] p-5">
-      {/* Header */}
-      <div className="flex items-center justify-between">
-        <span className="font-semibold text-[#F1F3F9]">Analytics Overview</span>
+    <div className="flex h-full flex-col rounded-2xl border border-[rgba(255,255,255,0.06)] bg-[#0F1117] p-6 shadow-xl">
+      <div className="mb-8 flex items-center justify-between">
+        <div className="flex items-center gap-3">
+          <div className="rounded-xl bg-[rgba(91,110,240,0.1)] p-2 text-[#5B6EF0]">
+            <BarChart2 size={20} />
+          </div>
+          <div>
+            <h3 className="font-semibold text-[#F1F3F9] tracking-tight text-lg">Activity Overview</h3>
+            <p className="text-xs text-[#8892AA]">Document processing and queries over time</p>
+          </div>
+        </div>
         <div className="flex gap-1">
           {DATE_RANGES.map((range) => (
             <button

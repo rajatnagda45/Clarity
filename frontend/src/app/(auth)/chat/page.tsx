@@ -1,61 +1,49 @@
 'use client';
 
-import Link from 'next/link';
 import { useAuth } from '@clerk/nextjs';
-import { FormEvent, useEffect, useMemo, useState } from 'react';
+import { FormEvent, useEffect, useMemo, useState, useRef } from 'react';
 import { useSearchParams } from 'next/navigation';
+import { motion, AnimatePresence } from 'framer-motion';
+import { Bot, User, Sparkles } from 'lucide-react';
 
+import { useWorkspace } from '@/contexts/WorkspaceContext';
 import { applyStreamEvent, createStreamingAnswerState } from '@/lib/chatStream';
 import { getConversation, listConversations, resumeAnswerStream, streamQuery } from '@/lib/api';
 import { parseMarkdownBlocks } from '@/lib/markdown';
 import type { Citation, Conversation, Message, StreamEvent } from '@/types/clarity';
-import { TrustBadge } from '@/components/chat/TrustBadge';
-import { DebatePanel, type DebateTurn } from '@/components/chat/DebatePanel';
-import { AbstentionCard } from '@/components/chat/AbstentionCard';
 
+import { PremiumBackground } from '@/components/landing/PremiumBackground';
+import { ChatSidebar } from '@/components/chat/ChatSidebar';
+import { ChatContextPanel } from '@/components/chat/ChatContextPanel';
+import { Composer } from '@/components/chat/Composer';
 
 type LoadState = 'idle' | 'loading' | 'loaded' | 'error';
-
-
-function CitationChip({ citation, workspaceId }: { citation: Citation; workspaceId: string }) {
-  return (
-    <Link
-      href={`/documents/${citation.documentId}/chunks?workspace=${encodeURIComponent(workspaceId)}&highlight=${encodeURIComponent(citation.chunkId)}`}
-      className="inline-flex rounded-full border border-blue-200 bg-blue-50 px-3 py-1 text-xs font-medium text-blue-700"
-      title={`${citation.sectionTitle ?? 'Evidence'} • pages ${citation.pageStart}-${citation.pageEnd}`}
-    >
-      {citation.citationKey} · p{citation.pageStart}
-    </Link>
-  );
-}
-
 
 function MessageBody({ content }: { content: string }) {
   const blocks = useMemo(() => parseMarkdownBlocks(content), [content]);
 
   return (
-    <div className="space-y-3 text-sm leading-7 text-slate-800">
+    <div className="space-y-4 text-[15px] leading-relaxed text-[#F1F3F9]">
       {blocks.map((block, index) => {
         if (block.type === 'list') {
           return (
-            <ul key={index} className="list-disc space-y-1 pl-5">
+            <ul key={index} className="list-disc space-y-1.5 pl-5 marker:text-purple-500">
               {block.items.map((item, itemIndex) => (
                 <li key={`${index}-${itemIndex}`}>{item}</li>
               ))}
             </ul>
           );
         }
-
         return <p key={index} className="whitespace-pre-wrap">{block.text}</p>;
       })}
     </div>
   );
 }
 
-
 export default function ChatPage() {
   const searchParams = useSearchParams();
-  const workspaceId = searchParams.get('workspace') ?? '';
+  const { activeWorkspace } = useWorkspace();
+  const workspaceId = searchParams.get('workspace') || activeWorkspace?.id || '';
   const { getToken } = useAuth();
 
   const [conversations, setConversations] = useState<Conversation[]>([]);
@@ -68,8 +56,15 @@ export default function ChatPage() {
   const [streamingText, setStreamingText] = useState('');
   const [streamingCitations, setStreamingCitations] = useState<Citation[]>([]);
   const [streamingTrust, setStreamingTrust] = useState<{ raw: number; calibrated: number; components: Record<string, number> } | null>(null);
-  const [streamingDebateTurns, setStreamingDebateTurns] = useState<DebateTurn[]>([]);
-  const [streamingAbstention, setStreamingAbstention] = useState<{ reason: string; trustScore: number; threshold: number; missingEvidenceQuery?: string } | null>(null);
+  const [streamingDebateTurns, setStreamingDebateTurns] = useState<any[]>([]);
+  const [streamingAbstention, setStreamingAbstention] = useState<any | null>(null);
+
+  const messagesEndRef = useRef<HTMLDivElement>(null);
+
+  // Auto-scroll to bottom
+  useEffect(() => {
+    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+  }, [messages, streamingText]);
 
   useEffect(() => {
     let cancelled = false;
@@ -100,9 +95,7 @@ export default function ChatPage() {
     }
 
     void loadConversations();
-    return () => {
-      cancelled = true;
-    };
+    return () => { cancelled = true; };
   }, [getToken, workspaceId]);
 
   useEffect(() => {
@@ -127,13 +120,21 @@ export default function ChatPage() {
     }
 
     void loadConversation();
-    return () => {
-      cancelled = true;
-    };
+    return () => { cancelled = true; };
   }, [getToken, selectedConversationId, workspaceId]);
 
-  async function handleSubmit(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
+  function handleNewChat() {
+    setSelectedConversationId(null);
+    setMessages([]);
+    setComposer('');
+    setStreamingText('');
+    setStreamingCitations([]);
+    setStreamingTrust(null);
+    setStreamingDebateTurns([]);
+    setStreamingAbstention(null);
+  }
+
+  async function handleSubmit() {
     if (!workspaceId || !composer.trim() || isStreaming) return;
 
     const userText = composer.trim();
@@ -251,147 +252,136 @@ export default function ChatPage() {
     );
   }
 
-  return (
-    <div className="mx-auto flex h-[calc(100vh-4rem)] w-full max-w-7xl gap-6 px-6 py-8">
-      <aside className="flex w-80 shrink-0 flex-col rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
-        <div className="space-y-2">
-          <p className="text-sm font-medium uppercase tracking-[0.2em] text-blue-600">Phase A8</p>
-          <h1 className="text-2xl font-semibold text-slate-900">Conversations</h1>
-          <p className="text-sm text-slate-600">
-            Grounded answers stream from retrieval evidence only, with structured citations for every response.
-          </p>
+  // Combine historical messages with streaming UI state
+  const activeCitations = isStreaming ? streamingCitations : (messages[messages.length - 1]?.citations || []);
+
+  const renderMessage = (msg: { role: 'user' | 'assistant', content: string, id: string }, isStreamingActive = false) => (
+    <motion.div 
+      initial={{ opacity: 0, y: 10 }}
+      animate={{ opacity: 1, y: 0 }}
+      key={msg.id}
+      className={`flex gap-4 w-full max-w-3xl mx-auto mb-8 ${msg.role === 'user' ? 'justify-end' : ''}`}
+    >
+      {msg.role === 'assistant' && (
+        <div className="w-8 h-8 rounded-lg bg-purple-500/20 border border-purple-500/30 flex items-center justify-center flex-shrink-0 mt-1">
+          <Sparkles size={14} className="text-purple-400" />
         </div>
-
-        <div className="mt-5 rounded-2xl bg-slate-50 p-4 text-sm text-slate-600">
-          Workspace: <span className="font-mono text-slate-900">{workspaceId || 'missing'}</span>
-        </div>
-
-        <div className="mt-5 flex-1 space-y-2 overflow-y-auto">
-          {conversations.map((conversation) => (
-            <button
-              key={conversation.id}
-              type="button"
-              onClick={() => setSelectedConversationId(conversation.id)}
-              className={`w-full rounded-2xl border p-4 text-left ${
-                selectedConversationId === conversation.id
-                  ? 'border-blue-300 bg-blue-50'
-                  : 'border-slate-200 bg-white'
-              }`}
-            >
-              <p className="text-sm font-semibold text-slate-900">{conversation.title || 'Untitled conversation'}</p>
-              <p className="mt-1 text-xs text-slate-500">{conversation.messageCount} messages</p>
-            </button>
-          ))}
-
-          {conversations.length === 0 && loadState === 'loaded' ? (
-            <div className="rounded-2xl border border-dashed border-slate-300 bg-slate-50 p-4 text-sm text-slate-600">
-              Start the first conversation by asking about a contract term, obligation, or clause.
-            </div>
-          ) : null}
-        </div>
-
-        <Link
-          href={workspaceId ? `/developer/answers?workspace=${encodeURIComponent(workspaceId)}` : '/developer/dashboard'}
-          className="mt-5 inline-flex rounded-full border border-slate-300 px-4 py-2 text-sm font-medium text-slate-700"
-        >
-          Open Answer Explorer
-        </Link>
-      </aside>
-
-      <section className="flex min-w-0 flex-1 flex-col rounded-3xl border border-slate-200 bg-white shadow-sm">
-        <div className="border-b border-slate-200 px-6 py-5">
-          <h2 className="text-2xl font-semibold text-slate-900">Ask Clarity</h2>
-          <p className="mt-1 text-sm text-slate-600">
-            Responses stream live and stay grounded in the retrieval evidence already indexed for this workspace.
-          </p>
-        </div>
-
-        <div className="flex-1 space-y-4 overflow-y-auto px-6 py-6">
-          {messages.map((message) => (
-            <article
-              key={message.id}
-              className={`max-w-4xl rounded-3xl px-5 py-4 ${
-                message.role === 'user'
-                  ? 'ml-auto bg-slate-900 text-white'
-                  : 'border border-slate-200 bg-slate-50 text-slate-900'
-              }`}
-            >
-              {message.role === 'assistant' ? <MessageBody content={message.content} /> : <p className="whitespace-pre-wrap text-sm leading-7">{message.content}</p>}
-              {message.citations.length > 0 ? (
-                <div className="mt-4 flex flex-wrap gap-2">
-                  {message.citations.map((citation) => (
-                    <CitationChip key={`${message.id}-${citation.citationKey}`} citation={citation} workspaceId={workspaceId} />
-                  ))}
-                </div>
-              ) : null}
-            </article>
-          ))}
-
-          {isStreaming ? (
-            <article className="max-w-4xl rounded-3xl border border-blue-200 bg-blue-50 px-5 py-4 text-slate-900">
-              <div className="mb-3 flex items-center gap-2 text-xs font-medium uppercase tracking-[0.2em] text-blue-700">
-                <span className="inline-flex h-2 w-2 rounded-full bg-blue-500" />
-                Writing
-                {streamingTrust && (
-                  <span className="ml-2">
-                    <TrustBadge
-                      calibrated={streamingTrust.calibrated}
-                      raw={streamingTrust.raw}
-                      components={streamingTrust.components}
-                    />
-                  </span>
-                )}
-              </div>
-              {streamingAbstention ? (
-                <AbstentionCard
-                  reason={streamingAbstention.reason}
-                  trustScore={streamingAbstention.trustScore}
-                  threshold={streamingAbstention.threshold}
-                  missingEvidenceQuery={streamingAbstention.missingEvidenceQuery}
-                />
-              ) : (
-                <MessageBody content={streamingText || 'Thinking…'} />
-              )}
-              {streamingCitations.length > 0 ? (
-                <div className="mt-4 flex flex-wrap gap-2">
-                  {streamingCitations.map((citation) => (
-                    <CitationChip key={citation.citationKey} citation={citation} workspaceId={workspaceId} />
-                  ))}
-                </div>
-              ) : null}
-              {streamingDebateTurns.length > 0 && (
-                <DebatePanel turns={streamingDebateTurns} />
-              )}
-            </article>
-          ) : null}
-
-          {!isStreaming && messages.length === 0 ? (
-            <div className="rounded-3xl border border-dashed border-slate-300 bg-slate-50 p-8 text-sm text-slate-600">
-              Ask a focused contract question like “What are the termination notice requirements?” or “Does this agreement auto-renew?”
-            </div>
-          ) : null}
-        </div>
-
-        <div className="border-t border-slate-200 px-6 py-5">
-          {errorMessage ? <p className="mb-3 text-sm text-red-600">{errorMessage}</p> : null}
-          <form onSubmit={handleSubmit} className="flex gap-3">
-            <textarea
-              value={composer}
-              onChange={(event) => setComposer(event.target.value)}
-              placeholder="Ask about obligations, risks, termination, renewal, pricing, or any cited contract detail…"
-              className="min-h-24 flex-1 rounded-3xl border border-slate-300 px-4 py-3 text-sm text-slate-900 outline-none ring-0"
-              disabled={!workspaceId || isStreaming}
+      )}
+      
+      <div className={`flex flex-col ${msg.role === 'user' ? 'items-end max-w-[80%]' : 'w-full'}`}>
+        <div className={`p-4 rounded-2xl ${
+          msg.role === 'user' 
+            ? 'bg-purple-500 text-white rounded-br-sm' 
+            : 'bg-[#0F1117] border border-white/[0.08] text-[#F1F3F9] rounded-tl-sm'
+        }`}>
+          <MessageBody content={msg.content} />
+          {isStreamingActive && (
+            <motion.span 
+              initial={{ opacity: 0 }} 
+              animate={{ opacity: 1 }} 
+              transition={{ repeat: Infinity, duration: 0.8, ease: "linear" }}
+              className="inline-block w-2 h-4 bg-purple-400 ml-1 translate-y-1"
             />
-            <button
-              type="submit"
-              disabled={!workspaceId || isStreaming || !composer.trim()}
-              className="self-end rounded-full bg-slate-900 px-5 py-3 text-sm font-medium text-white disabled:cursor-not-allowed disabled:bg-slate-300"
-            >
-              {isStreaming ? 'Streaming…' : 'Send'}
-            </button>
-          </form>
+          )}
         </div>
-      </section>
+      </div>
+    </motion.div>
+  );
+
+  return (
+    <div className="flex h-screen w-full bg-[#05070B] overflow-hidden selection:bg-purple-500/30 selection:text-white relative">
+      <PremiumBackground glowOpacity={0.15} />
+
+      {/* Left Sidebar */}
+      <div className="z-10 h-full">
+        <ChatSidebar 
+          conversations={conversations}
+          selectedId={selectedConversationId}
+          onSelect={setSelectedConversationId}
+          onNewChat={handleNewChat}
+        />
+      </div>
+
+      {/* Center Chat Area */}
+      <div className="flex-1 flex flex-col h-full relative z-10">
+        
+        {/* Header */}
+        <div className="h-16 border-b border-white/[0.04] flex items-center px-6 justify-between flex-shrink-0 bg-[#05070B]/80 backdrop-blur-md">
+          <div className="flex items-center gap-3">
+            <Bot size={18} className="text-purple-400" />
+            <h2 className="text-sm font-semibold text-[#F1F3F9]">Clarity Assistant</h2>
+            <span className="px-2 py-0.5 rounded text-[10px] font-bold tracking-wider uppercase bg-white/5 text-[#8892AA] border border-white/10">Clarity-1</span>
+          </div>
+        </div>
+
+        {/* Messages Container */}
+        <div className="flex-1 overflow-y-auto px-6 pt-8 pb-32 scrollbar-hide">
+          {messages.length === 0 && !isStreaming ? (
+            <div className="h-full flex flex-col items-center justify-center max-w-2xl mx-auto text-center mt-[-10vh]">
+              <div className="w-16 h-16 rounded-2xl bg-purple-500/10 border border-purple-500/20 flex items-center justify-center mb-6 relative">
+                <Sparkles size={32} className="text-purple-400" />
+                <div className="absolute inset-0 rounded-2xl border border-purple-400/30 animate-ping opacity-20" />
+              </div>
+              <h1 className="text-2xl font-bold text-[#F1F3F9] mb-2 tracking-tight">How can I help you today?</h1>
+              <p className="text-[#8892AA] mb-8 text-sm">I can analyze contracts, extract clauses, or answer questions grounded in your workspace documents.</p>
+              
+              <div className="grid grid-cols-2 gap-3 w-full">
+                {['Summarize this contract', 'Find termination clauses', 'List payment obligations', 'Explain legal risks'].map((prompt) => (
+                  <button 
+                    key={prompt}
+                    onClick={() => { setComposer(prompt); }}
+                    className="p-4 rounded-xl border border-white/[0.06] bg-[#0F1117] text-left hover:border-purple-500/30 hover:bg-purple-500/5 transition-all group"
+                  >
+                    <p className="text-sm font-medium text-[#F1F3F9] group-hover:text-purple-400 transition-colors">{prompt}</p>
+                    <p className="text-xs text-[#4A5168] mt-1">Suggested prompt</p>
+                  </button>
+                ))}
+              </div>
+            </div>
+          ) : (
+            <div className="w-full">
+              {messages.map((msg) => renderMessage(msg))}
+              
+              {isStreaming && streamingText && renderMessage({
+                id: 'streaming',
+                role: 'assistant',
+                content: streamingText,
+              }, true)}
+
+              <div ref={messagesEndRef} />
+            </div>
+          )}
+        </div>
+
+        {/* Composer anchored at bottom */}
+        <div className="absolute bottom-0 left-0 w-full p-6 bg-gradient-to-t from-[#05070B] via-[#05070B]/90 to-transparent">
+          {errorMessage && (
+            <div className="max-w-3xl mx-auto mb-4 bg-red-500/10 border border-red-500/20 text-red-400 text-sm px-4 py-2.5 rounded-xl text-center">
+              {errorMessage}
+            </div>
+          )}
+          <Composer 
+            value={composer}
+            onChange={setComposer}
+            onSubmit={handleSubmit}
+            isStreaming={isStreaming}
+            disabled={!workspaceId}
+          />
+        </div>
+      </div>
+
+      {/* Right Context Sidebar */}
+      <div className="z-10 h-full">
+        <ChatContextPanel 
+          workspaceId={workspaceId}
+          activeWorkspace={activeWorkspace}
+          citations={activeCitations}
+          streamingTrust={streamingTrust}
+          streamingDebateTurns={streamingDebateTurns}
+          streamingAbstention={streamingAbstention}
+        />
+      </div>
+
     </div>
   );
 }

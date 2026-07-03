@@ -1,264 +1,128 @@
 'use client';
 
-import { cn } from '@/lib/cn';
-import { Skeleton } from '@/components/ds/Skeleton';
-import { Tooltip } from '@/components/ds/Tooltip';
-import type { DeveloperDashboard, Document } from '@/types/clarity';
+import { motion } from 'framer-motion';
+import { UploadCloud, FileSearch, Layers, Cpu, CheckCircle2, AlertCircle } from 'lucide-react';
+import type { DeveloperDashboard } from '@/types/clarity';
 
 interface PipelineWidgetProps {
   devDashboard: DeveloperDashboard | null;
-  documents: Document[];
+  documents: any[];
   loading?: boolean;
 }
 
-interface Stage {
-  key: string;
-  label: string;
-  shortLabel: string;
-  statuses: string[];
-  icon: React.ReactNode;
-}
-
-const STAGES: Stage[] = [
-  {
-    key: 'uploaded',
-    label: 'Uploaded',
-    shortLabel: 'Upload',
-    statuses: ['uploaded'],
-    icon: <UploadIcon />,
-  },
-  {
-    key: 'extracted',
-    label: 'Extracted',
-    shortLabel: 'Extract',
-    statuses: ['extracted', 'normalized', 'metadata_ready'],
-    icon: <ExtractIcon />,
-  },
-  {
-    key: 'chunked',
-    label: 'Chunked',
-    shortLabel: 'Chunk',
-    statuses: ['awaiting_chunking', 'chunking', 'chunked'],
-    icon: <ChunkIcon />,
-  },
-  {
-    key: 'embedded',
-    label: 'Embedded',
-    shortLabel: 'Embed',
-    statuses: ['awaiting_embeddings', 'embedding', 'embedded'],
-    icon: <EmbedIcon />,
-  },
-  {
-    key: 'indexed',
-    label: 'Indexed',
-    shortLabel: 'Index',
-    statuses: ['awaiting_index', 'indexing', 'indexed'],
-    icon: <IndexIcon />,
-  },
+const STAGES = [
+  { id: 'uploaded', label: 'Upload', icon: UploadCloud },
+  { id: 'extracting', label: 'Extract', icon: FileSearch },
+  { id: 'chunking', label: 'Chunk', icon: Layers },
+  { id: 'embedding', label: 'Embed', icon: Cpu },
+  { id: 'indexed', label: 'Ready', icon: CheckCircle2 },
 ];
 
 export function PipelineWidget({ devDashboard, documents, loading = false }: PipelineWidgetProps) {
+  const statusCounts = devDashboard?.statusCounts ?? {};
+  const failedCount = devDashboard?.failedJobs?.length ?? 0;
+  
+  // Find a document currently in progress (not indexed and not failed)
+  const inProgressDoc = devDashboard?.documents?.find(
+    d => d.status !== 'indexed' && d.status !== 'failed' && d.error == null
+  );
+  
+  const currentStageIndex = inProgressDoc 
+    ? STAGES.findIndex(s => s.id === inProgressDoc.status)
+    : -1;
+
+  const isProcessing = currentStageIndex >= 0 && currentStageIndex < STAGES.length - 1;
+
   if (loading) {
     return (
-      <div className="rounded-2xl border border-[var(--color-border-subtle)] bg-[var(--color-bg-surface)] p-5">
-        <div className="mb-4 flex items-center justify-between">
-          <Skeleton className="h-5 w-36 rounded" />
-          <Skeleton className="h-4 w-24 rounded" />
-        </div>
-        <div className="flex gap-2">
-          {STAGES.map((s) => (
-            <Skeleton key={s.key} className="h-16 flex-1 rounded-xl" />
+      <div className="bg-[#0F1117] border border-[rgba(255,255,255,0.06)] rounded-2xl p-6 h-[200px] animate-pulse">
+        <div className="h-6 w-48 bg-white/5 rounded-md mb-8" />
+        <div className="flex justify-between items-center px-4">
+          {[1, 2, 3, 4, 5].map(i => (
+            <div key={i} className="w-12 h-12 rounded-full bg-white/5" />
           ))}
         </div>
       </div>
     );
   }
 
-  const statusCounts: Record<string, number> = devDashboard?.statusCounts ?? {};
-  const failedCount = devDashboard?.failedJobs?.length ?? 0;
-  const total = documents.length;
-  const indexed = statusCounts['indexed'] ?? 0;
-  const healthPct = total > 0 ? Math.round((indexed / total) * 100) : 0;
-
-  function stageCount(stage: Stage): number {
-    return stage.statuses.reduce((sum, s) => sum + (statusCounts[s] ?? 0), 0);
-  }
-
-  function stageStatus(stage: Stage): 'done' | 'active' | 'idle' {
-    const count = stageCount(stage);
-    if (count === 0) return 'idle';
-    // "active" means in-progress statuses
-    const activeStatuses = ['chunking', 'embedding', 'indexing'];
-    const hasActive = stage.statuses.some(
-      (s) => activeStatuses.includes(s) && (statusCounts[s] ?? 0) > 0,
-    );
-    if (hasActive) return 'active';
-    return 'done';
-  }
-
-  const activeStages = STAGES.filter((s) => stageCount(s) > 0);
-  const hasActivity = activeStages.length > 0 || total > 0;
-
   return (
-    <div className="rounded-2xl border border-[var(--color-border-subtle)] bg-[var(--color-bg-surface)] p-5">
-      <div className="mb-5 flex items-center justify-between">
-        <div>
-          <h3 className="text-sm font-semibold text-[var(--color-text-primary)]">Pipeline Health</h3>
-          <p className="mt-0.5 text-xs text-[var(--color-text-tertiary)]">
-            {total} document{total !== 1 ? 's' : ''} · {indexed} indexed
-          </p>
-        </div>
-        <div className="flex items-center gap-2">
-          {failedCount > 0 && (
-            <span className="flex items-center gap-1 rounded-full bg-[var(--color-error-subtle)] px-2 py-0.5 text-xs font-medium text-[var(--color-error-fg)]">
-              <span className="h-1.5 w-1.5 rounded-full bg-[var(--color-error)]" />
-              {failedCount} failed
+    <div className="bg-[#0F1117] border border-[rgba(255,255,255,0.06)] rounded-2xl p-6 shadow-xl relative overflow-hidden">
+      {/* Background glow if processing */}
+      {isProcessing && (
+        <motion.div 
+          animate={{ opacity: [0.1, 0.2, 0.1] }}
+          transition={{ duration: 2, repeat: Infinity }}
+          className="absolute inset-0 bg-gradient-to-r from-orange-500/5 to-purple-500/5 pointer-events-none"
+        />
+      )}
+
+      <div className="flex items-center justify-between mb-8 relative z-10">
+        <h2 className="text-[#F1F3F9] font-bold text-lg tracking-tight flex items-center gap-2">
+          Pipeline Monitor
+          {isProcessing && (
+            <span className="flex h-2 w-2 relative ml-2">
+              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-orange-400 opacity-75"></span>
+              <span className="relative inline-flex rounded-full h-2 w-2 bg-orange-500"></span>
             </span>
           )}
-          <span
-            className={cn(
-              'rounded-full px-2 py-0.5 text-xs font-semibold',
-              healthPct >= 80
-                ? 'bg-[var(--color-success-subtle)] text-[var(--color-success-fg)]'
-                : healthPct >= 40
-                  ? 'bg-[var(--color-warning-subtle)] text-[var(--color-warning-fg)]'
-                  : 'bg-[var(--color-bg-elevated)] text-[var(--color-text-tertiary)]',
-            )}
-          >
-            {hasActivity ? `${healthPct}%` : 'No docs'}
-          </span>
-        </div>
+        </h2>
+        
+        {failedCount > 0 && (
+          <div className="flex items-center gap-1.5 text-xs font-medium text-red-400 bg-red-400/10 px-2.5 py-1 rounded-full border border-red-400/20">
+            <AlertCircle size={12} />
+            {failedCount} Failed
+          </div>
+        )}
       </div>
 
-      {/* Stage pills */}
-      <div className="flex items-center gap-1.5">
+      <div className="relative flex justify-between items-center px-2 sm:px-6 z-10">
+        {/* Connecting Line */}
+        <div className="absolute left-[10%] right-[10%] top-1/2 -translate-y-1/2 h-0.5 bg-white/[0.05] -z-10" />
+        
+        {/* Animated Progress Line */}
+        {isProcessing && (
+          <motion.div 
+            className="absolute left-[10%] top-1/2 -translate-y-1/2 h-0.5 bg-gradient-to-r from-orange-500 to-purple-500 -z-10"
+            initial={{ width: '0%' }}
+            animate={{ width: `${(currentStageIndex / (STAGES.length - 1)) * 80}%` }}
+            transition={{ type: 'spring', damping: 20 }}
+          />
+        )}
+
         {STAGES.map((stage, i) => {
-          const count = stageCount(stage);
-          const status = stageStatus(stage);
+          const isCurrent = i === currentStageIndex;
+          const isPast = isProcessing ? i < currentStageIndex : false;
+          const isComplete = !isProcessing && documents.length > 0 && stage.id === 'indexed';
+
+          const Icon = stage.icon;
+          
+          let stateClass = "border-white/10 text-gray-500 bg-[#0F1117]";
+          if (isCurrent) stateClass = "border-orange-500/50 text-orange-400 shadow-[0_0_20px_rgba(245,158,11,0.2)] bg-orange-500/10";
+          if (isPast) stateClass = "border-purple-500/50 text-purple-400 bg-purple-500/10";
+          if (isComplete) stateClass = "border-green-500/50 text-green-400 shadow-[0_0_20px_rgba(34,197,94,0.1)] bg-green-500/10";
 
           return (
-            <div key={stage.key} className="flex flex-1 items-center gap-1">
-              <Tooltip content={`${stage.label}: ${count} document${count !== 1 ? 's' : ''}`} side="top">
-                <div
-                  className={cn(
-                    'flex flex-1 flex-col items-center gap-1.5 rounded-xl p-2.5 text-center',
-                    'border transition-colors duration-fast cursor-default',
-                    status === 'done' &&
-                      'border-[var(--color-success-subtle)] bg-[var(--color-success-subtle)]',
-                    status === 'active' &&
-                      'border-[var(--color-accent-subtle)] bg-[var(--color-accent-subtle)]',
-                    status === 'idle' &&
-                      'border-[var(--color-border-subtle)] bg-[var(--color-bg-elevated)]',
-                  )}
-                >
-                  <span
-                    className={cn(
-                      'flex h-6 w-6 items-center justify-center rounded-lg',
-                      status === 'done' && 'text-[var(--color-success)]',
-                      status === 'active' && 'text-[var(--color-accent)]',
-                      status === 'idle' && 'text-[var(--color-text-disabled)]',
-                    )}
-                  >
-                    {status === 'active' ? (
-                      <span className="flex h-3 w-3 items-center justify-center">
-                        <span className="animate-ping absolute h-2 w-2 rounded-full bg-[var(--color-accent)] opacity-75" />
-                        <span className="h-2 w-2 rounded-full bg-[var(--color-accent)]" />
-                      </span>
-                    ) : (
-                      stage.icon
-                    )}
-                  </span>
-                  <span
-                    className={cn(
-                      'text-2xs font-medium leading-tight',
-                      status === 'done' && 'text-[var(--color-success-fg)]',
-                      status === 'active' && 'text-[var(--color-accent)]',
-                      status === 'idle' && 'text-[var(--color-text-disabled)]',
-                    )}
-                  >
-                    {stage.shortLabel}
-                    {count > 0 && (
-                      <span className="mt-0.5 block text-2xs tabular-nums">{count}</span>
-                    )}
-                  </span>
-                </div>
-              </Tooltip>
-
-              {i < STAGES.length - 1 && (
-                <svg
-                  width="8"
-                  height="8"
-                  viewBox="0 0 8 8"
-                  fill="none"
-                  className="shrink-0 text-[var(--color-border-default)]"
-                  aria-hidden="true"
-                >
-                  <path
-                    d="M1 4h6M5 2l2 2-2 2"
-                    stroke="currentColor"
-                    strokeWidth="1.25"
-                    strokeLinecap="round"
-                  />
-                </svg>
-              )}
+            <div key={stage.id} className="flex flex-col items-center gap-3">
+              <motion.div 
+                className={`w-10 h-10 sm:w-12 sm:h-12 rounded-full border-2 flex items-center justify-center transition-colors duration-500 relative ${stateClass}`}
+                animate={isCurrent ? { y: [0, -4, 0] } : { y: 0 }}
+                transition={{ repeat: Infinity, duration: 2, ease: "easeInOut" }}
+              >
+                <Icon size={18} strokeWidth={isCurrent || isComplete ? 2.5 : 2} />
+                
+                {/* Ping ring for current stage */}
+                {isCurrent && (
+                  <span className="absolute inset-0 rounded-full border-2 border-orange-500 animate-[ping_3s_ease-out_infinite] opacity-50" />
+                )}
+              </motion.div>
+              <span className={`text-[10px] sm:text-xs font-medium uppercase tracking-wider ${isCurrent ? 'text-orange-400' : isComplete ? 'text-green-400' : 'text-[#4A5168]'}`}>
+                {stage.label}
+              </span>
             </div>
           );
         })}
       </div>
-
-      {/* Progress bar */}
-      {hasActivity && (
-        <div className="mt-4">
-          <div className="h-1 w-full overflow-hidden rounded-full bg-[var(--color-bg-elevated)]">
-            <div
-              className="h-full rounded-full bg-[var(--color-success)] transition-[width] duration-slower"
-              style={{ width: `${healthPct}%` }}
-            />
-          </div>
-        </div>
-      )}
     </div>
-  );
-}
-
-// Inline icons
-function UploadIcon() {
-  return (
-    <svg width="14" height="14" viewBox="0 0 14 14" fill="currentColor">
-      <path d="M7 1l4 4H8v5H6V5H3L7 1zM2 11h10v1.5H2V11z" />
-    </svg>
-  );
-}
-function ExtractIcon() {
-  return (
-    <svg width="14" height="14" viewBox="0 0 14 14" fill="currentColor">
-      <path d="M3 2h5.586L11 4.414V12a1 1 0 0 1-1 1H3a1 1 0 0 1-1-1V3a1 1 0 0 1 1-1zm5 0v3h3l-3-3zM4 6h6v1H4V6zm0 2h6v1H4V8zm0 2h4v1H4v-1z" />
-    </svg>
-  );
-}
-function ChunkIcon() {
-  return (
-    <svg width="14" height="14" viewBox="0 0 14 14" fill="currentColor">
-      <path d="M2 2h4v4H2V2zm6 0h4v4H8V2zM2 8h4v4H2V8zm6 0h4v4H8V8z" />
-    </svg>
-  );
-}
-function EmbedIcon() {
-  return (
-    <svg width="14" height="14" viewBox="0 0 14 14" fill="currentColor">
-      <circle cx="7" cy="7" r="2" />
-      <circle cx="2" cy="4" r="1.5" />
-      <circle cx="12" cy="4" r="1.5" />
-      <circle cx="2" cy="10" r="1.5" />
-      <circle cx="12" cy="10" r="1.5" />
-      <path d="M3.2 4.5L5 5.8M8.8 5.8L11 4.5M3.2 9.5L5 8.2M8.8 8.2L11 9.5" stroke="currentColor" strokeWidth="1" />
-    </svg>
-  );
-}
-function IndexIcon() {
-  return (
-    <svg width="14" height="14" viewBox="0 0 14 14" fill="currentColor">
-      <path d="M1 2h12v2H1V2zm0 4h8v2H1V6zm0 4h10v2H1v-2z" />
-    </svg>
   );
 }
