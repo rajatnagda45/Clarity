@@ -27,6 +27,7 @@ import {
   CheckCircle2,
   Target,
   TrendingDown,
+  Bot,
 } from 'lucide-react';
 import { useWorkspace } from '@/contexts/WorkspaceContext';
 import { useUI } from '@/contexts/UIContext';
@@ -48,6 +49,7 @@ const workspaceNavItems: NavItem[] = [
   { label: 'Documents', href: '/documents', icon: <FileText size={18} /> },
   { label: 'Collections', href: '/collections', icon: <Grid3X3 size={18} /> },
   { label: 'AI Chat', href: '/chat', icon: <MessageSquare size={18} /> },
+  { label: 'AI Agents', href: '/agents', icon: <Bot size={18} /> },
   { label: 'Search', href: '#', icon: <Search size={18} />, shortcut: '⌘K', isAction: true },
   { label: 'AI Evaluation', href: '/eval', icon: <BarChart2 size={18} /> },
   { label: 'Benchmarks', href: '/eval/benchmarks', icon: <Target size={18} /> },

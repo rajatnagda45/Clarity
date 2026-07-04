@@ -1353,3 +1353,241 @@ class UpdatePromptLibraryEntryRequest(BaseModel):
     category: str | None = None
     variables: list[str] | None = None
     is_favorite: bool | None = None
+
+
+# ─── Phase 13 — AI Agent Workspace ────────────────────────────────────────────
+
+
+class AgentResponse(BaseModel):
+    id: str
+    workspace_id: str = Field(alias="workspaceId")
+    name: str
+    description: str
+    avatar: str = Field(default="🤖")
+    color: str = Field(default="#7C3AED")
+    category: str = Field(default="custom")
+    system_prompt: str = Field(alias="systemPrompt")
+    behavior: str = Field(default="balanced")
+    temperature: float = Field(default=0.7)
+    model: str = Field(default="gpt-4o")
+    allowed_collections: list[str] = Field(default_factory=list, alias="allowedCollections")
+    allowed_tools: list[str] = Field(default_factory=list, alias="allowedTools")
+    memory_enabled: bool = Field(default=True, alias="memoryEnabled")
+    citation_required: bool = Field(default=True, alias="citationRequired")
+    verification_mode: bool = Field(default=False, alias="verificationMode")
+    auto_retry: bool = Field(default=True, alias="autoRetry")
+    confidence_threshold: float = Field(default=0.7, alias="confidenceThreshold")
+    is_pinned: bool = Field(default=False, alias="isPinned")
+    is_favorite: bool = Field(default=False, alias="isFavorite")
+    run_count: int = Field(default=0, alias="runCount")
+    success_rate: float = Field(default=0.0, alias="successRate")
+    avg_latency_ms: int = Field(default=0, alias="avgLatencyMs")
+    avg_trust_score: float = Field(default=0.0, alias="avgTrustScore")
+    created_by: str | None = Field(default=None, alias="createdBy")
+    archived_at: str | None = Field(default=None, alias="archivedAt")
+    created_at: str = Field(alias="createdAt")
+    model_config = {"populate_by_name": True}
+
+
+class AgentListResponse(BaseModel):
+    agents: list[AgentResponse]
+    total: int
+
+
+class CreateAgentRequest(BaseModel):
+    name: str = Field(min_length=1, max_length=200)
+    description: str = Field(default="")
+    avatar: str = Field(default="🤖")
+    color: str = Field(default="#7C3AED")
+    category: str = Field(default="custom")
+    system_prompt: str = Field(alias="systemPrompt", default="You are a helpful AI agent.")
+    behavior: str = Field(default="balanced")
+    temperature: float = Field(default=0.7, ge=0.0, le=2.0)
+    model: str = Field(default="gpt-4o")
+    allowed_collections: list[str] = Field(default_factory=list, alias="allowedCollections")
+    allowed_tools: list[str] = Field(default_factory=list, alias="allowedTools")
+    memory_enabled: bool = Field(default=True, alias="memoryEnabled")
+    citation_required: bool = Field(default=True, alias="citationRequired")
+    verification_mode: bool = Field(default=False, alias="verificationMode")
+    auto_retry: bool = Field(default=True, alias="autoRetry")
+    confidence_threshold: float = Field(default=0.7, ge=0.0, le=1.0, alias="confidenceThreshold")
+    model_config = {"populate_by_name": True}
+
+
+class UpdateAgentRequest(BaseModel):
+    name: str | None = None
+    description: str | None = None
+    avatar: str | None = None
+    color: str | None = None
+    system_prompt: str | None = Field(default=None, alias="systemPrompt")
+    behavior: str | None = None
+    temperature: float | None = None
+    model: str | None = None
+    allowed_collections: list[str] | None = Field(default=None, alias="allowedCollections")
+    allowed_tools: list[str] | None = Field(default=None, alias="allowedTools")
+    memory_enabled: bool | None = Field(default=None, alias="memoryEnabled")
+    citation_required: bool | None = Field(default=None, alias="citationRequired")
+    verification_mode: bool | None = Field(default=None, alias="verificationMode")
+    auto_retry: bool | None = Field(default=None, alias="autoRetry")
+    confidence_threshold: float | None = Field(default=None, alias="confidenceThreshold")
+    is_pinned: bool | None = Field(default=None, alias="isPinned")
+    is_favorite: bool | None = Field(default=None, alias="isFavorite")
+    model_config = {"populate_by_name": True}
+
+
+class AgentToolCallResponse(BaseModel):
+    id: str
+    run_id: str = Field(alias="runId")
+    tool_name: str = Field(alias="toolName")
+    input: dict = Field(default_factory=dict)
+    output: dict | None = None
+    status: Literal["success", "failure", "pending"] = "pending"
+    latency_ms: int = Field(default=0, alias="latencyMs")
+    created_at: str = Field(alias="createdAt")
+    model_config = {"populate_by_name": True}
+
+
+class AgentRunResponse(BaseModel):
+    id: str
+    workspace_id: str = Field(alias="workspaceId")
+    agent_id: str = Field(alias="agentId")
+    agent_name: str = Field(default="", alias="agentName")
+    status: Literal["queued", "running", "completed", "failed", "review_required"]
+    input: str
+    output: str | None = None
+    tool_calls: list[AgentToolCallResponse] = Field(default_factory=list, alias="toolCalls")
+    tokens_used: int = Field(default=0, alias="tokensUsed")
+    latency_ms: int = Field(default=0, alias="latencyMs")
+    trust_score: float | None = Field(default=None, alias="trustScore")
+    confidence: float | None = None
+    cost_estimate: float | None = Field(default=None, alias="costEstimate")
+    human_review_required: bool = Field(default=False, alias="humanReviewRequired")
+    reviewed_by: str | None = Field(default=None, alias="reviewedBy")
+    review_verdict: str | None = Field(default=None, alias="reviewVerdict")
+    review_comment: str | None = Field(default=None, alias="reviewComment")
+    pipeline_agents: list[str] = Field(default_factory=list, alias="pipelineAgents")
+    created_by: str | None = Field(default=None, alias="createdBy")
+    completed_at: str | None = Field(default=None, alias="completedAt")
+    created_at: str = Field(alias="createdAt")
+    model_config = {"populate_by_name": True}
+
+
+class AgentRunListResponse(BaseModel):
+    runs: list[AgentRunResponse]
+    total: int
+
+
+class TriggerAgentRunRequest(BaseModel):
+    input: str = Field(min_length=1, max_length=32000)
+    pipeline_agents: list[str] = Field(default_factory=list, alias="pipelineAgents")
+    model_config = {"populate_by_name": True}
+
+
+class AgentAnalyticsResponse(BaseModel):
+    agent_id: str = Field(alias="agentId")
+    total_runs: int = Field(alias="totalRuns")
+    successful_runs: int = Field(alias="successfulRuns")
+    failed_runs: int = Field(alias="failedRuns")
+    review_required_runs: int = Field(alias="reviewRequiredRuns")
+    success_rate: float = Field(alias="successRate")
+    avg_latency_ms: int = Field(alias="avgLatencyMs")
+    avg_tokens_used: int = Field(alias="avgTokensUsed")
+    avg_trust_score: float = Field(alias="avgTrustScore")
+    avg_confidence: float = Field(alias="avgConfidence")
+    total_tool_calls: int = Field(alias="totalToolCalls")
+    model_config = {"populate_by_name": True}
+
+
+class ReviewQueueItemResponse(BaseModel):
+    id: str
+    workspace_id: str = Field(alias="workspaceId")
+    agent_id: str = Field(alias="agentId")
+    agent_name: str = Field(alias="agentName")
+    run_id: str = Field(alias="runId")
+    input: str
+    output: str
+    trust_score: float | None = Field(default=None, alias="trustScore")
+    confidence: float | None = None
+    reason: str
+    priority: Literal["low", "medium", "high", "critical"] = "medium"
+    status: Literal["pending", "approved", "rejected", "edited"] = "pending"
+    reviewed_by: str | None = Field(default=None, alias="reviewedBy")
+    review_comment: str | None = Field(default=None, alias="reviewComment")
+    review_verdict: str | None = Field(default=None, alias="reviewVerdict")
+    reviewed_at: str | None = Field(default=None, alias="reviewedAt")
+    created_at: str = Field(alias="createdAt")
+    model_config = {"populate_by_name": True}
+
+
+class ReviewQueueListResponse(BaseModel):
+    items: list[ReviewQueueItemResponse]
+    total: int
+    pending_count: int = Field(alias="pendingCount")
+    model_config = {"populate_by_name": True}
+
+
+class ReviewDecisionRequest(BaseModel):
+    verdict: Literal["approved", "rejected", "edited"]
+    comment: str | None = None
+    edited_output: str | None = Field(default=None, alias="editedOutput")
+    model_config = {"populate_by_name": True}
+
+
+class WorkflowNodeConfig(BaseModel):
+    agent_id: str | None = Field(default=None, alias="agentId")
+    condition: str | None = None
+    action_type: str | None = Field(default=None, alias="actionType")
+    action_config: dict = Field(default_factory=dict, alias="actionConfig")
+    model_config = {"populate_by_name": True}
+
+
+class WorkflowNode(BaseModel):
+    id: str
+    type: Literal["trigger", "agent", "condition", "action", "output"]
+    label: str
+    config: WorkflowNodeConfig = Field(default_factory=WorkflowNodeConfig)
+    position_x: float = Field(default=0.0, alias="positionX")
+    position_y: float = Field(default=0.0, alias="positionY")
+    model_config = {"populate_by_name": True}
+
+
+class WorkflowEdge(BaseModel):
+    id: str
+    source: str
+    target: str
+    label: str | None = None
+
+
+class WorkflowResponse(BaseModel):
+    id: str
+    workspace_id: str = Field(alias="workspaceId")
+    name: str
+    description: str = ""
+    nodes: list[WorkflowNode] = Field(default_factory=list)
+    edges: list[WorkflowEdge] = Field(default_factory=list)
+    enabled: bool = True
+    run_count: int = Field(default=0, alias="runCount")
+    last_run_at: str | None = Field(default=None, alias="lastRunAt")
+    created_by: str | None = Field(default=None, alias="createdBy")
+    created_at: str = Field(alias="createdAt")
+    model_config = {"populate_by_name": True}
+
+
+class WorkflowListResponse(BaseModel):
+    workflows: list[WorkflowResponse]
+    total: int
+
+
+class CreateWorkflowRequest(BaseModel):
+    name: str = Field(min_length=1, max_length=200)
+    description: str = Field(default="")
+    nodes: list[WorkflowNode] = Field(default_factory=list)
+    edges: list[WorkflowEdge] = Field(default_factory=list)
+
+
+class UpdateWorkflowRequest(BaseModel):
+    name: str | None = None
+    description: str | None = None
+    nodes: list[WorkflowNode] | None = None
+    edges: list[WorkflowEdge] | None = None
+    enabled: bool | None = None

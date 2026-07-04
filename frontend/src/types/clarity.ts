@@ -1148,3 +1148,257 @@ export interface UpdatePromptPayload {
   variables?: string[];
   is_favorite?: boolean;
 }
+
+// ─── Phase 13 — AI Agent Workspace ───────────────────────────────────────────
+
+export type AgentCategory = 'legal' | 'research' | 'compliance' | 'sales' | 'hr' | 'knowledge' | 'custom';
+export type AgentBehavior = 'precise' | 'balanced' | 'creative' | 'aggressive';
+export type AgentRunStatus = 'queued' | 'running' | 'completed' | 'failed' | 'review_required';
+export type ReviewVerdict = 'approved' | 'rejected' | 'edited';
+export type ReviewPriority = 'low' | 'medium' | 'high' | 'critical';
+export type ReviewStatus = 'pending' | 'approved' | 'rejected' | 'edited';
+export type WorkflowNodeType = 'trigger' | 'agent' | 'condition' | 'action' | 'output';
+
+export interface Agent {
+  id: string;
+  workspaceId: string;
+  name: string;
+  description: string;
+  avatar: string;
+  color: string;
+  category: AgentCategory;
+  systemPrompt: string;
+  behavior: AgentBehavior;
+  temperature: number;
+  model: string;
+  allowedCollections: string[];
+  allowedTools: string[];
+  memoryEnabled: boolean;
+  citationRequired: boolean;
+  verificationMode: boolean;
+  autoRetry: boolean;
+  confidenceThreshold: number;
+  isPinned: boolean;
+  isFavorite: boolean;
+  runCount: number;
+  successRate: number;
+  avgLatencyMs: number;
+  avgTrustScore: number;
+  createdBy: string | null;
+  archivedAt: string | null;
+  createdAt: string;
+}
+
+export interface AgentListResponse {
+  agents: Agent[];
+  total: number;
+}
+
+export interface CreateAgentPayload {
+  name: string;
+  description?: string;
+  avatar?: string;
+  color?: string;
+  category?: AgentCategory;
+  systemPrompt: string;
+  behavior?: AgentBehavior;
+  temperature?: number;
+  model?: string;
+  allowedCollections?: string[];
+  allowedTools?: string[];
+  memoryEnabled?: boolean;
+  citationRequired?: boolean;
+  verificationMode?: boolean;
+  autoRetry?: boolean;
+  confidenceThreshold?: number;
+}
+
+export interface UpdateAgentPayload {
+  name?: string;
+  description?: string;
+  avatar?: string;
+  color?: string;
+  systemPrompt?: string;
+  behavior?: AgentBehavior;
+  temperature?: number;
+  model?: string;
+  allowedCollections?: string[];
+  allowedTools?: string[];
+  memoryEnabled?: boolean;
+  citationRequired?: boolean;
+  verificationMode?: boolean;
+  autoRetry?: boolean;
+  confidenceThreshold?: number;
+  isPinned?: boolean;
+  isFavorite?: boolean;
+}
+
+export interface AgentToolCall {
+  id: string;
+  runId: string;
+  toolName: string;
+  input: Record<string, unknown>;
+  output: Record<string, unknown> | null;
+  status: 'success' | 'failure' | 'pending';
+  latencyMs: number;
+  createdAt: string;
+}
+
+export interface AgentRun {
+  id: string;
+  workspaceId: string;
+  agentId: string;
+  agentName: string;
+  status: AgentRunStatus;
+  input: string;
+  output: string | null;
+  toolCalls: AgentToolCall[];
+  tokensUsed: number;
+  latencyMs: number;
+  trustScore: number | null;
+  confidence: number | null;
+  costEstimate: number | null;
+  humanReviewRequired: boolean;
+  reviewedBy: string | null;
+  reviewVerdict: string | null;
+  reviewComment: string | null;
+  pipelineAgents: string[];
+  createdBy: string | null;
+  completedAt: string | null;
+  createdAt: string;
+}
+
+export interface AgentRunListResponse {
+  runs: AgentRun[];
+  total: number;
+}
+
+export interface TriggerAgentRunPayload {
+  input: string;
+  pipelineAgents?: string[];
+}
+
+export interface AgentAnalytics {
+  agentId: string;
+  totalRuns: number;
+  successfulRuns: number;
+  failedRuns: number;
+  reviewRequiredRuns: number;
+  successRate: number;
+  avgLatencyMs: number;
+  avgTokensUsed: number;
+  avgTrustScore: number;
+  avgConfidence: number;
+  totalToolCalls: number;
+}
+
+export interface ReviewQueueItem {
+  id: string;
+  workspaceId: string;
+  agentId: string;
+  agentName: string;
+  runId: string;
+  input: string;
+  output: string;
+  trustScore: number | null;
+  confidence: number | null;
+  reason: string;
+  priority: ReviewPriority;
+  status: ReviewStatus;
+  reviewedBy: string | null;
+  reviewComment: string | null;
+  reviewVerdict: string | null;
+  reviewedAt: string | null;
+  createdAt: string;
+}
+
+export interface ReviewQueueListResponse {
+  items: ReviewQueueItem[];
+  total: number;
+  pendingCount: number;
+}
+
+export interface ReviewDecisionPayload {
+  verdict: ReviewVerdict;
+  comment?: string;
+  editedOutput?: string;
+}
+
+export interface ReviewQueueStats {
+  total: number;
+  pending: number;
+  approved: number;
+  rejected: number;
+  edited: number;
+  criticalPending: number;
+  highPending: number;
+}
+
+export interface WorkflowNodeConfig {
+  agentId?: string;
+  condition?: string;
+  actionType?: string;
+  actionConfig?: Record<string, unknown>;
+}
+
+export interface WorkflowNode {
+  id: string;
+  type: WorkflowNodeType;
+  label: string;
+  config: WorkflowNodeConfig;
+  positionX: number;
+  positionY: number;
+}
+
+export interface WorkflowEdge {
+  id: string;
+  source: string;
+  target: string;
+  label: string | null;
+}
+
+export interface Workflow {
+  id: string;
+  workspaceId: string;
+  name: string;
+  description: string;
+  nodes: WorkflowNode[];
+  edges: WorkflowEdge[];
+  enabled: boolean;
+  runCount: number;
+  lastRunAt: string | null;
+  createdBy: string | null;
+  createdAt: string;
+}
+
+export interface WorkflowListResponse {
+  workflows: Workflow[];
+  total: number;
+}
+
+export interface CreateWorkflowPayload {
+  name: string;
+  description?: string;
+  nodes?: WorkflowNode[];
+  edges?: WorkflowEdge[];
+}
+
+export interface UpdateWorkflowPayload {
+  name?: string;
+  description?: string;
+  nodes?: WorkflowNode[];
+  edges?: WorkflowEdge[];
+  enabled?: boolean;
+}
+
+export interface AvailableTool {
+  name: string;
+  description: string;
+}
+
+export interface AgentStreamEvent {
+  type: 'status' | 'done' | 'error' | 'timeout';
+  status?: AgentRunStatus;
+  output?: string | null;
+  message?: string;
+}

@@ -78,6 +78,23 @@ import type {
   PromptLibraryListResponse,
   CreatePromptPayload,
   UpdatePromptPayload,
+  Agent,
+  AgentListResponse,
+  CreateAgentPayload,
+  UpdateAgentPayload,
+  AgentRun,
+  AgentRunListResponse,
+  TriggerAgentRunPayload,
+  AgentAnalytics,
+  ReviewQueueListResponse,
+  ReviewQueueItem,
+  ReviewDecisionPayload,
+  ReviewQueueStats,
+  Workflow,
+  WorkflowListResponse,
+  CreateWorkflowPayload,
+  UpdateWorkflowPayload,
+  AvailableTool,
 } from '@/types/clarity';
 
 const BACKEND_URL = process.env.NEXT_PUBLIC_BACKEND_URL ?? 'http://localhost:8000';
@@ -1049,4 +1066,103 @@ export async function updatePromptEntry(
 
 export async function deletePromptEntry(auth: AuthContext, promptId: string): Promise<void> {
   await apiFetch<unknown>(`/api/enterprise/prompt-library/${promptId}`, { method: 'DELETE', ...auth });
+}
+
+// ─── Phase 13 — AI Agent Workspace ────────────────────────────────────────────
+
+export async function listAgents(auth: AuthContext, category?: string): Promise<AgentListResponse> {
+  const qs = category ? `?category=${encodeURIComponent(category)}` : '';
+  return apiFetch<AgentListResponse>(`/api/agents${qs}`, auth);
+}
+
+export async function createAgent(auth: AuthContext, payload: CreateAgentPayload): Promise<Agent> {
+  return apiFetch<Agent>('/api/agents', { method: 'POST', body: JSON.stringify(payload), ...auth });
+}
+
+export async function getAgent(auth: AuthContext, agentId: string): Promise<Agent> {
+  return apiFetch<Agent>(`/api/agents/${agentId}`, auth);
+}
+
+export async function updateAgent(auth: AuthContext, agentId: string, payload: UpdateAgentPayload): Promise<Agent> {
+  return apiFetch<Agent>(`/api/agents/${agentId}`, { method: 'PATCH', body: JSON.stringify(payload), ...auth });
+}
+
+export async function deleteAgent(auth: AuthContext, agentId: string): Promise<void> {
+  await apiFetch<unknown>(`/api/agents/${agentId}`, { method: 'DELETE', ...auth });
+}
+
+export async function archiveAgent(auth: AuthContext, agentId: string): Promise<Agent> {
+  return apiFetch<Agent>(`/api/agents/${agentId}/archive`, { method: 'POST', ...auth });
+}
+
+export async function triggerAgentRun(auth: AuthContext, agentId: string, payload: TriggerAgentRunPayload): Promise<AgentRun> {
+  return apiFetch<AgentRun>(`/api/agents/${agentId}/runs`, { method: 'POST', body: JSON.stringify(payload), ...auth });
+}
+
+export async function listAgentRuns(auth: AuthContext, agentId: string, limit = 50): Promise<AgentRunListResponse> {
+  return apiFetch<AgentRunListResponse>(`/api/agents/${agentId}/runs?limit=${limit}`, auth);
+}
+
+export async function getAgentRun(auth: AuthContext, runId: string): Promise<AgentRun> {
+  return apiFetch<AgentRun>(`/api/agents/runs/${runId}`, auth);
+}
+
+export async function getAgentAnalytics(auth: AuthContext, agentId: string): Promise<AgentAnalytics> {
+  return apiFetch<AgentAnalytics>(`/api/agents/${agentId}/analytics`, auth);
+}
+
+export async function listAvailableTools(auth: AuthContext): Promise<{ tools: AvailableTool[] }> {
+  return apiFetch<{ tools: AvailableTool[] }>('/api/agents/tools', auth);
+}
+
+// ─── Review Queue ─────────────────────────────────────────────────────────────
+
+export async function listReviewQueue(
+  auth: AuthContext,
+  opts?: { status?: string; priority?: string; limit?: number },
+): Promise<ReviewQueueListResponse> {
+  const params = new URLSearchParams();
+  if (opts?.status) params.set('status_filter', opts.status);
+  if (opts?.priority) params.set('priority', opts.priority);
+  if (opts?.limit) params.set('limit', String(opts.limit));
+  const qs = params.toString();
+  return apiFetch<ReviewQueueListResponse>(`/api/review-queue${qs ? `?${qs}` : ''}`, auth);
+}
+
+export async function submitReviewDecision(
+  auth: AuthContext,
+  itemId: string,
+  payload: ReviewDecisionPayload,
+): Promise<ReviewQueueItem> {
+  return apiFetch<ReviewQueueItem>(`/api/review-queue/${itemId}/review`, {
+    method: 'POST',
+    body: JSON.stringify(payload),
+    ...auth,
+  });
+}
+
+export async function getReviewQueueStats(auth: AuthContext): Promise<ReviewQueueStats> {
+  return apiFetch<ReviewQueueStats>('/api/review-queue/stats', auth);
+}
+
+// ─── Workflows ────────────────────────────────────────────────────────────────
+
+export async function listWorkflows(auth: AuthContext): Promise<WorkflowListResponse> {
+  return apiFetch<WorkflowListResponse>('/api/workflows', auth);
+}
+
+export async function createWorkflow(auth: AuthContext, payload: CreateWorkflowPayload): Promise<Workflow> {
+  return apiFetch<Workflow>('/api/workflows', { method: 'POST', body: JSON.stringify(payload), ...auth });
+}
+
+export async function getWorkflow(auth: AuthContext, workflowId: string): Promise<Workflow> {
+  return apiFetch<Workflow>(`/api/workflows/${workflowId}`, auth);
+}
+
+export async function updateWorkflow(auth: AuthContext, workflowId: string, payload: UpdateWorkflowPayload): Promise<Workflow> {
+  return apiFetch<Workflow>(`/api/workflows/${workflowId}`, { method: 'PATCH', body: JSON.stringify(payload), ...auth });
+}
+
+export async function deleteWorkflow(auth: AuthContext, workflowId: string): Promise<void> {
+  await apiFetch<unknown>(`/api/workflows/${workflowId}`, { method: 'DELETE', ...auth });
 }
