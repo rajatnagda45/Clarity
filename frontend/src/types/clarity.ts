@@ -282,7 +282,7 @@ export interface DeveloperDashboard {
   documents: DeveloperDashboardDocument[];
   statusCounts: Record<string, number>;
   failedJobs: DeveloperDashboardDocument[];
-  totalStorageBytes: number;
+  totalStorageBytes?: number;
 }
 
 export interface SpanRef {
@@ -508,11 +508,11 @@ export interface AnswerExplorerResponse {
 }
 
 export interface EvalMetrics {
-  faithfulness: number;
-  relevance: number;
-  contextPrecision: number;
-  contextRecall: number;
-  catchRate?: number;
+  faithfulness: number | null;
+  relevance: number | null;
+  contextPrecision: number | null;
+  contextRecall: number | null;
+  catchRate?: number | null;
   calibrationEce?: number;
   casesTotal: number;
   suite: 'golden' | 'adversarial';

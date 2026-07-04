@@ -1,7 +1,5 @@
 from __future__ import annotations
 
-import asyncio
-
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, status
 
 from api.deps import require_workspace_role
@@ -189,8 +187,8 @@ def trigger_run(
         "created_at": now,
     }).execute()
 
-    def _run() -> None:
-        asyncio.run(run_benchmark(workspace_id, dataset_id))
+    async def _run() -> None:
+        await run_benchmark(workspace_id, dataset_id)
 
     background_tasks.add_task(_run)
 

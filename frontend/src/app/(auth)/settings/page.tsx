@@ -88,16 +88,12 @@ export default function SettingsHub() {
       case 'workspace': return <WorkspaceTab />;
       case 'billing': return <BillingTab />;
       
-      // Advanced is now a real tab
       case 'advanced': return <AdvancedSettingsTab />;
-      
+
+      case 'preferences': return <PlaceholderTab title="Preferences" description="Customize your personal workspace experience." icon={Settings2} />;
       case 'appearance': return <PlaceholderTab title="Appearance" description="Customize themes, colors, and layout density." icon={Palette} />;
       case 'notifications': return <PlaceholderTab title="Notifications" description="Configure email and desktop alerts for your workspace." icon={Bell} />;
       case 'usage': return <PlaceholderTab title="Usage Quotas" description="Monitor detailed API, token, and storage consumption." icon={Activity} />;
-      case 'security': return <PlaceholderTab title="Security" description="Configure 2FA, SSO, and audit logs." icon={ShieldCheck} />;
-      case 'ai': return <PlaceholderTab title="AI Preferences" description="Configure default models, streaming options, and context windows." icon={Cpu} />;
-      case 'integrations': return <PlaceholderTab title="Integrations" description="Connect third-party services and data sources." icon={Puzzle} />;
-      case 'api': return <PlaceholderTab title="API Keys" description="Manage developer keys and webhooks." icon={Key} />;
       case 'about': return <PlaceholderTab title="About" description="System status, versions, and documentation." icon={Info} />;
       
       default: return <AccountOverviewTab />;

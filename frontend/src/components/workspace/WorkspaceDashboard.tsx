@@ -55,14 +55,15 @@ export function WorkspaceDashboard() {
 
   const totalDocs = documents.length;
   const indexedDocs = devDashboard.data?.statusCounts?.indexed || 0;
-  const storageBytes = devDashboard.data?.totalStorageBytes || 0;
+  const storageBytes = devDashboard.data?.totalStorageBytes ?? null;
   const failedJobs = devDashboard.data?.failedJobs?.length || 0;
-  
-  // Format storage
-  const k = 1024;
-  const sizes = ['B', 'KB', 'MB', 'GB', 'TB'];
-  const i = storageBytes === 0 ? 0 : Math.floor(Math.log(storageBytes) / Math.log(k));
-  const storageStr = parseFloat((storageBytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+
+  const storageStr = storageBytes != null ? (() => {
+    const k = 1024;
+    const sizes = ['B', 'KB', 'MB', 'GB', 'TB'];
+    const i = storageBytes === 0 ? 0 : Math.floor(Math.log(storageBytes) / Math.log(k));
+    return parseFloat((storageBytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+  })() : 'Unavailable';
 
   return (
     <div className="relative min-h-screen bg-[#05070B] selection:bg-purple-500/30 selection:text-white pb-32">

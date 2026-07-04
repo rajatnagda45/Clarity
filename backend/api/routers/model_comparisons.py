@@ -59,28 +59,3 @@ def list_model_comparisons(
     # Sort by avg_judge_overall descending (best first)
     comparisons.sort(key=lambda c: c.avg_judge_overall or 0, reverse=True)
     return ModelComparisonListResponse(comparisons=comparisons, total=len(comparisons))
-
-
-@router.get("/benchmark-suggestions", response_model=list)
-def list_benchmark_suggestions(
-    suggestion_status: str | None = "pending",
-    membership: tuple[str, str] = Depends(require_workspace_role),
-) -> list:
-    from schemas import BenchmarkSuggestionResponse
-    from services.benchmark_growth.suggester import list_suggestions
-
-    workspace_id, _ = membership
-    rows = list_suggestions(workspace_id, status=suggestion_status)
-    return [
-        BenchmarkSuggestionResponse(
-            id=r["id"],
-            workspace_id=r["workspace_id"],
-            answer_run_id=r.get("answer_run_id"),
-            question=r["question"],
-            suggested_reason=r["suggested_reason"],
-            status=r["status"],
-            approved_case_id=r.get("approved_case_id"),
-            created_at=r["created_at"],
-        )
-        for r in rows
-    ]

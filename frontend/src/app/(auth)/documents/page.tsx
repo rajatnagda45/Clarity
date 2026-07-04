@@ -37,6 +37,8 @@ export default function DocumentsPage() {
   const [uploadProgressText, setUploadProgressText] = useState('');
   const [pollRefreshKey, setPollRefreshKey] = useState(0);
   const [globalDragActive, setGlobalDragActive] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
   
   // Ref for global drag counter to prevent flicker when dragging over children
   const dragCounter = useRef(0);
@@ -127,6 +129,12 @@ export default function DocumentsPage() {
 
   const disabled = !workspaceId || isUploading;
 
+  const filteredDocuments = searchQuery.trim()
+    ? documents.filter((d) =>
+        d.filename.toLowerCase().includes(searchQuery.toLowerCase())
+      )
+    : documents;
+
   async function handleFilesSelected(files: File[]) {
     if (!workspaceId) {
       toast.error('Choose a workspace before uploading documents.');
@@ -216,20 +224,36 @@ export default function DocumentsPage() {
           <div className="flex items-center gap-3">
             <div className="relative">
               <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-[#8892AA]" />
-              <input 
-                type="text" 
-                placeholder="Search documents... (⌘K)" 
+              <input
+                type="text"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                placeholder="Search documents..."
                 className="bg-[#0F1117] border border-white/[0.08] rounded-xl pl-9 pr-4 py-2 text-sm text-[#F1F3F9] placeholder:text-[#4A5168] focus:outline-none focus:border-purple-500/50 focus:ring-1 focus:ring-purple-500/50 w-64 transition-all"
               />
             </div>
-            <button className="p-2 rounded-xl border border-white/[0.08] bg-[#0F1117] text-[#8892AA] hover:text-[#F1F3F9] hover:bg-white/[0.04] transition-all">
-              <SlidersHorizontal size={16} />
-            </button>
+            {searchQuery && (
+              <button
+                onClick={() => setSearchQuery('')}
+                className="p-2 rounded-xl border border-white/[0.08] bg-[#0F1117] text-[#8892AA] hover:text-[#F1F3F9] hover:bg-white/[0.04] transition-all"
+                title="Clear search"
+              >
+                <SlidersHorizontal size={16} />
+              </button>
+            )}
             <div className="flex items-center p-1 rounded-xl border border-white/[0.08] bg-[#0F1117]">
-              <button className="p-1.5 rounded-lg bg-white/[0.06] text-[#F1F3F9]">
+              <button
+                onClick={() => setViewMode('grid')}
+                className={`p-1.5 rounded-lg transition-colors ${viewMode === 'grid' ? 'bg-white/[0.06] text-[#F1F3F9]' : 'text-[#4A5168] hover:text-[#8892AA]'}`}
+                title="Grid view"
+              >
                 <LayoutGrid size={14} />
               </button>
-              <button className="p-1.5 rounded-lg text-[#4A5168] hover:text-[#8892AA] transition-colors">
+              <button
+                onClick={() => setViewMode('list')}
+                className={`p-1.5 rounded-lg transition-colors ${viewMode === 'list' ? 'bg-white/[0.06] text-[#F1F3F9]' : 'text-[#4A5168] hover:text-[#8892AA]'}`}
+                title="List view"
+              >
                 <List size={14} />
               </button>
             </div>
@@ -250,17 +274,18 @@ export default function DocumentsPage() {
             <h2 className="text-xl font-bold text-[#F1F3F9] tracking-tight">Document Library</h2>
             <div className="flex items-center gap-3">
               <span className="text-xs font-medium text-[#4A5168]">
-                {documents.length} document{documents.length !== 1 ? 's' : ''}
+                {filteredDocuments.length}{searchQuery ? ` of ${documents.length}` : ''} document{filteredDocuments.length !== 1 ? 's' : ''}
               </span>
             </div>
           </div>
-          
+
           <WorkspaceInsights documents={documents} />
 
-          <DocumentList 
-            documents={documents} 
-            workspaceId={workspaceId} 
+          <DocumentList
+            documents={filteredDocuments}
+            workspaceId={workspaceId}
             loading={loadState === 'loading'}
+            viewMode={viewMode}
           />
         </section>
       </div>

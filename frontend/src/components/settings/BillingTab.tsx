@@ -167,8 +167,8 @@ export function BillingTab() {
   }
 
   const currentPlanObj = PLANS.find(p => p.name === activeWorkspace.plan) || PLANS[0];
-  const storageUsed = devDashboard.data?.totalStorageBytes ?? 0;
-  const storagePct = Math.min(100, Math.round((storageUsed / currentPlanObj.storage) * 100));
+  const storageUsed = devDashboard.data?.totalStorageBytes ?? null;
+  const storagePct = storageUsed != null ? Math.min(100, Math.round((storageUsed / currentPlanObj.storage) * 100)) : null;
   
   const queries = answerMetrics.data?.conversationsCreated ?? 0;
   const queriesPct = Math.min(100, Math.round((queries / currentPlanObj.queries) * 100));
@@ -226,10 +226,14 @@ export function BillingTab() {
             <div className="flex items-center gap-2 text-[#8892AA]">
               <HardDrive size={16} /> <span className="text-sm font-medium">Vector Storage</span>
             </div>
-            <span className="text-xs font-mono text-[#F1F3F9]">{formatBytes(storageUsed)} / {formatBytes(currentPlanObj.storage)}</span>
+            <span className="text-xs font-mono text-[#F1F3F9]">
+              {storageUsed != null ? formatBytes(storageUsed) : 'Unavailable'} / {formatBytes(currentPlanObj.storage)}
+            </span>
           </div>
-          <ProgressBar value={storagePct} size="sm" variant={storagePct > 80 ? 'error' : storagePct > 50 ? 'warning' : 'default'} />
-          <p className="text-[10px] text-[#4A5168] mt-3 uppercase tracking-wider">{storagePct}% utilized</p>
+          <ProgressBar value={storagePct ?? 0} size="sm" variant={(storagePct ?? 0) > 80 ? 'error' : (storagePct ?? 0) > 50 ? 'warning' : 'default'} />
+          <p className="text-[10px] text-[#4A5168] mt-3 uppercase tracking-wider">
+            {storagePct != null ? `${storagePct}% utilized` : 'Storage tracking unavailable'}
+          </p>
         </div>
         <div className="bg-[#0F1117] border border-white/[0.06] rounded-2xl p-6">
           <div className="flex justify-between items-center mb-6">

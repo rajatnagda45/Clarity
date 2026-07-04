@@ -140,14 +140,14 @@ export default function AnalyticsPage() {
 
         {/* Executive Summary */}
         <section className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-          <MetricCard title="Indexed Documents" value={`${indexedDocs} / ${totalDocs}`} icon={FileText} subtitle="Successfully vectorized" trend="12%" />
-          <MetricCard title="AI Queries" value={queries} icon={MessageSquare} subtitle="Workspace conversations" trend="8%" />
+          <MetricCard title="Indexed Documents" value={`${indexedDocs} / ${totalDocs}`} icon={FileText} subtitle="Successfully vectorized" />
+          <MetricCard title="AI Queries" value={queries} icon={MessageSquare} subtitle="Workspace conversations" />
           <MetricCard title="First Token Latency" value={avgLatency} icon={Zap} subtitle="Average response time" />
           <MetricCard title="Citation Density" value={citations} icon={Layers} subtitle="Sources per response" />
-          <MetricCard title="Total Tokens" value={tokens} icon={Activity} subtitle="Inference consumption" trend="24%" />
-          <MetricCard title="Storage Used" value={formatBytes(storageUsed)} icon={Database} subtitle="Vector database allocation" />
+          <MetricCard title="Total Tokens" value={tokens} icon={Activity} subtitle="Inference consumption" />
+          <MetricCard title="Storage Used" value={storageUsed > 0 ? formatBytes(storageUsed) : 'Unavailable'} icon={Database} subtitle="Vector database allocation" />
           <MetricCard title="Estimated Cost" value={cost} icon={BarChart2} subtitle="API inference cost" />
-          <MetricCard title="Workspace Health" value="100%" icon={ShieldCheck} subtitle="All systems operational" />
+          <MetricCard title="System Status" value={answerMetrics.isError ? 'Degraded' : 'Operational'} icon={ShieldCheck} subtitle="Answer pipeline" />
         </section>
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mt-2">

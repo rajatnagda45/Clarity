@@ -369,9 +369,9 @@ export default function DeveloperDashboardPage() {
               <SectionCard title="Answer Generation" icon={Cpu}>
                 <div className="grid grid-cols-2 gap-4">
                   <MetricCard label="Total Latency" value={formatTime(answerMetrics?.answerLatencyMs)} />
-                  <MetricCard label="Est. Cost" value={`$${answerMetrics?.estimatedCostUsd.toFixed(4) || '0.00'}`} />
-                  <MetricCard label="Avg Tokens" value="~1.2k" subValue="Per query" />
-                  <MetricCard label="Citation Confidence" value="98.5%" subValue="Verified" />
+                  <MetricCard label="Est. Cost" value={`$${answerMetrics?.estimatedCostUsd?.toFixed(4) ?? '0.0000'}`} />
+                  <MetricCard label="Total Tokens" value={answerMetrics?.totalTokens != null ? answerMetrics.totalTokens.toLocaleString() : 'N/A'} subValue="Lifetime" />
+                  <MetricCard label="Avg Citations" value={answerMetrics?.averageCitationsPerAnswer != null ? answerMetrics.averageCitationsPerAnswer.toFixed(1) : 'N/A'} subValue="Per answer" />
                 </div>
               </SectionCard>
             </div>

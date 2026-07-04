@@ -359,6 +359,7 @@ async def inspect_document_embeddings(
 async def inspect_document_vectors(
     document_id: str,
     membership: tuple[str, str] = Depends(require_workspace_role),
+    _developer: str = Depends(require_developer),
 ) -> DocumentVectorIndexListResponse:
     if settings.environment == "production":
         raise _error(status.HTTP_404_NOT_FOUND, "not_found", "Developer vector explorer unavailable.")

@@ -518,13 +518,36 @@ export async function listContradictions(auth: AuthContext): Promise<Contradicti
 }
 
 // ---------------------------------------------------------------------------
-// Eval metrics
+// Eval metrics — backed by /api/evaluations
 // ---------------------------------------------------------------------------
 export async function getEvalMetrics(
   auth: AuthContext,
-  suite: 'golden' | 'adversarial' = 'golden',
+  _suite: 'golden' | 'adversarial' = 'golden',
 ): Promise<EvalMetrics[]> {
-  return apiFetch<EvalMetrics[]>(`/api/eval/metrics?suite=${suite}`, { method: 'GET', ...auth });
+  const response = await apiFetch<{
+    evaluations: Array<{
+      createdAt: string;
+      scores?: {
+        faithfulness?: number | null;
+        grounding?: number | null;
+        completeness?: number | null;
+        correctness?: number | null;
+        overall?: number | null;
+      } | null;
+    }>;
+    total: number;
+  }>('/api/evaluations', { method: 'GET', ...auth });
+
+  return response.evaluations.map((run) => ({
+    faithfulness: run.scores?.faithfulness != null ? run.scores.faithfulness / 10 : null,
+    relevance: run.scores?.grounding != null ? run.scores.grounding / 10 : null,
+    contextPrecision: run.scores?.correctness != null ? run.scores.correctness / 10 : null,
+    contextRecall: run.scores?.completeness != null ? run.scores.completeness / 10 : null,
+    catchRate: run.scores?.overall != null ? run.scores.overall / 10 : undefined,
+    casesTotal: 1,
+    suite: _suite,
+    createdAt: run.createdAt,
+  }));
 }
 
 // ---------------------------------------------------------------------------

@@ -9,7 +9,7 @@ import {
   LayoutDashboard,
   FileText,
   MessageSquare,
-  Grid3X3,
+
   Search,
   BarChart2,
   CreditCard,
@@ -45,7 +45,6 @@ const workspaceNavItems: NavItem[] = [
   { label: 'Dashboard', href: '/dashboard', icon: <LayoutDashboard size={18} /> },
   { label: 'Documents', href: '/documents', icon: <FileText size={18} /> },
   { label: 'AI Chat', href: '/chat', icon: <MessageSquare size={18} /> },
-  { label: 'Collections', href: '/collections', icon: <Grid3X3 size={18} /> },
   { label: 'Search', href: '#', icon: <Search size={18} />, shortcut: '⌘K', isAction: true },
   { label: 'Analytics', href: '/eval', icon: <BarChart2 size={18} /> },
 ];

@@ -113,17 +113,15 @@ export function DocumentPipelineTable({ documents, loading }: DocumentPipelineTa
                 </div>
               </div>
 
-              {/* Simulated Chunk Count (Backend doesn't provide this yet) */}
               <div className="hidden lg:flex items-center">
                 <span className="text-xs font-mono text-[#8892AA]">
-                  {doc.status === 'indexed' ? '~25' : '--'}
+                  {doc.status === 'indexed' ? 'Ready' : '--'}
                 </span>
               </div>
 
-              {/* Simulated Embeddings Count */}
               <div className="hidden lg:flex items-center">
                 <span className="text-xs font-mono text-[#8892AA]">
-                  {doc.status === 'indexed' ? '3072d' : '--'}
+                  {doc.status === 'indexed' ? 'Indexed' : '--'}
                 </span>
               </div>
 

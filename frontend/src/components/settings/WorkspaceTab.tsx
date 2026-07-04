@@ -66,7 +66,7 @@ export function WorkspaceTab() {
 
   const indexedDocs = devDashboard.data?.statusCounts?.indexed ?? 0;
   const totalDocs = documents?.length ?? 0;
-  const storageUsed = devDashboard.data?.totalStorageBytes ?? 0;
+  const storageUsed = devDashboard.data?.totalStorageBytes ?? null;
   const queries = answerMetrics.data?.conversationsCreated ?? 0;
 
   if (!activeWorkspace) {
@@ -146,7 +146,9 @@ export function WorkspaceTab() {
             </div>
             <div className="w-px h-10 bg-white/[0.08]" />
             <div className="flex flex-col items-end">
-              <span className="text-2xl font-bold text-[#F1F3F9]">{formatBytes(storageUsed)}</span>
+              <span className="text-2xl font-bold text-[#F1F3F9]">
+                {storageUsed != null ? formatBytes(storageUsed) : '—'}
+              </span>
               <span className="text-xs text-[#8892AA] font-medium uppercase tracking-wider">Storage</span>
             </div>
             <div className="w-px h-10 bg-white/[0.08]" />

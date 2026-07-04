@@ -8,10 +8,12 @@ export function DocumentList({
   documents,
   workspaceId,
   loading = false,
+  viewMode = 'grid',
 }: {
   documents: Document[];
   workspaceId: string;
   loading?: boolean;
+  viewMode?: 'grid' | 'list';
 }) {
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
 
@@ -99,7 +101,7 @@ export function DocumentList({
         </div>
       )}
 
-      <div className="grid grid-cols-1 md:grid-cols-2 2xl:grid-cols-3 gap-6">
+      <div className={viewMode === 'list' ? 'flex flex-col gap-3' : 'grid grid-cols-1 md:grid-cols-2 2xl:grid-cols-3 gap-6'}>
         {documents.map((document, i) => (
           <motion.div
             key={document.id}
