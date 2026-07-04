@@ -17,7 +17,7 @@ from services.answer_generation.provider import WriterProviderError, get_writer_
 from services.retrieval.models import RetrievalRequest
 from services.retrieval.service import retrieve_evidence
 from services.verification.critic import run_critic, extract_claims
-from services.verification.ensemble import run_ensemble, run_ensemble_async
+from services.verification.ensemble import run_ensemble_async
 from services.verification.confidence import compute_trust
 from config import settings
 
