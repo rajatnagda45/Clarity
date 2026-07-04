@@ -63,5 +63,6 @@ backend/services/eval/results/
 
 # Model weights and temp scripts
 *.pkl
+!backend/services/verification/calibrator.pkl
 frontend/*.js
 docs/
