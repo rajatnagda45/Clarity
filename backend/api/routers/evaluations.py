@@ -307,8 +307,6 @@ def conversation_evals(
     ).data or []
 
     msg_to_conv: dict[str, str] = {str(m["id"]): str(m["conversation_id"]) for m in msg_rows}
-    run_to_msg: dict[str, str] = {str(r["id"]): str(r.get("message_id", "")) for r in run_rows}
-    run_map: dict[str, dict] = {str(r["id"]): r for r in run_rows}
     eval_map: dict[str, dict] = {str(e["answer_run_id"]): e for e in eval_rows}
     abstention_run_ids = {str(a["answer_run_id"]) for a in abstention_rows}
 

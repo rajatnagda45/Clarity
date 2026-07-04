@@ -4,7 +4,7 @@ import io
 import csv
 import json
 
-from fastapi import APIRouter, BackgroundTasks, Depends, File, Form, HTTPException, Response, UploadFile, status
+from fastapi import APIRouter, BackgroundTasks, Depends, File, HTTPException, Response, UploadFile, status
 
 from api.deps import require_workspace_role
 from db.client import tenant_query
