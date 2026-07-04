@@ -64,3 +64,4 @@ backend/services/eval/results/
 # Model weights and temp scripts
 *.pkl
 frontend/*.js
+docs/
