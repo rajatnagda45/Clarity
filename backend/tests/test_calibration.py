@@ -151,3 +151,36 @@ def test_fit_calibrator_script_runs_on_fixture_cases():
         assert hasattr(loaded, "transform")
         result = loaded.transform([0.9])
         assert 0.0 <= float(result[0]) <= 1.0
+
+
+def test_committed_calibrator_pkl_is_present_and_functional():
+    """
+    Verifies that the fitted calibrator.pkl is committed to the repo and loads
+    correctly. If this test fails it means either the pkl was not committed or
+    was deleted — run scripts/fit_calibrator.py to regenerate it.
+    """
+    pytest.importorskip("sklearn")
+    import services.verification.calibrator as cal_module
+
+    canonical_pkl = Path(__file__).parent.parent / "services/verification/calibrator.pkl"
+    assert canonical_pkl.exists(), (
+        f"calibrator.pkl not found at {canonical_pkl}. "
+        "Run: python -m scripts.fit_calibrator "
+        "--cases backend/services/eval/golden/cases "
+        "--out backend/services/verification/calibrator.pkl"
+    )
+
+    with patch.object(cal_module, "_PKL_PATH", canonical_pkl):
+        cal_module._calibrator = None
+        cal_module.load_calibrator()
+
+        # A raw score of 0.95 (all claims supported, strong entailment) should
+        # calibrate to high confidence.
+        high = cal_module.calibrate(0.95)
+        # A raw score of 0.08 (all claims unsupported, contradicted) should
+        # calibrate to near zero.
+        low = cal_module.calibrate(0.08)
+
+    assert 0.0 <= low <= high <= 1.0
+    assert high > 0.5, "High-confidence raw score should calibrate above 0.5"
+    assert low < 0.5, "Low-confidence raw score should calibrate below 0.5"

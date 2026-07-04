@@ -114,6 +114,37 @@ class CreateWorkspaceResponse(BaseModel):
     plan: Literal["free", "pro", "team"]
 
 
+# ---------------------------------------------------------------------------
+# Member management
+# ---------------------------------------------------------------------------
+
+WorkspaceRoleValue = Literal["owner", "editor", "viewer"]
+
+
+class WorkspaceMember(BaseModel):
+    user_id: str = Field(alias="userId")
+    role: WorkspaceRoleValue
+    joined_at: str | None = Field(default=None, alias="joinedAt")
+
+    model_config = {"populate_by_name": True}
+
+
+class MembersListResponse(BaseModel):
+    members: list[WorkspaceMember]
+    total: int
+
+
+class AddMemberRequest(BaseModel):
+    user_id: str = Field(alias="userId", min_length=1, max_length=256)
+    role: WorkspaceRoleValue = "viewer"
+
+    model_config = {"populate_by_name": True}
+
+
+class UpdateMemberRoleRequest(BaseModel):
+    role: WorkspaceRoleValue
+
+
 class ClauseSummary(BaseModel):
     id: str
     workspace_id: str = Field(alias="workspaceId")

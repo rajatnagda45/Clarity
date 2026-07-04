@@ -32,6 +32,8 @@ import type {
   AnswerMetrics,
   Citation,
   SpanRef,
+  WorkspaceMember,
+  MembersListResponse,
 } from '@/types/clarity';
 
 const BACKEND_URL = process.env.NEXT_PUBLIC_BACKEND_URL ?? 'http://localhost:8000';
@@ -120,6 +122,85 @@ export async function createWorkspace(
   return apiFetch<Workspace>('/api/workspaces', {
     method: 'POST',
     body: JSON.stringify(payload),
+    ...auth,
+  });
+}
+
+// ---------------------------------------------------------------------------
+// Billing
+// ---------------------------------------------------------------------------
+
+export async function createCheckoutSession(
+  auth: AuthContext,
+  plan: string,
+  successUrl: string,
+  cancelUrl: string,
+): Promise<{ url: string }> {
+  return apiFetch<{ url: string }>('/api/billing/checkout', {
+    method: 'POST',
+    body: JSON.stringify({ plan, success_url: successUrl, cancel_url: cancelUrl }),
+    ...auth,
+  });
+}
+
+export async function createPortalSession(
+  auth: AuthContext,
+  returnUrl: string,
+): Promise<{ url: string }> {
+  return apiFetch<{ url: string }>('/api/billing/portal', {
+    method: 'POST',
+    body: JSON.stringify({ return_url: returnUrl }),
+    ...auth,
+  });
+}
+
+// ---------------------------------------------------------------------------
+// Members
+// ---------------------------------------------------------------------------
+
+export async function getWorkspaceMembers(
+  auth: AuthContext,
+  workspaceId: string,
+): Promise<MembersListResponse> {
+  return apiFetch<MembersListResponse>(`/api/workspaces/${workspaceId}/members`, {
+    method: 'GET',
+    ...auth,
+  });
+}
+
+export async function addWorkspaceMember(
+  auth: AuthContext,
+  workspaceId: string,
+  userId: string,
+  role: string,
+): Promise<WorkspaceMember> {
+  return apiFetch<WorkspaceMember>(`/api/workspaces/${workspaceId}/members`, {
+    method: 'POST',
+    body: JSON.stringify({ userId, role }),
+    ...auth,
+  });
+}
+
+export async function updateMemberRole(
+  auth: AuthContext,
+  workspaceId: string,
+  userId: string,
+  role: string,
+): Promise<WorkspaceMember> {
+  return apiFetch<WorkspaceMember>(`/api/workspaces/${workspaceId}/members/${userId}`, {
+    method: 'PATCH',
+    body: JSON.stringify({ role }),
+    ...auth,
+  });
+}
+
+export async function removeWorkspaceMember(
+  auth: AuthContext,
+  workspaceId: string,
+  userId: string,
+): Promise<void> {
+  await apiFetch<void>(`/api/workspaces/${workspaceId}/members/${userId}`, {
+    method: 'DELETE',
     ...auth,
   });
 }

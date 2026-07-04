@@ -1,0 +1,16 @@
+{
+  "raw_score": 0.7685,
+  "is_correct": true,
+  "id": "007",
+  "scenario": "SLA commitment in multi-claim answer",
+  "claim": "The vendor guarantees 99.9% monthly uptime for the production service.",
+  "evidence_snippet": "Provider guarantees a monthly uptime percentage of 99.9% for the Production Environment, measured over each calendar month.",
+  "critic_verdict": "supported",
+  "nli_label": "entail",
+  "components": {
+    "frac_supported": 0.75,
+    "margin_norm": 0.8,
+    "min_rerank": 0.78,
+    "agreement": 0.75
+  }
+}

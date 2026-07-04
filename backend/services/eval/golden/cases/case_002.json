@@ -1,0 +1,16 @@
+{
+  "raw_score": 0.951,
+  "is_correct": true,
+  "id": "002",
+  "scenario": "Payment due date explicitly stated",
+  "claim": "Payment is due within 30 days of the invoice date.",
+  "evidence_snippet": "Customer shall pay each invoice within thirty (30) days of the invoice date. Late payments accrue interest at 1.5% per month.",
+  "critic_verdict": "supported",
+  "nli_label": "entail",
+  "components": {
+    "frac_supported": 1.0,
+    "margin_norm": 0.9,
+    "min_rerank": 0.88,
+    "agreement": 1.0
+  }
+}

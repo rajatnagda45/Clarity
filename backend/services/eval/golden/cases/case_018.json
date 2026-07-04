@@ -1,0 +1,16 @@
+{
+  "raw_score": 0.394,
+  "is_correct": false,
+  "id": "018",
+  "scenario": "Auto-termination not in contract",
+  "claim": "The agreement automatically terminates after five years with no renewal.",
+  "evidence_snippet": "This Agreement shall have an initial term of one (1) year from the Effective Date and shall automatically renew for successive one-year terms unless terminated.",
+  "critic_verdict": "unsupported",
+  "nli_label": "contradict",
+  "components": {
+    "frac_supported": 0.33,
+    "margin_norm": 0.45,
+    "min_rerank": 0.5,
+    "agreement": 0.33
+  }
+}

@@ -1,0 +1,16 @@
+{
+  "raw_score": 0.11,
+  "is_correct": false,
+  "id": "024",
+  "scenario": "Interest rate fabricated",
+  "claim": "Late payments accrue interest at 3% per month.",
+  "evidence_snippet": "Late payments shall accrue interest at the rate of one and one-half percent (1.5%) per month.",
+  "critic_verdict": "unsupported",
+  "nli_label": "contradict",
+  "components": {
+    "frac_supported": 0.0,
+    "margin_norm": 0.2,
+    "min_rerank": 0.3,
+    "agreement": 0.0
+  }
+}

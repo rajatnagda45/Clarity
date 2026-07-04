@@ -1,0 +1,16 @@
+{
+  "raw_score": 0.8165,
+  "is_correct": true,
+  "id": "005",
+  "scenario": "Liability cap stated with most claims supported",
+  "claim": "The aggregate liability of either party is capped at 2x the annual fees paid in the prior 12 months.",
+  "evidence_snippet": "In no event shall either party's liability exceed two times (2x) the total fees paid by Customer in the twelve-month period preceding the claim.",
+  "critic_verdict": "supported",
+  "nli_label": "entail",
+  "components": {
+    "frac_supported": 0.8,
+    "margin_norm": 0.85,
+    "min_rerank": 0.82,
+    "agreement": 0.8
+  }
+}

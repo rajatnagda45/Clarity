@@ -22,8 +22,10 @@ from services.verification.ensemble import (
     run_ensemble,
     fraction_supported,
     min_nli_score,
+    entailment_margin,
 )
 from services.verification.confidence import TrustScore, compute_trust
+from services.verification import calibrator as _calibrator_module
 from services.verification.calibrator import calibrate
 
 
@@ -217,6 +219,35 @@ class TestEnsemble:
         ]
         assert min_nli_score(results) == pytest.approx(0.4)
 
+    def test_entailment_margin_positive_for_entail(self):
+        results = [_make_claim_result(nli_label="entail", nli_score=0.9)]
+        # margin = 0.9 - 0.1 = 0.8 (positive)
+        assert entailment_margin(results) == pytest.approx(0.8)
+
+    def test_entailment_margin_negative_for_contradiction(self):
+        results = [_make_claim_result(nli_label="contradict", nli_score=0.85)]
+        # margin = (1-0.85) - 0.85 = 0.15 - 0.85 = -0.70 (negative)
+        assert entailment_margin(results) == pytest.approx(-0.70)
+
+    def test_entailment_margin_zero_for_neutral(self):
+        results = [_make_claim_result(nli_label="neutral", nli_score=0.5)]
+        # margin = (1-0.5) - 0.5 = 0.0
+        assert entailment_margin(results) == pytest.approx(0.0)
+
+    def test_entailment_margin_mixed_signals(self):
+        # One strong entailment, one strong contradiction → should nearly cancel
+        results = [
+            _make_claim_result(nli_label="entail", nli_score=0.9),
+            _make_claim_result(nli_label="contradict", nli_score=0.9),
+        ]
+        # entail margin: 0.9 - 0.1 = 0.8
+        # contradict margin: 0.1 - 0.9 = -0.8
+        # average = 0.0
+        assert entailment_margin(results) == pytest.approx(0.0)
+
+    def test_entailment_margin_empty(self):
+        assert entailment_margin([]) == pytest.approx(0.0)
+
 
 # ---------------------------------------------------------------------------
 # Confidence tests
@@ -269,8 +300,14 @@ class TestConfidence:
 
 class TestCalibrator:
     def test_passthrough_when_no_calibrator(self):
-        # calibrator.pkl won't exist in test env; should return identity
-        score = calibrate(0.75)
+        from pathlib import Path
+        from unittest.mock import patch
+
+        with patch.object(_calibrator_module, "_PKL_PATH", Path("/nonexistent/calibrator.pkl")):
+            _calibrator_module._calibrator = None
+            _calibrator_module.load_calibrator()
+            score = _calibrator_module.calibrate(0.75)
+
         assert score == pytest.approx(0.75, abs=0.01)
 
     def test_clamped_to_unit_interval(self):

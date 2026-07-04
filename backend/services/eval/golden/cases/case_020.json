@@ -1,0 +1,16 @@
+{
+  "raw_score": 0.3275,
+  "is_correct": false,
+  "id": "020",
+  "scenario": "Termination fee scope overstated",
+  "claim": "A termination fee equal to 6 months of remaining fees applies on any early termination.",
+  "evidence_snippet": "In the event Customer terminates for convenience prior to the end of a term, Customer shall pay a termination fee equal to six (6) months of the then-applicable monthly fees.",
+  "critic_verdict": "unsupported",
+  "nli_label": "neutral",
+  "components": {
+    "frac_supported": 0.25,
+    "margin_norm": 0.4,
+    "min_rerank": 0.45,
+    "agreement": 0.25
+  }
+}

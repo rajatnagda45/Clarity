@@ -10,6 +10,7 @@ This prevents a single LLM from grading its own output.
 """
 from __future__ import annotations
 
+import asyncio
 from dataclasses import dataclass, field
 
 from .critic import CriticResponse, ClaimVerdict
@@ -130,17 +131,46 @@ def apply_ensemble(
     )
 
 
+async def run_ensemble_async(
+    critic_response: CriticResponse,
+    evidence_spans: list[str],
+) -> list[ClaimResult]:
+    """Async version of run_ensemble: all per-claim NLI checks run concurrently."""
+    all_evidence = "\n".join(evidence_spans[:10])
+
+    async def _check_one(verdict: ClaimVerdict) -> ClaimResult:
+        premise = "\n".join(verdict.evidence_spans) if verdict.evidence_spans else all_evidence
+        if not premise.strip():
+            premise = "No evidence available."
+        nli = await asyncio.to_thread(check_entailment, premise=premise, hypothesis=verdict.claim)
+        ensemble = _combine(verdict, nli)
+        return ClaimResult(
+            claim=verdict.claim,
+            critic_verdict=verdict.verdict,
+            nli_label=nli.label,
+            nli_score=nli.score,
+            ensemble_verdict=ensemble,
+            evidence_spans=verdict.evidence_spans,
+            reasoning=verdict.reasoning,
+            debate_turn=verdict.debate_turn,
+        )
+
+    return list(await asyncio.gather(*[_check_one(v) for v in critic_response.verdicts]))
+
+
 def entailment_margin(results: list[ClaimResult]) -> float:
     """
     Average margin between entail-score and the max(neutral, contradict) alternative.
-    Positive margin means NLI lean toward entailment overall.
+    Positive margin means NLI leans toward entailment overall; negative toward contradiction.
     """
     if not results:
         return 0.0
     margins = []
     for r in results:
         if r.nli_label == "entail":
+            # Confident entailment → positive margin
             margins.append(r.nli_score - (1.0 - r.nli_score))
         else:
-            margins.append(r.nli_score - (1.0 - r.nli_score))
+            # Neutral or contradiction → negative margin (score here is confidence in non-entail label)
+            margins.append((1.0 - r.nli_score) - r.nli_score)
     return sum(margins) / len(margins)

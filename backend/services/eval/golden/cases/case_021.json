@@ -1,0 +1,16 @@
+{
+  "raw_score": 0.349,
+  "is_correct": false,
+  "id": "021",
+  "scenario": "IP ownership stated backwards",
+  "claim": "The contractor retains full ownership of all work product created under this agreement.",
+  "evidence_snippet": "All deliverables, work product, and intellectual property created by Provider specifically for Customer shall be owned exclusively by Customer.",
+  "critic_verdict": "unsupported",
+  "nli_label": "contradict",
+  "components": {
+    "frac_supported": 0.33,
+    "margin_norm": 0.35,
+    "min_rerank": 0.4,
+    "agreement": 0.33
+  }
+}

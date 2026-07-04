@@ -42,8 +42,7 @@ def check_entailment(premise: str, hypothesis: str) -> NLIResult:
     Returns an NLIResult for (premise, hypothesis).
     Falls back to neutral/0.5 on any API error so a failure is never a false positive.
     """
-    provider = getattr(settings, "nli_provider", "openai")
-    if provider == "hosted":
+    if settings.nli_provider == "hosted":
         return _check_hosted(premise, hypothesis)
     return _check_openai(premise, hypothesis)
 
@@ -56,7 +55,7 @@ def _check_openai(premise: str, hypothesis: str) -> NLIResult:
     try:
         client = OpenAI(api_key=settings.openai_api_key)
         resp = client.chat.completions.create(
-            model=settings.judge_model,
+            model=settings.nli_openai_model,
             messages=[
                 {"role": "system", "content": _NLI_SYSTEM},
                 {"role": "user", "content": prompt},

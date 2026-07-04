@@ -675,3 +675,18 @@ export interface ModelComparisonListResponse {
   comparisons: ModelComparison[];
   total: number;
 }
+
+// ---------------------------------------------------------------------------
+// Member management
+// ---------------------------------------------------------------------------
+
+export interface WorkspaceMember {
+  userId: string;
+  role: Role;
+  joinedAt: string | null;
+}
+
+export interface MembersListResponse {
+  members: WorkspaceMember[];
+  total: number;
+}

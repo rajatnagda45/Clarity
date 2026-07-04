@@ -1,0 +1,16 @@
+{
+  "raw_score": 0.51,
+  "is_correct": true,
+  "id": "015",
+  "scenario": "Borderline: work-for-hire partially supported",
+  "claim": "All custom work product developed under the agreement belongs to Customer.",
+  "evidence_snippet": "Any custom deliverables specifically developed for Customer under a Statement of Work shall be considered works made for hire, with ownership vesting in Customer upon payment in full.",
+  "critic_verdict": "supported",
+  "nli_label": "neutral",
+  "components": {
+    "frac_supported": 0.5,
+    "margin_norm": 0.5,
+    "min_rerank": 0.55,
+    "agreement": 0.5
+  }
+}

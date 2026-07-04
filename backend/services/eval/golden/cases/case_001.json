@@ -1,0 +1,16 @@
+{
+  "raw_score": 0.9715,
+  "is_correct": true,
+  "id": "001",
+  "scenario": "Renewal term directly stated",
+  "claim": "The agreement auto-renews for 12 months unless cancelled in writing 60 days before expiry.",
+  "evidence_snippet": "This Agreement shall automatically renew for successive one-year terms unless either party provides written notice of non-renewal at least sixty (60) days prior to the end of the then-current term.",
+  "critic_verdict": "supported",
+  "nli_label": "entail",
+  "components": {
+    "frac_supported": 1.0,
+    "margin_norm": 0.95,
+    "min_rerank": 0.92,
+    "agreement": 1.0
+  }
+}

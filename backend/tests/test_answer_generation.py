@@ -434,7 +434,7 @@ async def test_build_answer_stream_persists_trust_and_claims():
             overall_confidence=0.92,
         ),
     ), patch.object(
-        answer_service, "run_ensemble", return_value=[claim_result]
+        answer_service, "run_ensemble_async", new=AsyncMock(return_value=[claim_result])
     ), patch.object(
         answer_service, "compute_trust", return_value=trust
     ):
@@ -565,7 +565,7 @@ async def test_build_answer_stream_abstains_below_threshold():
             overall_confidence=0.3,
         ),
     ), patch.object(
-        answer_service, "run_ensemble", return_value=[claim_result]
+        answer_service, "run_ensemble_async", new=AsyncMock(return_value=[claim_result])
     ), patch.object(
         answer_service, "compute_trust", return_value=low_trust
     ):
@@ -719,7 +719,7 @@ async def test_build_answer_stream_runs_one_bounded_revision_pass():
     ), patch.object(
         answer_service, "run_critic", new=run_critic_mock
     ), patch.object(
-        answer_service, "run_ensemble", return_value=[claim_result]
+        answer_service, "run_ensemble_async", new=AsyncMock(return_value=[claim_result])
     ), patch.object(
         answer_service, "compute_trust", return_value=trust
     ):

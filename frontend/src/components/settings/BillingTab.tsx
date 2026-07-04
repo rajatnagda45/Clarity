@@ -2,19 +2,22 @@
 
 import { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { 
-  CreditCard, Sparkles, Receipt, Zap, ShieldCheck, 
-  CheckCircle2, Clock, HardDrive, FileText, MessageSquare, Plus, Lock, X
+import { useAuth } from '@clerk/nextjs';
+import {
+  CreditCard, Sparkles, Receipt, Zap, ShieldCheck,
+  CheckCircle2, Clock, HardDrive, FileText, MessageSquare, Plus, Loader2, X
 } from 'lucide-react';
 import { useWorkspace } from '@/contexts/WorkspaceContext';
 import { useDocuments } from '@/hooks/useDocuments';
 import { useDashboardMetrics } from '@/hooks/useDashboardMetrics';
 import { ProgressBar } from '@/components/ds/Progress';
+import { EmptyState } from '@/components/ds/EmptyState';
+import { createCheckoutSession, createPortalSession } from '@/lib/api';
 
 const PLANS = [
-  { name: 'hobby', label: 'Starter', price: '$0', storage: 50 * 1024 * 1024, queries: 100, seats: 1 },
+  { name: 'free', label: 'Starter', price: '$0', storage: 50 * 1024 * 1024, queries: 100, seats: 1 },
   { name: 'pro', label: 'Pro', price: '$49', storage: 5 * 1024 * 1024 * 1024, queries: 5000, seats: 5 },
-  { name: 'business', label: 'Business', price: '$199', storage: 20 * 1024 * 1024 * 1024, queries: 25000, seats: 20 },
+  { name: 'team', label: 'Business', price: '$199', storage: 20 * 1024 * 1024 * 1024, queries: 25000, seats: 20 },
 ];
 
 function formatBytes(bytes: number) {
@@ -25,7 +28,44 @@ function formatBytes(bytes: number) {
   return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
 }
 
-function UpgradeModal({ open, onClose, currentPlan }: { open: boolean, onClose: () => void, currentPlan: string }) {
+function UpgradeModal({
+  open,
+  onClose,
+  targetPlan,
+  workspaceId,
+}: {
+  open: boolean;
+  onClose: () => void;
+  targetPlan: string;
+  workspaceId: string;
+}) {
+  const { getToken } = useAuth();
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
+
+  const planLabel = PLANS.find(p => p.name === targetPlan)?.label ?? 'Pro';
+
+  async function handleCheckout() {
+    setLoading(true);
+    setError('');
+    try {
+      const token = await getToken();
+      if (!token) throw new Error('Session token unavailable.');
+      const successUrl = `${window.location.origin}/settings?tab=billing&checkout=success`;
+      const cancelUrl = `${window.location.origin}/settings?tab=billing`;
+      const { url } = await createCheckoutSession(
+        { token, workspaceId },
+        targetPlan,
+        successUrl,
+        cancelUrl,
+      );
+      window.location.href = url;
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Checkout failed. Please try again.');
+      setLoading(false);
+    }
+  }
+
   if (!open) return null;
   return (
     <AnimatePresence>
@@ -42,19 +82,41 @@ function UpgradeModal({ open, onClose, currentPlan }: { open: boolean, onClose: 
               <div className="w-12 h-12 rounded-xl bg-purple-500/10 border border-purple-500/20 flex items-center justify-center mb-4">
                 <Sparkles size={24} className="text-purple-400" />
               </div>
-              <h2 className="text-2xl font-bold text-[#F1F3F9]">Upgrade to Pro</h2>
+              <h2 className="text-2xl font-bold text-[#F1F3F9]">Upgrade to {planLabel}</h2>
               <p className="text-sm text-[#8892AA] mt-1">Unlock higher limits and priority support.</p>
             </div>
             <button onClick={onClose} className="p-2 text-[#4A5168] hover:text-[#F1F3F9] transition-colors"><X size={20} /></button>
           </div>
-          <div className="bg-[#05070B] border border-white/[0.06] rounded-xl p-6 mb-8 text-center">
-            <CreditCard size={32} className="text-[#4A5168] mx-auto mb-4" />
-            <p className="text-[#8892AA] text-sm">Stripe checkout integration is initializing in your environment. You will be able to manage your subscription directly here once complete.</p>
+          <div className="bg-[#05070B] border border-white/[0.06] rounded-xl p-6 mb-6">
+            <div className="flex items-center gap-3 mb-3">
+              <CreditCard size={20} className="text-purple-400 shrink-0" />
+              <p className="text-sm font-medium text-[#F1F3F9]">Secure checkout via Stripe</p>
+            </div>
+            <p className="text-[#8892AA] text-sm leading-relaxed">
+              You will be redirected to Stripe to complete your subscription. Your payment details are never stored on our servers.
+            </p>
           </div>
+          {error ? (
+            <p className="text-sm text-red-400 mb-4">{error}</p>
+          ) : null}
           <div className="flex justify-end gap-3">
-            <button onClick={onClose} className="px-5 py-2.5 rounded-xl text-sm font-medium text-[#8892AA] hover:text-[#F1F3F9] hover:bg-white/[0.04]">Cancel</button>
-            <button disabled className="px-6 py-2.5 rounded-xl text-sm font-semibold bg-purple-500 text-white opacity-50 cursor-not-allowed flex items-center gap-2">
-              <Lock size={16} /> Continue to Checkout
+            <button
+              onClick={onClose}
+              disabled={loading}
+              className="px-5 py-2.5 rounded-xl text-sm font-medium text-[#8892AA] hover:text-[#F1F3F9] hover:bg-white/[0.04] disabled:opacity-50"
+            >
+              Cancel
+            </button>
+            <button
+              onClick={handleCheckout}
+              disabled={loading}
+              className="px-6 py-2.5 rounded-xl text-sm font-semibold bg-purple-500 text-white hover:bg-purple-600 shadow-[0_0_20px_rgba(168,85,247,0.3)] transition-all flex items-center gap-2 disabled:opacity-70 disabled:cursor-not-allowed"
+            >
+              {loading ? (
+                <><Loader2 size={16} className="animate-spin" /> Redirecting…</>
+              ) : (
+                <><Zap size={16} /> Continue to Checkout</>
+              )}
             </button>
           </div>
         </motion.div>
@@ -65,12 +127,44 @@ function UpgradeModal({ open, onClose, currentPlan }: { open: boolean, onClose: 
 
 export function BillingTab() {
   const { activeWorkspace } = useWorkspace();
+  const { getToken } = useAuth();
   const { data: documents } = useDocuments();
   const { devDashboard, answerMetrics } = useDashboardMetrics();
-  
-  const [upgradeModalOpen, setUpgradeModalOpen] = useState(false);
 
-  if (!activeWorkspace) return null;
+  const [upgradeModalOpen, setUpgradeModalOpen] = useState(false);
+  const [selectedPlan, setSelectedPlan] = useState<string>('pro');
+  const [portalLoading, setPortalLoading] = useState(false);
+
+  async function handleManageSubscription() {
+    if (!activeWorkspace) return;
+    setPortalLoading(true);
+    try {
+      const token = await getToken();
+      if (!token) throw new Error('Session unavailable.');
+      const returnUrl = window.location.href;
+      const { url } = await createPortalSession({ token, workspaceId: activeWorkspace.id }, returnUrl);
+      window.location.href = url;
+    } catch {
+      setPortalLoading(false);
+    }
+  }
+
+  function openUpgradeModal(plan: string) {
+    setSelectedPlan(plan);
+    setUpgradeModalOpen(true);
+  }
+
+  if (!activeWorkspace) {
+    return (
+      <div className="flex flex-col items-center justify-center min-h-[60vh]">
+        <EmptyState
+          icon={<CreditCard size={24} />}
+          title="No Workspace Selected"
+          description="Create or select a workspace to manage billing, plans, and invoices."
+        />
+      </div>
+    );
+  }
 
   const currentPlanObj = PLANS.find(p => p.name === activeWorkspace.plan) || PLANS[0];
   const storageUsed = devDashboard.data?.totalStorageBytes ?? 0;
@@ -110,10 +204,15 @@ export function BillingTab() {
           </div>
           
           <div className="mt-6 md:mt-0 flex gap-3">
-            <button className="px-5 py-2.5 rounded-xl text-sm font-medium bg-white/[0.04] border border-white/[0.08] text-[#F1F3F9] hover:bg-white/[0.08] transition-colors">
+            <button
+              onClick={handleManageSubscription}
+              disabled={portalLoading}
+              className="px-5 py-2.5 rounded-xl text-sm font-medium bg-white/[0.04] border border-white/[0.08] text-[#F1F3F9] hover:bg-white/[0.08] transition-colors disabled:opacity-50 flex items-center gap-2"
+            >
+              {portalLoading ? <Loader2 size={14} className="animate-spin" /> : null}
               Manage Subscription
             </button>
-            <button onClick={() => setUpgradeModalOpen(true)} className="px-6 py-2.5 rounded-xl text-sm font-semibold bg-purple-500 text-white hover:bg-purple-600 shadow-[0_0_20px_rgba(168,85,247,0.3)] transition-all flex items-center gap-2">
+            <button onClick={() => openUpgradeModal('pro')} className="px-6 py-2.5 rounded-xl text-sm font-semibold bg-purple-500 text-white hover:bg-purple-600 shadow-[0_0_20px_rgba(168,85,247,0.3)] transition-all flex items-center gap-2">
               <Zap size={16} /> Upgrade Plan
             </button>
           </div>
@@ -173,7 +272,7 @@ export function BillingTab() {
                     Current Plan
                   </button>
                 ) : (
-                  <button onClick={() => setUpgradeModalOpen(true)} className="w-full py-2.5 rounded-xl text-sm font-semibold bg-white/[0.04] text-[#F1F3F9] hover:bg-white/[0.08] transition-colors border border-white/[0.08]">
+                  <button onClick={() => openUpgradeModal(plan.name)} className="w-full py-2.5 rounded-xl text-sm font-semibold bg-white/[0.04] text-[#F1F3F9] hover:bg-white/[0.08] transition-colors border border-white/[0.08]">
                     Upgrade to {plan.label}
                   </button>
                 )}
@@ -222,7 +321,12 @@ export function BillingTab() {
         </div>
       </div>
 
-      <UpgradeModal open={upgradeModalOpen} onClose={() => setUpgradeModalOpen(false)} currentPlan={activeWorkspace.plan} />
+      <UpgradeModal
+        open={upgradeModalOpen}
+        onClose={() => setUpgradeModalOpen(false)}
+        targetPlan={selectedPlan}
+        workspaceId={activeWorkspace.id}
+      />
     </div>
   );
 }

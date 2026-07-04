@@ -1,0 +1,16 @@
+{
+  "raw_score": 0.9325,
+  "is_correct": true,
+  "id": "003",
+  "scenario": "Governing law jurisdiction explicit",
+  "claim": "The governing law for this agreement is New York State.",
+  "evidence_snippet": "This Agreement shall be governed by and construed in accordance with the laws of the State of New York, without regard to conflict of law principles.",
+  "critic_verdict": "supported",
+  "nli_label": "entail",
+  "components": {
+    "frac_supported": 1.0,
+    "margin_norm": 0.85,
+    "min_rerank": 0.85,
+    "agreement": 1.0
+  }
+}

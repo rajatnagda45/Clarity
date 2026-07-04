@@ -1,0 +1,16 @@
+{
+  "raw_score": 0.8525,
+  "is_correct": true,
+  "id": "008",
+  "scenario": "Effective date clearly stated",
+  "claim": "The agreement is effective from January 1, 2024.",
+  "evidence_snippet": "This Agreement is entered into as of January 1, 2024 (the 'Effective Date').",
+  "critic_verdict": "supported",
+  "nli_label": "entail",
+  "components": {
+    "frac_supported": 1.0,
+    "margin_norm": 0.65,
+    "min_rerank": 0.7,
+    "agreement": 1.0
+  }
+}

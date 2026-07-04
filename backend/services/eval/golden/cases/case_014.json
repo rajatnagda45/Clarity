@@ -1,0 +1,16 @@
+{
+  "raw_score": 0.4765,
+  "is_correct": false,
+  "id": "014",
+  "scenario": "Dispute resolution \u2014 venue inferred incorrectly",
+  "claim": "All disputes must be resolved by arbitration in New York City.",
+  "evidence_snippet": "Any dispute arising under this Agreement shall be resolved through binding arbitration administered by the AAA under its Commercial Rules.",
+  "critic_verdict": "supported",
+  "nli_label": "neutral",
+  "components": {
+    "frac_supported": 0.33,
+    "margin_norm": 0.7,
+    "min_rerank": 0.6,
+    "agreement": 0.33
+  }
+}

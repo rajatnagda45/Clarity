@@ -1,0 +1,16 @@
+{
+  "raw_score": 0.2475,
+  "is_correct": false,
+  "id": "029",
+  "scenario": "Confidentiality duration understated",
+  "claim": "Confidentiality obligations last only one year after termination.",
+  "evidence_snippet": "The confidentiality obligations shall survive the expiration or termination of this Agreement for a period of three (3) years.",
+  "critic_verdict": "unsupported",
+  "nli_label": "contradict",
+  "components": {
+    "frac_supported": 0.25,
+    "margin_norm": 0.2,
+    "min_rerank": 0.3,
+    "agreement": 0.25
+  }
+}

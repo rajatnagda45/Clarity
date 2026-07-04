@@ -1,0 +1,16 @@
+{
+  "raw_score": 0.2825,
+  "is_correct": false,
+  "id": "023",
+  "scenario": "Insurance amount not in evidence",
+  "claim": "Vendor must carry $5M in errors and omissions insurance.",
+  "evidence_snippet": "Provider shall maintain professional liability (errors and omissions) insurance in such amounts as are customary for providers of similar services.",
+  "critic_verdict": "unsupported",
+  "nli_label": "neutral",
+  "components": {
+    "frac_supported": 0.0,
+    "margin_norm": 0.65,
+    "min_rerank": 0.6,
+    "agreement": 0.0
+  }
+}

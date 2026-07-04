@@ -1,0 +1,16 @@
+{
+  "raw_score": 0.5985,
+  "is_correct": true,
+  "id": "010",
+  "scenario": "Assignment clause inferred correctly",
+  "claim": "Neither party may assign this agreement without the other's prior written consent.",
+  "evidence_snippet": "Neither party may assign or transfer any of its rights or obligations hereunder without the prior written consent of the other party, not to be unreasonably withheld.",
+  "critic_verdict": "supported",
+  "nli_label": "entail",
+  "components": {
+    "frac_supported": 0.5,
+    "margin_norm": 0.75,
+    "min_rerank": 0.68,
+    "agreement": 0.5
+  }
+}

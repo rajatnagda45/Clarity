@@ -30,9 +30,18 @@ logger = logging.getLogger(__name__)
 _jwks_cache: dict[str, str] = {}  # kid → PEM public key
 _jwks_lock = threading.Lock()
 
-# Paths that don't require authentication
-_PUBLIC_PATHS = {"/", "/health", "/api/health", "/docs", "/openapi.json", "/redoc"}
+# Paths that never require authentication
+_PUBLIC_PATHS_ALWAYS = {"/", "/health", "/api/health", "/api/billing/webhook"}
+# Docs paths exposed only outside production to avoid schema enumeration in prod
+_PUBLIC_PATHS_DEV = {"/docs", "/openapi.json", "/redoc"}
 _PUBLIC_PATH_PREFIXES = ("/api/documents/dev-file/",)
+
+# Build the resolved set once at import time so the hot path has no branch per request
+_PUBLIC_PATHS: frozenset[str] = frozenset(
+    _PUBLIC_PATHS_ALWAYS | (
+        _PUBLIC_PATHS_DEV if settings.environment != "production" else set()
+    )
+)
 
 
 class AuthMiddleware(BaseHTTPMiddleware):

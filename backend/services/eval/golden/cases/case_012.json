@@ -1,0 +1,16 @@
+{
+  "raw_score": 0.5575,
+  "is_correct": false,
+  "id": "012",
+  "scenario": "Assignment clause \u2014 answer is subtly wrong (exception missed)",
+  "claim": "Parties may freely assign this agreement to affiliates without consent.",
+  "evidence_snippet": "Neither party may assign or transfer any of its rights or obligations hereunder without the prior written consent of the other party, not to be unreasonably withheld.",
+  "critic_verdict": "supported",
+  "nli_label": "neutral",
+  "components": {
+    "frac_supported": 0.5,
+    "margin_norm": 0.65,
+    "min_rerank": 0.6,
+    "agreement": 0.5
+  }
+}

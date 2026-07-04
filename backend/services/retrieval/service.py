@@ -361,8 +361,6 @@ async def retrieve_evidence(
         query_embedder = get_query_embedding_provider()
         vector_provider = get_vector_search_provider()
 
-        sparse_corpus = _build_sparse_corpus(chunks)
-
         async def run_dense() -> tuple[list, int]:
             started = _now_ms()
             query_vector = await query_embedder.embed(normalized_query.normalized_query)
@@ -376,10 +374,12 @@ async def retrieve_evidence(
 
         async def run_sparse() -> tuple[list, int]:
             started = _now_ms()
-            result = score_sparse_candidates(
-                sparse_corpus,
-                normalized_query.tokens,
-                top_k=settings.retrieval_sparse_top_k,
+            result = await asyncio.to_thread(
+                lambda: score_sparse_candidates(
+                    _build_sparse_corpus(chunks),
+                    normalized_query.tokens,
+                    top_k=settings.retrieval_sparse_top_k,
+                )
             )
             return result, int(_now_ms() - started)
 

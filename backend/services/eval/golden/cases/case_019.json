@@ -1,0 +1,16 @@
+{
+  "raw_score": 0.4525,
+  "is_correct": false,
+  "id": "019",
+  "scenario": "Cost allocation answer is wrong",
+  "claim": "Customer bears all infrastructure and hosting costs under the agreement.",
+  "evidence_snippet": "Provider is responsible for all infrastructure, hosting, and maintenance costs required to operate the service as described in the applicable Order Form.",
+  "critic_verdict": "unsupported",
+  "nli_label": "contradict",
+  "components": {
+    "frac_supported": 0.5,
+    "margin_norm": 0.35,
+    "min_rerank": 0.45,
+    "agreement": 0.5
+  }
+}

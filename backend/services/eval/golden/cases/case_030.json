@@ -1,0 +1,16 @@
+{
+  "raw_score": 0.18,
+  "is_correct": false,
+  "id": "030",
+  "scenario": "Assignment claim contradicts evidence",
+  "claim": "Either party may freely assign their rights under this agreement without restriction.",
+  "evidence_snippet": "Neither party may assign or transfer any of its rights or obligations hereunder without the prior written consent of the other party.",
+  "critic_verdict": "unsupported",
+  "nli_label": "contradict",
+  "components": {
+    "frac_supported": 0.0,
+    "margin_norm": 0.4,
+    "min_rerank": 0.4,
+    "agreement": 0.0
+  }
+}

@@ -1,0 +1,16 @@
+{
+  "raw_score": 0.8075,
+  "is_correct": true,
+  "id": "016",
+  "scenario": "Insurance requirement correctly stated",
+  "claim": "Vendor must maintain commercial general liability insurance of at least $2M per occurrence.",
+  "evidence_snippet": "Provider shall maintain, at its expense, commercial general liability insurance with coverage of not less than $2,000,000 per occurrence and $5,000,000 in the aggregate.",
+  "critic_verdict": "supported",
+  "nli_label": "entail",
+  "components": {
+    "frac_supported": 1.0,
+    "margin_norm": 0.55,
+    "min_rerank": 0.6,
+    "agreement": 1.0
+  }
+}

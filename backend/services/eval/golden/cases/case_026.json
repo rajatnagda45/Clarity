@@ -1,0 +1,16 @@
+{
+  "raw_score": 0.065,
+  "is_correct": false,
+  "id": "026",
+  "scenario": "Notice period understated",
+  "claim": "Termination requires only 14 days notice.",
+  "evidence_snippet": "Either party may terminate this Agreement for convenience upon sixty (60) days' prior written notice to the other party.",
+  "critic_verdict": "unsupported",
+  "nli_label": "contradict",
+  "components": {
+    "frac_supported": 0.0,
+    "margin_norm": 0.1,
+    "min_rerank": 0.2,
+    "agreement": 0.0
+  }
+}

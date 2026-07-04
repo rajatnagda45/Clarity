@@ -1,0 +1,16 @@
+{
+  "raw_score": 0.8935,
+  "is_correct": true,
+  "id": "006",
+  "scenario": "Confidentiality survival clause",
+  "claim": "Confidentiality obligations survive termination for three years.",
+  "evidence_snippet": "The confidentiality obligations set forth in this Section shall survive the expiration or termination of this Agreement for a period of three (3) years.",
+  "critic_verdict": "supported",
+  "nli_label": "entail",
+  "components": {
+    "frac_supported": 1.0,
+    "margin_norm": 0.75,
+    "min_rerank": 0.78,
+    "agreement": 1.0
+  }
+}

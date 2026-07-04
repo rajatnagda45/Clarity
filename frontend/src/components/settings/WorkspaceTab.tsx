@@ -12,6 +12,10 @@ import { useWorkspace } from '@/contexts/WorkspaceContext';
 import { useDocuments } from '@/hooks/useDocuments';
 import { useDashboardMetrics } from '@/hooks/useDashboardMetrics';
 import { CreateWorkspaceModal } from '@/components/workspace/CreateWorkspaceModal';
+import { EmptyState } from '@/components/ds/EmptyState';
+import { MemberList } from '@/components/settings/members/MemberList';
+import { AddMemberForm } from '@/components/settings/members/AddMemberForm';
+import { RolePermissionsMatrix } from '@/components/settings/members/RolePermissionsMatrix';
 
 const TABS = [
   { id: 'overview', label: 'Overview', icon: Building2 },
@@ -65,7 +69,26 @@ export function WorkspaceTab() {
   const storageUsed = devDashboard.data?.totalStorageBytes ?? 0;
   const queries = answerMetrics.data?.conversationsCreated ?? 0;
 
-  if (!activeWorkspace) return null;
+  if (!activeWorkspace) {
+    return (
+      <div className="flex flex-col items-center justify-center min-h-[60vh]">
+        <EmptyState
+          icon={<Building2 size={24} />}
+          title="No Workspace Selected"
+          description="Create or select a workspace to manage settings, members, and API keys."
+          action={
+            <button 
+              onClick={() => setCreateOpen(true)}
+              className="px-4 py-2 rounded-xl bg-purple-500 text-white font-semibold text-sm hover:bg-purple-600 transition-colors shadow-[0_0_15px_rgba(168,85,247,0.4)]"
+            >
+              Create Workspace
+            </button>
+          }
+        />
+        <CreateWorkspaceModal open={createOpen} onClose={() => setCreateOpen(false)} />
+      </div>
+    );
+  }
 
   return (
     <div className="flex flex-col animate-in fade-in duration-500">
@@ -257,8 +280,19 @@ export function WorkspaceTab() {
             </div>
           )}
 
-          {/* Placeholders for un-implemented tabs */}
-          {activeTab !== 'overview' && (
+          {activeTab === 'members' && (
+            <div className="space-y-6">
+              {activeWorkspace.role === 'owner' && <AddMemberForm />}
+              <MemberList />
+            </div>
+          )}
+
+          {activeTab === 'roles' && (
+            <RolePermissionsMatrix />
+          )}
+
+          {/* Placeholder for not-yet-implemented tabs */}
+          {activeTab !== 'overview' && activeTab !== 'members' && activeTab !== 'roles' && (
             <div className="flex flex-col items-center justify-center py-20 bg-[#0F1117] border border-white/[0.06] rounded-2xl">
               <div className="w-16 h-16 rounded-2xl bg-white/[0.02] border border-white/[0.04] flex items-center justify-center mb-6">
                 <AlertTriangle size={24} className="text-[#4A5168]" />

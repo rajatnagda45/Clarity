@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import json
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock, call, patch
 
 from services.verification.nli import NLIResult, check_entailment, check_batch
 
@@ -60,3 +60,20 @@ def test_check_batch_returns_list_of_results():
 
     assert len(results) == 2
     assert all(isinstance(r, NLIResult) for r in results)
+
+
+def test_nli_uses_nli_openai_model_not_judge_model():
+    """NLI signal must use a different model than the Critic to ensure independence."""
+    from config import settings
+
+    mock_response = _make_openai_response("entail", 0.90)
+
+    with patch("services.verification.nli.OpenAI") as mock_cls:
+        mock_cls.return_value.chat.completions.create.return_value = mock_response
+        check_entailment("The term is 1 year.", "The agreement runs for one year.")
+
+    create_kwargs = mock_cls.return_value.chat.completions.create.call_args.kwargs
+    assert create_kwargs["model"] == settings.nli_openai_model
+    assert create_kwargs["model"] != settings.judge_model, (
+        "NLI and Critic must use different models so the two signals are independent"
+    )

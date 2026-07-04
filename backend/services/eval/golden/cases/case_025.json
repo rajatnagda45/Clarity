@@ -1,0 +1,16 @@
+{
+  "raw_score": 0.0875,
+  "is_correct": false,
+  "id": "025",
+  "scenario": "Governing law stated incorrectly",
+  "claim": "This agreement is governed by California law.",
+  "evidence_snippet": "This Agreement shall be governed by and construed in accordance with the laws of the State of New York.",
+  "critic_verdict": "unsupported",
+  "nli_label": "contradict",
+  "components": {
+    "frac_supported": 0.0,
+    "margin_norm": 0.15,
+    "min_rerank": 0.25,
+    "agreement": 0.0
+  }
+}

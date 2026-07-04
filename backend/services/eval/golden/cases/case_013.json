@@ -1,0 +1,16 @@
+{
+  "raw_score": 0.6035,
+  "is_correct": true,
+  "id": "013",
+  "scenario": "Force majeure correctly identified",
+  "claim": "Force majeure events excuse performance obligations except for payment.",
+  "evidence_snippet": "Neither party shall be liable for failure to perform due to causes beyond its reasonable control (force majeure), provided that payment obligations are expressly excluded from this provision.",
+  "critic_verdict": "supported",
+  "nli_label": "entail",
+  "components": {
+    "frac_supported": 0.67,
+    "margin_norm": 0.5,
+    "min_rerank": 0.55,
+    "agreement": 0.67
+  }
+}

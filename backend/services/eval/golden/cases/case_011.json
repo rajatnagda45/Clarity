@@ -1,0 +1,16 @@
+{
+  "raw_score": 0.68,
+  "is_correct": true,
+  "id": "011",
+  "scenario": "Price increase cap correctly identified",
+  "claim": "Annual price increases are limited to 5% above the prior year's fees.",
+  "evidence_snippet": "Provider may increase fees upon renewal, provided that any increase does not exceed five percent (5%) above the fees applicable in the immediately preceding contract year.",
+  "critic_verdict": "supported",
+  "nli_label": "entail",
+  "components": {
+    "frac_supported": 0.75,
+    "margin_norm": 0.55,
+    "min_rerank": 0.65,
+    "agreement": 0.75
+  }
+}

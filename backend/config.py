@@ -11,8 +11,9 @@ class Settings(BaseSettings):
     embed_dim: int = 1536
 
     # Two-signal verifier
-    nli_provider: str = "hosted"          # hosted | openai
-    nli_model: str = ""                   # DeBERTa endpoint id when nli_provider=hosted
+    nli_provider: str = "openai"          # openai | hosted
+    nli_model: str = ""                   # DeBERTa/cross-encoder endpoint URL when nli_provider=hosted
+    nli_openai_model: str = "gpt-4o"     # OpenAI model for NLI signal — must differ from judge_model to keep signals independent
     abstain_threshold: float = 0.55       # calibrated confidence below which the system abstains
     critic_max_iterations: int = 2        # hard cap on Critic re-retrieval rounds
 
@@ -104,6 +105,8 @@ class Settings(BaseSettings):
     # Stripe
     stripe_secret_key: str = ""
     stripe_webhook_secret: str = ""
+    stripe_price_id_pro: str = ""    # Stripe Price ID for the Pro plan
+    stripe_price_id_team: str = ""   # Stripe Price ID for the Team plan
 
     # App
     backend_url: str = "http://localhost:8000"

@@ -1,0 +1,16 @@
+{
+  "raw_score": 0.145,
+  "is_correct": false,
+  "id": "028",
+  "scenario": "Renewal described as not automatic",
+  "claim": "The agreement does not auto-renew; a new order must be placed each year.",
+  "evidence_snippet": "Unless either party provides written notice of non-renewal at least sixty (60) days prior to expiry, the Agreement shall automatically renew for successive one-year terms.",
+  "critic_verdict": "unsupported",
+  "nli_label": "contradict",
+  "components": {
+    "frac_supported": 0.0,
+    "margin_norm": 0.3,
+    "min_rerank": 0.35,
+    "agreement": 0.0
+  }
+}

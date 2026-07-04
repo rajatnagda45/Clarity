@@ -39,6 +39,8 @@ from api.routers import quality_gates
 from api.routers import release_notes
 from api.routers import model_comparisons
 from api.routers import benchmark_suggestions
+from api.routers import billing
+from api.routers import members
 
 
 @asynccontextmanager
@@ -126,3 +128,5 @@ app.include_router(quality_gates.router)
 app.include_router(release_notes.router)
 app.include_router(model_comparisons.router)
 app.include_router(benchmark_suggestions.router)
+app.include_router(billing.router)
+app.include_router(members.router)

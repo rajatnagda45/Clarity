@@ -3,6 +3,7 @@ import type {
   Citation,
   Claim,
   DebateTurn,
+  EntailmentLabel,
   Message,
   RetrievalEvidence,
   RetrievalNormalizedQuery,
@@ -77,19 +78,43 @@ export function applyStreamEvent(
         citations: [...state.citations, event.citation],
       };
     case 'claim':
-      // RC2: claim is a string; full Claim objects arrive via the 'message' event from DB
-      return state;
+      return {
+        ...state,
+        claims: [
+          ...state.claims,
+          {
+            id: event.claim,
+            text: event.claim,
+            criticVerdict: event.criticVerdict,
+            nliLabel: event.nliLabel as EntailmentLabel,
+            nliScore: event.nliScore,
+            ensembleVerdict: event.verdict,
+            evidenceSpans: event.evidenceSpans,
+            debateTurn: 1,
+          } satisfies Claim,
+        ],
+      };
     case 'debate_turn':
-      // RC2: {turn, claim, verdict, reasoning}; page.tsx manages streamingDebateTurns separately
-      return state;
+      return {
+        ...state,
+        debateTurns: [
+          ...state.debateTurns,
+          {
+            turn: event.turn,
+            claim: event.claim,
+            verdict: event.verdict,
+            reasoning: event.reasoning,
+            createdAt: null,
+          } satisfies DebateTurn,
+        ],
+      };
     case 'trust':
-      // RC2: {raw, calibrated, components}
       return {
         ...state,
         trust: {
-          faithfulness: event.calibrated,
-          relevance: null,
-          overall: event.raw,
+          faithfulness: event.components['frac_supported'] ?? event.calibrated,
+          relevance: event.components['min_rerank'] ?? null,
+          overall: event.calibrated,
           confidence: event.calibrated,
           calibrated: true,
           confidenceBand: event.calibrated >= 0.80 ? 'high' : event.calibrated >= 0.60 ? 'medium' : 'low',

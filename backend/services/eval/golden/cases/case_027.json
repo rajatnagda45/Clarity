@@ -1,0 +1,16 @@
+{
+  "raw_score": 0.0425,
+  "is_correct": false,
+  "id": "027",
+  "scenario": "Liability stated as uncapped",
+  "claim": "There is no cap on the liability of either party under this agreement.",
+  "evidence_snippet": "In no event shall either party's aggregate liability exceed five hundred thousand dollars ($500,000).",
+  "critic_verdict": "unsupported",
+  "nli_label": "contradict",
+  "components": {
+    "frac_supported": 0.0,
+    "margin_norm": 0.05,
+    "min_rerank": 0.15,
+    "agreement": 0.0
+  }
+}
