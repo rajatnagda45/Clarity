@@ -60,8 +60,11 @@ async def health_ready():
     checks["database"] = await _probe_database()
     checks["openai"] = await _probe_openai()
     checks["config"] = _probe_config()
+    checks["redis"] = await _probe_redis()
+    checks["queue"] = await _probe_queue()
 
     all_ok = all(c.ok for c in checks.values())
+    # Only database being down is considered "unavailable"; Redis/queue failures → "degraded"
     any_critical_down = not checks["database"].ok
 
     if any_critical_down:
@@ -121,3 +124,33 @@ def _probe_config() -> HealthProbeResult:
     if missing:
         return HealthProbeResult(ok=False, detail=f"Missing config: {', '.join(missing)}")
     return HealthProbeResult(ok=True)
+
+
+async def _probe_redis() -> HealthProbeResult:
+    """Ping Redis. Non-critical — degraded but not unavailable when down."""
+    if not settings.redis_url:
+        return HealthProbeResult(ok=True, detail="Redis not configured (optional)")
+    t0 = time.perf_counter()
+    try:
+        from cache.client import cache_ping
+        ok = await cache_ping()
+        latency = round((time.perf_counter() - t0) * 1000, 1)
+        if ok:
+            return HealthProbeResult(ok=True, latency_ms=latency)
+        return HealthProbeResult(ok=False, latency_ms=latency, detail="Redis ping returned False")
+    except Exception as exc:
+        return HealthProbeResult(ok=False, detail=str(exc)[:120])
+
+
+async def _probe_queue() -> HealthProbeResult:
+    """Check ARQ queue is reachable. Non-critical — degraded when down."""
+    if not settings.redis_url:
+        return HealthProbeResult(ok=True, detail="Queue not configured (BackgroundTasks fallback active)")
+    t0 = time.perf_counter()
+    try:
+        from job_queue.client import queue_depth
+        depth = await queue_depth()
+        latency = round((time.perf_counter() - t0) * 1000, 1)
+        return HealthProbeResult(ok=True, latency_ms=latency, detail=f"queue_depth={depth}")
+    except Exception as exc:
+        return HealthProbeResult(ok=False, detail=str(exc)[:120])

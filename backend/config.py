@@ -43,9 +43,23 @@ class Settings(BaseSettings):
     clerk_jwt_audience: str = ""  # optional audience claim check (legacy compat)
     developer_user_ids: str = ""  # comma-separated user IDs (legacy compat); parse with .split(",") if needed
 
-    # Upstash Redis (optional — set RETRIEVAL_CACHE_TTL_SECONDS=0 to disable)
+    # Upstash Redis (optional — legacy REST-based rate limiting; prefer REDIS_URL)
     upstash_redis_rest_url: str = ""
     upstash_redis_rest_token: str = ""
+
+    # Redis (standard redis:// URL — used for queue, cache, and rate limiting)
+    redis_url: str = ""
+
+    # ARQ job queue settings
+    arq_job_timeout: int = 3600        # max seconds a single job may run
+    arq_max_jobs: int = 10             # concurrent jobs per worker
+    arq_max_tries: int = 3             # retry attempts before dead-letter
+    arq_keep_result: int = 86400       # seconds to keep job results in Redis
+
+    # OpenTelemetry
+    otel_enabled: bool = False
+    otel_service_name: str = "clarity-api"
+    otel_exporter_otlp_endpoint: str = "http://localhost:4317"
 
     # Cloudflare R2 (optional — falls back to local filesystem storage in dev mode)
     r2_account_id: str = ""

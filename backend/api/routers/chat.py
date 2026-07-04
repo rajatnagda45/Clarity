@@ -43,7 +43,14 @@ async def start_chat_stream(
         ) from cause
     # Fire LLM-as-judge eval after the answer is fully generated
     if prepared.assistant_message_id:
-        background_tasks.add_task(schedule_eval, prepared.answer_run_id, workspace_id)
+        from job_queue.client import enqueue_or_background
+        await enqueue_or_background(
+            "run_eval",
+            schedule_eval,
+            prepared.answer_run_id,
+            workspace_id,
+            background_tasks=background_tasks,
+        )
     return StreamingResponse(stream_events(prepared.events), media_type="text/event-stream")
 
 

@@ -1,0 +1,32 @@
+# ARQ worker image — consumes jobs from the Redis queue.
+# Scale independently from the API server: kubectl scale deploy/clarity-worker --replicas=N
+# ── Build stage ────────────────────────────────────────────────────────────────
+FROM python:3.11-slim AS builder
+
+WORKDIR /app
+
+RUN pip install --no-cache-dir poetry==1.8.5
+
+COPY pyproject.toml poetry.lock* ./
+
+RUN poetry config virtualenvs.in-project true \
+    && poetry install --no-root --no-dev --no-interaction --no-ansi
+
+# ── Runtime stage ──────────────────────────────────────────────────────────────
+FROM python:3.11-slim AS runtime
+
+WORKDIR /app
+
+RUN addgroup --system app && adduser --system --group app
+
+COPY --from=builder /app/.venv /app/.venv
+COPY . .
+
+ENV PATH="/app/.venv/bin:$PATH" \
+    PYTHONUNBUFFERED=1 \
+    PYTHONDONTWRITEBYTECODE=1
+
+USER app
+
+# ARQ worker entrypoint — discovers WorkerSettings from worker.py
+CMD ["arq", "worker.WorkerSettings"]

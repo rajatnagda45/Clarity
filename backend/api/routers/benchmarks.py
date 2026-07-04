@@ -279,7 +279,7 @@ def add_case(
 # ─── Runs ─────────────────────────────────────────────────────────────────────
 
 @router.post("/datasets/{dataset_id}/runs", response_model=BenchmarkRunResponse, status_code=status.HTTP_202_ACCEPTED)
-def trigger_run(
+async def trigger_run(
     dataset_id: str,
     background_tasks: BackgroundTasks,
     membership: tuple[str, str] = Depends(require_workspace_role),
@@ -319,10 +319,18 @@ def trigger_run(
         "created_at": now,
     }).execute()
 
-    async def _run() -> None:
+    from job_queue.client import enqueue_or_background
+
+    async def _run_fallback() -> None:
         await run_benchmark(workspace_id, dataset_id)
 
-    background_tasks.add_task(_run)
+    await enqueue_or_background(
+        "run_benchmark_job",
+        _run_fallback,
+        workspace_id,
+        dataset_id,
+        background_tasks=background_tasks,
+    )
 
     return BenchmarkRunResponse(
         id=run_id,

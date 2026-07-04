@@ -138,15 +138,22 @@ def _should_refresh_index(row: dict, workspace_id: str) -> bool:
     return row["status"] == "indexed" and not _document_index_target_matches(row, workspace_id)
 
 
-def _schedule_index_refresh(
+async def _schedule_index_refresh(
     background_tasks: BackgroundTasks | None,
     row: dict,
     workspace_id: str,
 ) -> None:
-    if not background_tasks or not _should_refresh_index(row, workspace_id):
+    if not _should_refresh_index(row, workspace_id):
         return
     if queue_document_for_indexing(str(row["id"]), workspace_id):
-        background_tasks.add_task(run_document_indexing_task, str(row["id"]), workspace_id)
+        from job_queue.client import enqueue_or_background
+        await enqueue_or_background(
+            "run_document_indexing",
+            run_document_indexing_task,
+            str(row["id"]),
+            workspace_id,
+            background_tasks=background_tasks,
+        )
 
 
 def _should_refresh_embeddings(row: dict) -> bool:
@@ -155,15 +162,22 @@ def _should_refresh_embeddings(row: dict) -> bool:
     return row["status"] in {"chunked", "awaiting_embeddings"}
 
 
-def _schedule_embedding_refresh(
+async def _schedule_embedding_refresh(
     background_tasks: BackgroundTasks | None,
     row: dict,
     workspace_id: str,
 ) -> None:
-    if not background_tasks or not _should_refresh_embeddings(row):
+    if not _should_refresh_embeddings(row):
         return
     _queue_embedding_refresh(str(row["id"]), workspace_id)
-    background_tasks.add_task(run_document_embedding_task, str(row["id"]), workspace_id)
+    from job_queue.client import enqueue_or_background
+    await enqueue_or_background(
+        "run_document_embedding",
+        run_document_embedding_task,
+        str(row["id"]),
+        workspace_id,
+        background_tasks=background_tasks,
+    )
 
 
 def require_editor_workspace(request: Request) -> tuple[str, str]:
@@ -232,8 +246,8 @@ async def list_documents(
         .execute()
     )
     for row in rows.data or []:
-        _schedule_embedding_refresh(background_tasks, row, workspace_id)
-        _schedule_index_refresh(background_tasks, row, workspace_id)
+        await _schedule_embedding_refresh(background_tasks, row, workspace_id)
+        await _schedule_index_refresh(background_tasks, row, workspace_id)
     documents = [_document_summary_from_row(row) for row in rows.data or []]
     return DocumentListResponse(documents=documents)
 
@@ -443,8 +457,8 @@ async def get_document(
     if not row:
         raise _error(status.HTTP_404_NOT_FOUND, "document_not_found", "Document was not found.")
 
-    _schedule_embedding_refresh(background_tasks, row, workspace_id)
-    _schedule_index_refresh(background_tasks, row, workspace_id)
+    await _schedule_embedding_refresh(background_tasks, row, workspace_id)
+    await _schedule_index_refresh(background_tasks, row, workspace_id)
 
     clause_rows = (
         tenant_query("clauses", workspace_id)
@@ -556,7 +570,14 @@ async def upload_document(
         buffered_upload.close()
 
     created_row = (result.data or [row])[0]
-    background_tasks.add_task(run_document_ingestion_task, document_id, workspace_id)
+    from job_queue.client import enqueue_or_background
+    await enqueue_or_background(
+        "run_document_ingestion",
+        run_document_ingestion_task,
+        document_id,
+        workspace_id,
+        background_tasks=background_tasks,
+    )
     return _document_summary_from_row(created_row)
 
 

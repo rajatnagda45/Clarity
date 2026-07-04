@@ -1,0 +1,31 @@
+---
+# Ingress — routes external traffic to the API service.
+# Requires an ingress controller (nginx-ingress, Traefik, or cloud-native).
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: clarity-ingress
+  namespace: clarity
+  annotations:
+    nginx.ingress.kubernetes.io/proxy-read-timeout: "120"
+    nginx.ingress.kubernetes.io/proxy-send-timeout: "120"
+    nginx.ingress.kubernetes.io/proxy-body-size: "60m"    # 50 MB upload + overhead
+    nginx.ingress.kubernetes.io/enable-cors: "true"
+    nginx.ingress.kubernetes.io/cors-allow-credentials: "true"
+spec:
+  ingressClassName: nginx
+  rules:
+    - host: api.clarity.ai        # replace with your domain
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: clarity-api
+                port:
+                  number: 80
+  tls:
+    - hosts:
+        - api.clarity.ai
+      secretName: clarity-tls     # provision with cert-manager or manually

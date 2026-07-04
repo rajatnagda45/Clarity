@@ -1,0 +1,78 @@
+---
+# ARQ Worker Deployment — independently scalable job consumers.
+# Workers are stateless; scale horizontally without coordination.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: clarity-worker
+  namespace: clarity
+  labels:
+    app: clarity-worker
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: clarity-worker
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 1
+  template:
+    metadata:
+      labels:
+        app: clarity-worker
+    spec:
+      # Allow up to 1 hour for a running job to complete before evicting a pod
+      terminationGracePeriodSeconds: 3600
+      containers:
+        - name: worker
+          image: clarity-worker:latest   # replace with your registry path
+          imagePullPolicy: Always
+          envFrom:
+            - configMapRef:
+                name: clarity-config
+            - secretRef:
+                name: clarity-secrets
+          resources:
+            requests:
+              memory: "1Gi"
+              cpu: "500m"
+            limits:
+              memory: "4Gi"
+              cpu: "2000m"
+          # Workers don't serve HTTP; use a process liveness check instead
+          livenessProbe:
+            exec:
+              command: ["python", "-c", "import sys; sys.exit(0)"]
+            initialDelaySeconds: 15
+            periodSeconds: 30
+            failureThreshold: 3
+---
+# Worker HPA — scales based on queue depth via KEDA (optional).
+# Without KEDA, scale manually: kubectl scale deploy/clarity-worker --replicas=N
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: clarity-worker-hpa
+  namespace: clarity
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: clarity-worker
+  minReplicas: 1
+  maxReplicas: 20
+  metrics:
+    - type: Resource
+      resource:
+        name: cpu
+        target:
+          type: Utilization
+          averageUtilization: 60
+    - type: Resource
+      resource:
+        name: memory
+        target:
+          type: Utilization
+          averageUtilization: 75

@@ -412,13 +412,16 @@ async def trigger_agent_run(
     if not run_row:
         raise api_error(502, "run_creation_failed", "Failed to create agent run.")
 
-    background_tasks.add_task(
+    from job_queue.client import enqueue_or_background
+    await enqueue_or_background(
+        "run_agent_execution",
         _execute_agent_run,
         run_id,
         agent_id,
         workspace_id,
         payload.input,
         payload.pipeline_agents,
+        background_tasks=background_tasks,
     )
 
     return _run_row_to_schema(run_row[0])

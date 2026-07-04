@@ -60,17 +60,32 @@ from api.routers import review_queue
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    # Best-effort startup connectivity check so local development works even when
-    # external services are unavailable.
+    # Distributed queue + cache (gracefully no-ops if Redis not configured)
+    from job_queue.client import init_pool, close_pool
+    from cache.client import init_redis, close_redis
+
+    if settings.redis_url:
+        await init_redis(settings.redis_url)
+        await init_pool(settings.redis_url)
+
+    # OpenTelemetry (opt-in via OTEL_ENABLED=true)
+    if settings.otel_enabled:
+        from telemetry.setup import setup_telemetry
+        setup_telemetry(app, settings.otel_service_name, settings.otel_exporter_otlp_endpoint)
+
+    # Best-effort startup connectivity check
     try:
         from db.client import get_client
-
-        client = get_client()
-        client.table("workspaces").select("id").limit(1).execute()
+        get_client().table("workspaces").select("id").limit(1).execute()
     except Exception:
         pass
+
     yield
-    # Teardown (connections are HTTP-based, nothing to explicitly close)
+
+    # Graceful shutdown — drain queue pool and Redis connections
+    if settings.redis_url:
+        await close_pool()
+        await close_redis()
 
 
 def _init_sentry() -> None:
