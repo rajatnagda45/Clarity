@@ -41,11 +41,23 @@ spec:
             limits:
               memory: "4Gi"
               cpu: "2000m"
-          # Workers don't serve HTTP; use a process liveness check instead
+          # Liveness: verify the ARQ worker event loop is alive by checking
+          # its Redis heartbeat key. A deadlocked worker stops writing heartbeats.
           livenessProbe:
             exec:
-              command: ["python", "-c", "import sys; sys.exit(0)"]
-            initialDelaySeconds: 15
+              command:
+                - python
+                - -c
+                - |
+                  import os, sys
+                  try:
+                      import redis
+                      r = redis.from_url(os.getenv("REDIS_URL","redis://redis:6379/0"), socket_timeout=2)
+                      keys = r.keys("arq:health:*")
+                      sys.exit(0 if keys else 1)
+                  except Exception:
+                      sys.exit(1)
+            initialDelaySeconds: 30
             periodSeconds: 30
             failureThreshold: 3
 ---

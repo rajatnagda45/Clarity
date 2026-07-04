@@ -121,5 +121,5 @@ async def delete_prompt_entry(
     if not rows:
         raise api_error(404, "prompt_not_found", "Prompt not found.")
 
-    get_client().table("prompt_library").delete().eq("id", prompt_id).execute()
+    get_client().table("prompt_library").delete().eq("id", prompt_id).eq("workspace_id", workspace_id).execute()
     return Response(status_code=status.HTTP_204_NO_CONTENT)

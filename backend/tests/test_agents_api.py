@@ -124,6 +124,8 @@ class TestListAgents:
             q.select.return_value = q
             q.order.return_value = q
             q.is_.return_value = q
+            q.limit.return_value = q
+            q.offset.return_value = q
             q.execute.return_value = MagicMock(data=[_make_agent_row()])
             with patch("api.routers.agents.tenant_query", return_value=q):
                 async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:

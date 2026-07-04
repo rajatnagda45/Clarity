@@ -49,6 +49,75 @@ async def shutdown(ctx: dict) -> None:
     await close_redis()
 
 
+async def on_job_abort(ctx: dict) -> None:
+    """
+    Called by ARQ when a job exhausts all retry attempts (max_tries reached).
+
+    Stores the failure in a dead letter queue (DLQ) Redis key so it can be
+    inspected by operators and surfaced in monitoring. The document or agent
+    run status is updated to 'failed' so users see a terminal state.
+    """
+    import json as _json
+    import traceback as _tb
+
+    job_id = ctx.get("job_id", "unknown")
+    function = ctx.get("function", "unknown")
+    args = ctx.get("args", [])
+    kwargs = ctx.get("kwargs", {})
+    exc = ctx.get("exc")
+
+    tb_str = "".join(_tb.format_exception(type(exc), exc, exc.__traceback__)) if exc else ""
+
+    entry = {
+        "job_id": job_id,
+        "function": function,
+        "args": [str(a) for a in args],
+        "kwargs": {k: str(v) for k, v in kwargs.items()},
+        "error": str(exc) if exc else "unknown",
+        "traceback": tb_str[-2000:],
+        "retry_count": ctx.get("job_try", 0),
+        "aborted_at": __import__("datetime").datetime.utcnow().isoformat(),
+    }
+
+    logger.error(
+        "job_abort function=%s job_id=%s error=%s",
+        function, job_id, entry["error"],
+    )
+
+    try:
+        r = ctx.get("redis")
+        if r is not None:
+            dlq_key = "dlq:aborted_jobs"
+            await r.lpush(dlq_key, _json.dumps(entry))
+            await r.ltrim(dlq_key, 0, 999)  # keep last 1000 DLQ entries
+    except Exception as dlq_exc:
+        logger.warning("Failed to write to DLQ: %s", dlq_exc)
+
+    # Best-effort: mark the associated document/agent run as failed
+    try:
+        if function == "run_document_ingestion" and args:
+            document_id = args[0]
+            from db.client import get_client
+            get_client().table("documents").update({
+                "status": "failed",
+                "error": f"Job aborted after max retries: {entry['error'][:200]}",
+            }).eq("id", document_id).execute()
+    except Exception:
+        pass
+
+    try:
+        if function == "run_agent_execution" and args:
+            run_id = args[0]
+            from db.client import get_client
+            from datetime import UTC, datetime
+            get_client().table("agent_runs").update({
+                "status": "failed",
+                "completed_at": datetime.now(UTC).isoformat(),
+            }).eq("id", run_id).execute()
+    except Exception:
+        pass
+
+
 class WorkerSettings:
     """
     ARQ worker configuration.
@@ -82,3 +151,4 @@ class WorkerSettings:
 
     on_startup = startup
     on_shutdown = shutdown
+    on_job_abort = on_job_abort

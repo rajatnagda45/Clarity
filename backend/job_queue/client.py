@@ -102,9 +102,17 @@ async def enqueue_or_background(
         if background_tasks is not None:
             background_tasks.add_task(fallback_fn, *args)
         else:
-            logger.warning(
-                "No queue and no background_tasks for %s — task dropped", task_name
+            logger.debug(
+                "No queue and no background_tasks for %s — running inline", task_name
             )
+            try:
+                import asyncio
+                if asyncio.iscoroutinefunction(fallback_fn):
+                    await fallback_fn(*args)
+                else:
+                    await asyncio.to_thread(fallback_fn, *args)
+            except Exception as exc:
+                logger.error("Inline fallback failed for %s: %s", task_name, exc)
 
 
 async def queue_depth() -> int:

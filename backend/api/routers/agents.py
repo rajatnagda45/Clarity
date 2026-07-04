@@ -222,6 +222,8 @@ async def list_agents(
     request: Request,
     category: str | None = None,
     archived: bool = False,
+    limit: int = 100,
+    offset: int = 0,
     ctx: tuple = Depends(require_workspace_role),
 ) -> AgentListResponse:
     workspace_id, _ = ctx
@@ -230,7 +232,7 @@ async def list_agents(
         q = q.eq("category", category)
     if not archived:
         q = q.is_("archived_at", "null")
-    rows = (q.execute()).data or []
+    rows = (q.limit(min(limit, 500)).offset(offset).execute()).data or []
     return AgentListResponse(agents=[_row_to_agent(r) for r in rows], total=len(rows))
 
 

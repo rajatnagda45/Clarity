@@ -570,14 +570,22 @@ async def upload_document(
         buffered_upload.close()
 
     created_row = (result.data or [row])[0]
-    from job_queue.client import enqueue_or_background
-    await enqueue_or_background(
+    from job_queue.client import enqueue_or_background, enqueue_job
+    # Use a stable job_id so duplicate uploads of the same document are deduplicated
+    dedup_job = await enqueue_job(
         "run_document_ingestion",
-        run_document_ingestion_task,
         document_id,
         workspace_id,
-        background_tasks=background_tasks,
+        _job_id=f"ingest:{document_id}",
     )
+    if dedup_job is None:
+        await enqueue_or_background(
+            "run_document_ingestion",
+            run_document_ingestion_task,
+            document_id,
+            workspace_id,
+            background_tasks=background_tasks,
+        )
     return _document_summary_from_row(created_row)
 
 
@@ -612,7 +620,11 @@ def serve_local_dev_file(key: str):
     from fastapi.responses import FileResponse
     if not _local_mode():
         raise _error(status.HTTP_403_FORBIDDEN, "not_dev_mode", "Only available in local dev mode.")
-    file_path = _LOCAL_STORAGE_DIR / key
+    # Guard against path traversal (e.g. ../../etc/passwd)
+    resolved = (_LOCAL_STORAGE_DIR / key).resolve()
+    if not resolved.is_relative_to(_LOCAL_STORAGE_DIR.resolve()):
+        raise _error(status.HTTP_400_BAD_REQUEST, "invalid_key", "Invalid file key.")
+    file_path = resolved
     if not file_path.exists():
         raise _error(status.HTTP_404_NOT_FOUND, "file_not_found", "File not found in local storage.")
     media_type = "application/pdf" if key.endswith(".pdf") else "application/octet-stream"

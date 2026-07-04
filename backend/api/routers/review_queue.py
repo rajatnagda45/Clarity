@@ -101,9 +101,9 @@ async def submit_review_decision(
             "review_verdict": payload.verdict,
             "reviewed_by": user_id,
             "review_comment": payload.comment,
-        }).eq("id", str(rows[0]["run_id"])).execute()
+        }).eq("id", str(rows[0]["run_id"])).eq("workspace_id", workspace_id).execute()
 
-    result = get_client().table("review_queue").update(updates).eq("id", item_id).execute().data
+    result = get_client().table("review_queue").update(updates).eq("id", item_id).eq("workspace_id", workspace_id).execute().data
     if not result:
         raise api_error(502, "review_failed", "Failed to submit review decision.")
     return _row_to_item(result[0])

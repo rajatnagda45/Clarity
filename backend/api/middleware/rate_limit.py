@@ -43,7 +43,8 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
             return await call_next(request)
 
         window_seconds, max_requests = _match_limit(request.method, request.url.path)
-        key = f"rl:{user_id}:{request.method}:{request.url.path}:{int(time.time()) // window_seconds}"
+        normalized_path = _normalize_path(request.url.path)
+        key = f"rl:{user_id}:{request.method}:{normalized_path}:{int(time.time()) // window_seconds}"
 
         try:
             count = await _increment(key, window_seconds)
@@ -66,6 +67,18 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
         response.headers["X-RateLimit-Limit"] = str(max_requests)
         response.headers["X-RateLimit-Remaining"] = str(max(0, max_requests - count))
         return response
+
+
+def _normalize_path(path: str) -> str:
+    """Collapse UUID and numeric path segments to reduce Redis key cardinality."""
+    parts = path.split("/")
+    collapsed = []
+    for part in parts:
+        if len(part) >= 20 or (part and (part[0].isdigit() or "-" in part and len(part) == 36)):
+            collapsed.append("{id}")
+        else:
+            collapsed.append(part)
+    return "/".join(collapsed)
 
 
 def _match_limit(method: str, path: str) -> tuple[int, int]:

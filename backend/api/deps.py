@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import logging
 from typing import Literal
 
 from fastapi import Request
@@ -8,6 +9,7 @@ from api.errors import api_error
 from config import settings
 from db.client import get_client
 
+logger = logging.getLogger(__name__)
 
 WorkspaceRole = Literal["owner", "editor", "viewer"]
 ROLE_ORDER: dict[WorkspaceRole, int] = {
@@ -15,6 +17,44 @@ ROLE_ORDER: dict[WorkspaceRole, int] = {
     "editor": 2,
     "owner": 3,
 }
+
+_ROLE_CACHE_TTL = 60  # seconds
+
+
+async def _get_cached_role(workspace_id: str, user_id: str) -> str | None:
+    """Return cached membership role from Redis, or None on miss/unavailability."""
+    try:
+        from cache.client import get_redis
+        r = get_redis()
+        if r is None:
+            return None
+        raw = await r.get(f"role:{workspace_id}:{user_id}")
+        return raw.decode() if raw else None
+    except Exception:
+        return None
+
+
+async def _set_cached_role(workspace_id: str, user_id: str, role: str) -> None:
+    try:
+        from cache.client import get_redis
+        r = get_redis()
+        if r is None:
+            return
+        await r.setex(f"role:{workspace_id}:{user_id}", _ROLE_CACHE_TTL, role)
+    except Exception:
+        pass
+
+
+async def invalidate_role_cache(workspace_id: str, user_id: str) -> None:
+    """Call when a membership is changed so the cache is cleared immediately."""
+    try:
+        from cache.client import get_redis
+        r = get_redis()
+        if r is None:
+            return
+        await r.delete(f"role:{workspace_id}:{user_id}")
+    except Exception:
+        pass
 
 
 def require_workspace_role(
@@ -31,24 +71,42 @@ def require_workspace_role(
             "Authenticated workspace context missing from request.",
         )
 
-    membership = (
-        get_client()
-        .table("memberships")
-        .select("role")
-        .eq("workspace_id", workspace_id)
-        .eq("user_id", user_id)
-        .limit(1)
-        .execute()
-    )
-    row = (membership.data or [None])[0]
-    if not row:
-        raise api_error(
-            403,
-            "workspace_membership_required",
-            "User is not a member of the selected workspace.",
-        )
+    # Fast path: check Redis cache before hitting the DB
+    cached_role: str | None = None
+    try:
+        import asyncio
+        loop = asyncio.get_event_loop()
+        if not loop.is_closed():
+            cached_role = loop.run_until_complete(_get_cached_role(workspace_id, user_id))
+    except Exception:
+        cached_role = None
 
-    role: WorkspaceRole = row["role"]
+    if cached_role is None:
+        membership = (
+            get_client()
+            .table("memberships")
+            .select("role")
+            .eq("workspace_id", workspace_id)
+            .eq("user_id", user_id)
+            .limit(1)
+            .execute()
+        )
+        row = (membership.data or [None])[0]
+        if not row:
+            raise api_error(
+                403,
+                "workspace_membership_required",
+                "User is not a member of the selected workspace.",
+            )
+        cached_role = row["role"]
+        try:
+            loop = asyncio.get_event_loop()
+            if not loop.is_closed():
+                loop.run_until_complete(_set_cached_role(workspace_id, user_id, cached_role))
+        except Exception:
+            pass
+
+    role: WorkspaceRole = cached_role  # type: ignore[assignment]
     if ROLE_ORDER[role] < ROLE_ORDER[minimum_role]:
         raise api_error(
             403,

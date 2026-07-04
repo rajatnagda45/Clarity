@@ -58,8 +58,26 @@ from api.routers import workflows
 from api.routers import review_queue
 
 
+def _validate_production_config() -> None:
+    """Fail fast on missing production-critical config before accepting traffic."""
+    if settings.environment != "production":
+        return
+    errors: list[str] = []
+    if not settings.stripe_webhook_secret:
+        errors.append("STRIPE_WEBHOOK_SECRET must be set in production to prevent webhook spoofing.")
+    if not settings.redis_url:
+        errors.append("REDIS_URL must be set in production for rate limiting and job queue.")
+    allowed = os.getenv("ALLOWED_ORIGINS", "")
+    if not allowed or "localhost" in allowed:
+        errors.append("ALLOWED_ORIGINS must be set to production domain(s) — localhost is not allowed.")
+    if errors:
+        raise RuntimeError("Production config validation failed:\n" + "\n".join(f"  - {e}" for e in errors))
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    _validate_production_config()
+
     # Distributed queue + cache (gracefully no-ops if Redis not configured)
     from job_queue.client import init_pool, close_pool
     from cache.client import init_redis, close_redis
@@ -106,8 +124,10 @@ def _configure_logging() -> None:
         "formatters": {
             "json": {
                 "()": "logging.Formatter",
-                "fmt": '{"time":"%(asctime)s","level":"%(levelname)s","logger":"%(name)s","message":"%(message)s"}',
-                "datefmt": "%Y-%m-%dT%H:%M:%S",
+                # Use a single-line format with no embedded quotes in field values
+                # to ensure each log line is valid structured text for log aggregators.
+                "fmt": "time=%(asctime)s level=%(levelname)s logger=%(name)s msg=%(message)s",
+                "datefmt": "%Y-%m-%dT%H:%M:%SZ",
             },
         },
         "handlers": {

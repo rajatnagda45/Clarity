@@ -116,7 +116,10 @@ class TestSubmitReview:
 
         mock_client = MagicMock()
         update_mock = MagicMock()
-        update_mock.update.return_value.eq.return_value.execute.return_value = MagicMock(data=[approved_item])
+        _chain = MagicMock()
+        _chain.eq.return_value = _chain
+        _chain.execute.return_value = MagicMock(data=[approved_item])
+        update_mock.update.return_value = _chain
 
         with patch("api.deps.get_client", return_value=MagicMock(table=lambda _: _memberships_query())):
             q = MagicMock()

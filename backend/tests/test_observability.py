@@ -114,11 +114,21 @@ def test_readiness_503_when_db_down(client):
 
 
 # ---------------------------------------------------------------------------
-# /api/metrics
+# /api/metrics  (requires developer auth)
 # ---------------------------------------------------------------------------
 
+def _dev_headers() -> dict:
+    """Return auth headers for the developer user (user_a, matches DEVELOPER_USER_IDS)."""
+    from tests.conftest import _make_jwt
+    token = _make_jwt(["00000000-0000-0000-0000-000000000001"], user_id="user_a")
+    return {
+        "Authorization": f"Bearer {token}",
+        "X-Workspace-Id": "00000000-0000-0000-0000-000000000001",
+    }
+
+
 def test_metrics_shape(client):
-    r = client.get("/api/metrics")
+    r = client.get("/api/metrics", headers=_dev_headers())
     assert r.status_code == 200
     body = r.json()
     assert "uptime_seconds" in body
@@ -131,16 +141,16 @@ def test_metrics_shape(client):
 
 
 def test_metrics_request_count_increases(client):
-    r1 = client.get("/api/metrics")
+    headers = _dev_headers()
+    r1 = client.get("/api/metrics", headers=headers)
     before = r1.json()["request_count"]
-    # Make a few more requests
     for _ in range(3):
         client.get("/health")
-    r2 = client.get("/api/metrics")
+    r2 = client.get("/api/metrics", headers=headers)
     after = r2.json()["request_count"]
     assert after > before
 
 
 def test_metrics_uptime_positive(client):
-    r = client.get("/api/metrics")
+    r = client.get("/api/metrics", headers=_dev_headers())
     assert r.json()["uptime_seconds"] >= 0

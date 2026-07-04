@@ -1,7 +1,23 @@
 ---
-# Redis Deployment — single replica for simplicity.
-# For production, replace with Redis Cluster or a managed service
-# (Upstash Redis, Redis Cloud, AWS ElastiCache) and set REDIS_URL in the Secret.
+# Redis Deployment
+#
+# PRODUCTION NOTE: This single-replica deployment is suitable for development
+# and staging only. For production enterprise deployments use a managed HA
+# Redis service instead:
+#
+#   Option A (Recommended): Upstash Redis — serverless, multi-region HA
+#     Set REDIS_URL=rediss://<host>:<port> in clarity-secrets and remove
+#     this Deployment + Service. Upstash handles HA, backups, and scaling.
+#
+#   Option B: AWS ElastiCache for Redis (Multi-AZ with automatic failover)
+#     Set REDIS_URL=rediss://<elasticache-endpoint>:6380 in clarity-secrets.
+#
+#   Option C: Redis Sentinel (self-hosted HA)
+#     Deploy 1 primary + 2 replicas + 3 Sentinel processes.
+#     Set REDIS_URL=redis+sentinel://<sentinel-host>:26379/mymaster in clarity-secrets.
+#
+# Data durability: emptyDir below loses all data on pod restart (jobs lost,
+# rate limits reset). Replace with a PersistentVolumeClaim for stateful persistence.
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -31,12 +47,21 @@ spec:
             - "512mb"
             - --maxmemory-policy
             - allkeys-lru
+            - --requirepass
+            - $(REDIS_PASSWORD)
+          env:
+            - name: REDIS_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: clarity-secrets
+                  key: REDIS_PASSWORD
+                  optional: true
           ports:
             - containerPort: 6379
           resources:
             requests:
-              memory: "128Mi"
-              cpu: "50m"
+              memory: "256Mi"
+              cpu: "100m"
             limits:
               memory: "512Mi"
               cpu: "200m"
@@ -56,6 +81,9 @@ spec:
       volumes:
         - name: redis-data
           emptyDir: {}
+          # For persistent storage, replace emptyDir with a PVC:
+          # persistentVolumeClaim:
+          #   claimName: redis-pvc
 ---
 apiVersion: v1
 kind: Service

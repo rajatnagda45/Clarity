@@ -113,5 +113,5 @@ async def delete_automation_rule(
     if not rows:
         raise api_error(404, "rule_not_found", "Automation rule not found.")
 
-    get_client().table("automation_rules").delete().eq("id", rule_id).execute()
+    get_client().table("automation_rules").delete().eq("id", rule_id).eq("workspace_id", workspace_id).execute()
     return Response(status_code=status.HTTP_204_NO_CONTENT)

@@ -4,6 +4,9 @@ Redis-backed distributed cache.
 Falls back gracefully to returning None (cache miss) when Redis is
 unavailable, so in-process LRU caches remain as a second layer.
 
+Serialization: JSON only. pickle is intentionally absent — deserializing
+untrusted pickle bytes is arbitrary code execution.
+
 Usage:
     from cache.client import cache_get, cache_set, init_redis, close_redis
 
@@ -14,8 +17,8 @@ Usage:
 """
 from __future__ import annotations
 
+import json
 import logging
-import pickle
 from typing import Any
 
 logger = logging.getLogger(__name__)
@@ -74,26 +77,26 @@ async def close_redis() -> None:
 async def cache_get(key: str) -> Any:
     """
     Return a cached value or None on miss / unavailability.
-    Values are stored as pickled bytes so any Python object is cacheable.
+    Values are stored as JSON bytes. Only JSON-serializable types are supported.
     """
     r = get_redis()
     if r is None:
         return None
     try:
         raw = await r.get(key)
-        return pickle.loads(raw) if raw is not None else None
+        return json.loads(raw) if raw is not None else None
     except Exception as exc:
         logger.debug("cache_get error for key=%s: %s", key, exc)
         return None
 
 
 async def cache_set(key: str, value: Any, ttl: int = 60) -> None:
-    """Store a value with a TTL in seconds. Silent no-op on failure."""
+    """Store a JSON-serializable value with a TTL in seconds. Silent no-op on failure."""
     r = get_redis()
     if r is None:
         return
     try:
-        await r.setex(key, ttl, pickle.dumps(value))
+        await r.setex(key, ttl, json.dumps(value, default=str))
     except Exception as exc:
         logger.debug("cache_set error for key=%s: %s", key, exc)
 

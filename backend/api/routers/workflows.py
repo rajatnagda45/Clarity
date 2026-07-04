@@ -147,5 +147,5 @@ async def delete_workflow(
     if not existing:
         raise api_error(404, "workflow_not_found", "Workflow not found.")
 
-    get_client().table("workflows").delete().eq("id", workflow_id).execute()
+    get_client().table("workflows").delete().eq("id", workflow_id).eq("workspace_id", workspace_id).execute()
     return Response(status_code=status.HTTP_204_NO_CONTENT)
