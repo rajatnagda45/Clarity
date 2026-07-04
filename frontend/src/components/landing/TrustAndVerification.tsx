@@ -371,12 +371,12 @@ export function TrustAndVerification() {
                   </div>
 
                   <p className="text-[11px] text-justify leading-relaxed mb-8">
-                    This Master Services Agreement (the "Agreement") is entered into as of October 1, 2023, by and between Acme Corp, a Delaware corporation ("Customer"), and Global Logistics Inc, a California corporation ("Provider").
+                    This Master Services Agreement (the &quot;Agreement&quot;) is entered into as of October 1, 2023, by and between Acme Corp, a Delaware corporation (&quot;Customer&quot;), and Global Logistics Inc, a California corporation (&quot;Provider&quot;).
                   </p>
 
                   <h2 className="font-bold text-xs uppercase tracking-widest mt-8 mb-3">1. SERVICES AND STATEMENT OF WORK</h2>
                   <p className="text-[11px] text-justify leading-relaxed mb-8">
-                    1.1 Provision of Services. Provider shall provide the services described in one or more Statements of Work (each, a "SOW") executed by the parties.
+                    1.1 Provision of Services. Provider shall provide the services described in one or more Statements of Work (each, a &quot;SOW&quot;) executed by the parties.
                   </p>
 
                   <h2 className="font-bold text-xs uppercase tracking-widest mt-8 mb-3">2. FEES AND PAYMENT TERMS</h2>
@@ -386,7 +386,7 @@ export function TrustAndVerification() {
 
                   <h2 className="font-bold text-xs uppercase tracking-widest mt-8 mb-3">3. CONFIDENTIALITY</h2>
                   <p className="text-[11px] text-justify leading-relaxed mb-8">
-                    3.1 Protection. Each party shall protect the other's Confidential Information with the same degree of care it uses for its own.
+                    3.1 Protection. Each party shall protect the other&apos;s Confidential Information with the same degree of care it uses for its own.
                   </p>
 
                   <h2 className="font-bold text-xs uppercase tracking-widest mt-8 mb-3">4. TERM AND TERMINATION</h2>
@@ -415,7 +415,7 @@ export function TrustAndVerification() {
                   <h2 className="font-bold text-xs uppercase tracking-widest mt-8 mb-3">8. LIMITATION OF LIABILITY</h2>
                   <div className="relative">
                     <p className="text-[11px] text-justify leading-relaxed mb-8 relative z-20 p-1">
-                      8.1 Cap on Damages. IN NO EVENT SHALL EITHER PARTY'S AGGREGATE LIABILITY ARISING OUT OF OR RELATED TO THIS AGREEMENT EXCEED THE TOTAL AMOUNT PAID BY CUSTOMER HEREUNDER IN THE TWELVE (12) MONTHS PRECEDING THE LAST EVENT GIVING RISE TO LIABILITY.
+                      8.1 Cap on Damages. IN NO EVENT SHALL EITHER PARTY&apos;S AGGREGATE LIABILITY ARISING OUT OF OR RELATED TO THIS AGREEMENT EXCEED THE TOTAL AMOUNT PAID BY CUSTOMER HEREUNDER IN THE TWELVE (12) MONTHS PRECEDING THE LAST EVENT GIVING RISE TO LIABILITY.
                     </p>
                     <motion.div
                       ref={target2Ref}

@@ -151,7 +151,7 @@ export function OnboardingWizard() {
                 <UploadCloud size={32} className="text-purple-400" />
               </div>
               <h2 className="text-3xl font-bold text-[#F1F3F9] mb-2">Add your first document</h2>
-              <p className="text-[#8892AA] mb-8">Clarity needs knowledge to answer your questions. Let's upload a sample.</p>
+              <p className="text-[#8892AA] mb-8">Clarity needs knowledge to answer your questions. Let&apos;s upload a sample.</p>
               
               <div 
                 onClick={handleSimulateUpload}

@@ -109,7 +109,7 @@ export function SecurityTab() {
                       Passkeys
                       <span className="px-2 py-0.5 rounded-full bg-white/10 text-white/60 text-[10px] font-bold">COMING SOON</span>
                     </h3>
-                    <p className="text-xs text-[#8892AA] mt-1">Sign in safely with your device's biometrics.</p>
+                    <p className="text-xs text-[#8892AA] mt-1">Sign in safely with your device&apos;s biometrics.</p>
                   </div>
                 </div>
                 <button disabled className="text-sm font-medium text-white/50 bg-white/[0.02] border border-white/[0.04] px-4 py-2 rounded-xl cursor-not-allowed">

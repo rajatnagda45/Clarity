@@ -57,7 +57,7 @@ export function OnboardingWelcome() {
             transition={{ duration: 0.8, delay: 0.6 }}
             className="text-[#8892AA] text-lg md:text-xl mb-12 max-w-lg leading-relaxed"
           >
-            Your AI workspace for trusted document intelligence. Let's set up your environment in just a few steps.
+            Your AI workspace for trusted document intelligence. Let&apos;s set up your environment in just a few steps.
           </motion.p>
 
           <motion.button

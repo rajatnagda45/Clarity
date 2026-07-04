@@ -64,7 +64,7 @@ export function CompletionCelebration() {
             Congratulations!
           </h2>
           <p className="text-[#8892AA] text-lg mb-8 max-w-md mx-auto">
-            You've successfully set up <strong className="text-[#F1F3F9] font-semibold">{activeWorkspace?.name || 'your workspace'}</strong>. Your AI is now fully configured and ready to assist your team.
+            You&apos;ve successfully set up <strong className="text-[#F1F3F9] font-semibold">{activeWorkspace?.name || 'your workspace'}</strong>. Your AI is now fully configured and ready to assist your team.
           </p>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-10 text-left">

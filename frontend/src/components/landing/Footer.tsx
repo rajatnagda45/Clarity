@@ -1,3 +1,5 @@
+import Link from 'next/link';
+
 export function Footer() {
   return (
     <footer className="bg-[#05070B] border-t border-white/5 pt-20 pb-10">
@@ -20,29 +22,29 @@ export function Footer() {
           <div>
             <h4 className="text-white font-semibold mb-4">Product</h4>
             <ul className="space-y-3 text-sm text-gray-500">
-              <li><a href="/#platform" className="hover:text-white transition-colors">Platform</a></li>
-              <li><a href="/#pipeline" className="hover:text-white transition-colors">The Pipeline</a></li>
-              <li><a href="/#trust" className="hover:text-white transition-colors">Verifiable Trust</a></li>
-              <li><a href="/pricing" className="hover:text-white transition-colors">Pricing</a></li>
+              <li><Link href="/#platform" className="hover:text-white transition-colors">Platform</Link></li>
+              <li><Link href="/#pipeline" className="hover:text-white transition-colors">The Pipeline</Link></li>
+              <li><Link href="/#trust" className="hover:text-white transition-colors">Verifiable Trust</Link></li>
+              <li><Link href="/pricing" className="hover:text-white transition-colors">Pricing</Link></li>
             </ul>
           </div>
           
           <div>
             <h4 className="text-white font-semibold mb-4">Enterprise</h4>
             <ul className="space-y-3 text-sm text-gray-500">
-              <li><a href="/#security" className="hover:text-white transition-colors">Security</a></li>
-              <li><a href="/#workspace" className="hover:text-white transition-colors">Workspace</a></li>
-              <li><a href="/#observability" className="hover:text-white transition-colors">Observability</a></li>
-              <li><a href="/#reasoning" className="hover:text-white transition-colors">Reasoning Engine</a></li>
+              <li><Link href="/#security" className="hover:text-white transition-colors">Security</Link></li>
+              <li><Link href="/#workspace" className="hover:text-white transition-colors">Workspace</Link></li>
+              <li><Link href="/#observability" className="hover:text-white transition-colors">Observability</Link></li>
+              <li><Link href="/#reasoning" className="hover:text-white transition-colors">Reasoning Engine</Link></li>
             </ul>
           </div>
 
           <div>
             <h4 className="text-white font-semibold mb-4">Company</h4>
             <ul className="space-y-3 text-sm text-gray-500">
-              <li><a href="/#customers" className="hover:text-white transition-colors">Customers</a></li>
-              <li><a href="#" className="hover:text-white transition-colors">About Us</a></li>
-              <li><a href="#" className="hover:text-white transition-colors">Contact</a></li>
+              <li><Link href="/#customers" className="hover:text-white transition-colors">Customers</Link></li>
+              <li><Link href="#" className="hover:text-white transition-colors">About Us</Link></li>
+              <li><Link href="#" className="hover:text-white transition-colors">Contact</Link></li>
             </ul>
           </div>
         </div>

@@ -107,7 +107,7 @@ export function DangerZoneTab() {
           <div>
             <h3 className="text-sm font-semibold text-rose-400 mb-1">Deactivate Account</h3>
             <p className="text-xs text-rose-400/70">
-              Temporarily disable your account. Your data will be preserved, but you won't be able to log in or use APIs.
+              Temporarily disable your account. Your data will be preserved, but you won&apos;t be able to log in or use APIs.
             </p>
           </div>
           <button 

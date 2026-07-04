@@ -139,7 +139,7 @@ export function DocumentationTab() {
                   </tr>
                   <tr className="border-b border-white/[0.04]">
                     <td className="py-3 font-mono text-purple-400">403 Forbidden</td>
-                    <td className="py-3">The API key doesn't have permission for this resource.</td>
+                    <td className="py-3">The API key doesn&apos;t have permission for this resource.</td>
                   </tr>
                   <tr>
                     <td className="py-3 font-mono text-rose-400">429 Too Many Requests</td>

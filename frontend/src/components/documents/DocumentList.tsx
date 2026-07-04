@@ -71,7 +71,7 @@ export function DocumentList({
         <h3 className="text-xl font-bold text-[#F1F3F9] tracking-tight mb-2">No documents yet</h3>
         <p className="text-[#8892AA] max-w-md text-sm leading-relaxed mb-8">
           Upload your first PDF or DOCX file using the drag-and-drop zone above. 
-          We'll automatically extract, normalize, and index it for AI retrieval.
+          We&apos;ll automatically extract, normalize, and index it for AI retrieval.
         </p>
         <button 
           onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}
