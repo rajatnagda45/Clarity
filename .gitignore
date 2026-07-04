@@ -42,9 +42,6 @@ Thumbs.db
 *.swp
 *.swo
 
-# Calibrator artifact (built from golden set in Phase C — not source-committed)
-backend/services/calibrator.pkl
-
 # Eval fixtures are source-committed; results are not
 backend/services/eval/results/
 
@@ -63,3 +60,7 @@ backend/services/eval/results/
 11_AI_ENGINEERING_RULES.md
 12_EXECUTION_ROADMAP.md
 13_DEPENDENCY_GRAPH.md
+
+# Model weights and temp scripts
+*.pkl
+frontend/*.js
