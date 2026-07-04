@@ -25,6 +25,8 @@ import {
   PanelLeftClose,
   PanelLeftOpen,
   CheckCircle2,
+  Target,
+  TrendingDown,
 } from 'lucide-react';
 import { useWorkspace } from '@/contexts/WorkspaceContext';
 import { useUI } from '@/contexts/UIContext';
@@ -47,11 +49,13 @@ const workspaceNavItems: NavItem[] = [
   { label: 'Collections', href: '/collections', icon: <Grid3X3 size={18} /> },
   { label: 'AI Chat', href: '/chat', icon: <MessageSquare size={18} /> },
   { label: 'Search', href: '#', icon: <Search size={18} />, shortcut: '⌘K', isAction: true },
-  { label: 'Analytics', href: '/eval', icon: <BarChart2 size={18} /> },
+  { label: 'AI Evaluation', href: '/eval', icon: <BarChart2 size={18} /> },
+  { label: 'Benchmarks', href: '/eval/benchmarks', icon: <Target size={18} /> },
 ];
 
 const toolsNavItems: NavItem[] = [
   { label: 'Developer Console', href: '/developer/dashboard', icon: <Terminal size={18} /> },
+  { label: 'Regressions', href: '/developer/regressions', icon: <TrendingDown size={18} /> },
   { label: 'Workspace', href: '/workspace', icon: <Building2 size={18} /> },
   { label: 'Billing', href: '/billing', icon: <CreditCard size={18} /> },
   { label: 'Settings', href: '/settings', icon: <Settings size={18} /> },

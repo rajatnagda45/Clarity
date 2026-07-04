@@ -41,6 +41,23 @@ import type {
   CollectionListResponse,
   CreateCollectionPayload,
   UpdateCollectionPayload,
+  BenchmarkDataset,
+  BenchmarkDatasetDetail,
+  BenchmarkCase,
+  BenchmarkRun,
+  BenchmarkRunDetail,
+  BenchmarkImportResult,
+  CreateBenchmarkDatasetPayload,
+  CreateBenchmarkCasePayload,
+  EvalRun,
+  EvalRunListResponse,
+  QualityDashboard,
+  RegressionListResponse,
+  RegressionReport,
+  ModelComparisonListResponse,
+  CitationAnalytics,
+  TrustAnalytics,
+  ConversationEvalListResponse,
 } from '@/types/clarity';
 
 const BACKEND_URL = process.env.NEXT_PUBLIC_BACKEND_URL ?? 'http://localhost:8000';
@@ -671,13 +688,6 @@ export async function listReleaseNotes(auth: AuthContext): Promise<import('@/typ
 }
 
 // ---------------------------------------------------------------------------
-// B4: Model Comparisons
-// ---------------------------------------------------------------------------
-export async function listModelComparisons(auth: AuthContext): Promise<import('@/types/clarity').ModelComparisonListResponse> {
-  return apiFetch('/api/model-comparisons', { method: 'GET', ...auth });
-}
-
-// ---------------------------------------------------------------------------
 // B4: Benchmark Suggestions
 // ---------------------------------------------------------------------------
 export async function listBenchmarkSuggestions(
@@ -786,4 +796,120 @@ export async function removeDocumentFromCollection(
     method: 'DELETE',
     ...auth,
   });
+}
+
+// ─── Phase 11 — Benchmark API ──────────────────────────────────────────────────
+
+export async function listBenchmarkDatasets(auth: AuthContext): Promise<BenchmarkDataset[]> {
+  return apiFetch<BenchmarkDataset[]>('/api/benchmarks/datasets', auth);
+}
+
+export async function getBenchmarkDataset(auth: AuthContext, datasetId: string): Promise<BenchmarkDatasetDetail> {
+  return apiFetch<BenchmarkDatasetDetail>(`/api/benchmarks/datasets/${datasetId}`, auth);
+}
+
+export async function createBenchmarkDataset(
+  auth: AuthContext,
+  payload: CreateBenchmarkDatasetPayload,
+): Promise<BenchmarkDataset> {
+  return apiFetch<BenchmarkDataset>('/api/benchmarks/datasets', {
+    method: 'POST',
+    body: JSON.stringify({ name: payload.name, dataset_type: payload.datasetType, description: payload.description }),
+    ...auth,
+  });
+}
+
+export async function deleteBenchmarkDataset(auth: AuthContext, datasetId: string): Promise<void> {
+  await apiFetch<void>(`/api/benchmarks/datasets/${datasetId}`, { method: 'DELETE', ...auth });
+}
+
+export async function listBenchmarkCases(auth: AuthContext, datasetId: string): Promise<BenchmarkCase[]> {
+  return apiFetch<BenchmarkCase[]>(`/api/benchmarks/datasets/${datasetId}/cases`, auth);
+}
+
+export async function addBenchmarkCase(
+  auth: AuthContext,
+  datasetId: string,
+  payload: CreateBenchmarkCasePayload,
+): Promise<BenchmarkCase> {
+  return apiFetch<BenchmarkCase>(`/api/benchmarks/datasets/${datasetId}/cases`, {
+    method: 'POST',
+    body: JSON.stringify({ question: payload.question, reference_answer: payload.referenceAnswer, document_ids: payload.documentIds ?? [] }),
+    ...auth,
+  });
+}
+
+export async function importBenchmarkCases(
+  auth: AuthContext,
+  datasetId: string,
+  file: File,
+): Promise<BenchmarkImportResult> {
+  const formData = new FormData();
+  formData.append('file', file);
+  const res = await fetch(`${BACKEND_URL}/api/benchmarks/datasets/${datasetId}/import`, {
+    method: 'POST',
+    body: formData,
+    headers: {
+      Authorization: `Bearer ${auth.token}`,
+      ...(auth.workspaceId ? { 'X-Workspace-Id': auth.workspaceId } : {}),
+    },
+  });
+  if (!res.ok) throw new Error(await res.text());
+  return res.json() as Promise<BenchmarkImportResult>;
+}
+
+export async function triggerBenchmarkRun(auth: AuthContext, datasetId: string): Promise<BenchmarkRun> {
+  return apiFetch<BenchmarkRun>(`/api/benchmarks/datasets/${datasetId}/runs`, { method: 'POST', ...auth });
+}
+
+export async function listDatasetRuns(auth: AuthContext, datasetId: string): Promise<BenchmarkRun[]> {
+  return apiFetch<BenchmarkRun[]>(`/api/benchmarks/datasets/${datasetId}/runs`, auth);
+}
+
+export async function listBenchmarkRuns(auth: AuthContext): Promise<BenchmarkRun[]> {
+  return apiFetch<BenchmarkRun[]>('/api/benchmarks/runs', auth);
+}
+
+export async function getBenchmarkRun(auth: AuthContext, runId: string): Promise<BenchmarkRunDetail> {
+  return apiFetch<BenchmarkRunDetail>(`/api/benchmarks/runs/${runId}`, auth);
+}
+
+// ─── Phase 11 — Evaluation API ────────────────────────────────────────────────
+
+export async function listEvalRuns(auth: AuthContext, limit = 20): Promise<EvalRunListResponse> {
+  return apiFetch<EvalRunListResponse>(`/api/evaluations?limit=${limit}`, auth);
+}
+
+export async function getQualityDashboard(auth: AuthContext, days = 30): Promise<QualityDashboard> {
+  return apiFetch<QualityDashboard>(`/api/evaluations/quality/dashboard?days=${days}`, auth);
+}
+
+export async function getCitationAnalytics(auth: AuthContext, days = 30): Promise<CitationAnalytics> {
+  return apiFetch<CitationAnalytics>(`/api/evaluations/analytics/citations?days=${days}`, auth);
+}
+
+export async function getTrustAnalytics(auth: AuthContext, days = 30): Promise<TrustAnalytics> {
+  return apiFetch<TrustAnalytics>(`/api/evaluations/analytics/trust?days=${days}`, auth);
+}
+
+export async function getConversationEvals(auth: AuthContext, limit = 20): Promise<ConversationEvalListResponse> {
+  return apiFetch<ConversationEvalListResponse>(`/api/evaluations/analytics/conversations?limit=${limit}`, auth);
+}
+
+export async function triggerQualityRollup(auth: AuthContext): Promise<unknown> {
+  return apiFetch<unknown>('/api/evaluations/quality/rollup', { method: 'POST', ...auth });
+}
+
+// ─── Phase 11 — Regression + Model Comparison API ────────────────────────────
+
+export async function listRegressions(auth: AuthContext, onlyFlagged = false): Promise<RegressionListResponse> {
+  return apiFetch<RegressionListResponse>(`/api/regressions?only_flagged=${onlyFlagged}`, auth);
+}
+
+export async function getRegression(auth: AuthContext, reportId: string): Promise<RegressionReport> {
+  return apiFetch<RegressionReport>(`/api/regressions/${reportId}`, auth);
+}
+
+export async function listModelComparisons(auth: AuthContext): Promise<ModelComparisonListResponse> {
+  return apiFetch<ModelComparisonListResponse>('/api/model-comparisons', auth);
 }

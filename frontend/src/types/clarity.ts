@@ -761,3 +761,220 @@ export interface UpdateCollectionPayload {
   color?: string;
   icon?: string;
 }
+
+// ─── Phase 11 — Benchmark & Evaluation Analytics types ────────────────────────
+
+export type DatasetType = 'contract_qa' | 'lease_qa' | 'policy_qa' | 'custom';
+export type BenchmarkRunStatus = 'running' | 'completed' | 'failed' | 'cancelled';
+
+export interface BenchmarkDataset {
+  id: string;
+  workspaceId: string;
+  name: string;
+  datasetType: DatasetType;
+  description: string | null;
+  createdAt: string;
+}
+
+export interface BenchmarkDatasetDetail extends BenchmarkDataset {
+  caseCount: number;
+  runCount: number;
+}
+
+export interface BenchmarkCase {
+  id: string;
+  workspaceId: string;
+  datasetId: string;
+  question: string;
+  referenceAnswer: string | null;
+  documentIds: string[];
+  createdAt: string;
+}
+
+export interface BenchmarkRun {
+  id: string;
+  workspaceId: string;
+  datasetId: string;
+  status: BenchmarkRunStatus;
+  totalCases: number;
+  completedCases: number;
+  failedCases: number;
+  avgJudgeOverall: number | null;
+  avgTrustConfidence: number | null;
+  avgLatencyMs: number | null;
+  createdAt: string;
+}
+
+export interface BenchmarkRunDetail extends BenchmarkRun {
+  promptVersion: string | null;
+  modelVersion: string | null;
+  writerVersion: string | null;
+  totalCostUsd: number | null;
+  startedAt: string | null;
+  completedAt: string | null;
+}
+
+export interface BenchmarkImportResult {
+  imported: number;
+  skipped: number;
+  errors: string[];
+}
+
+export interface CreateBenchmarkDatasetPayload {
+  name: string;
+  datasetType: DatasetType;
+  description?: string;
+}
+
+export interface CreateBenchmarkCasePayload {
+  question: string;
+  referenceAnswer?: string;
+  documentIds?: string[];
+}
+
+export interface JudgeScores {
+  faithfulness: number | null;
+  grounding: number | null;
+  completeness: number | null;
+  correctness: number | null;
+  clarity: number | null;
+  citationQuality: number | null;
+  hallucinationRisk: number | null;
+  overall: number;
+  reasoning: string | null;
+}
+
+export interface EvalRun {
+  id: string;
+  workspaceId: string;
+  answerRunId: string | null;
+  judgeProvider: string | null;
+  judgeModel: string | null;
+  judgePromptVersion: string | null;
+  judgeLatencyMs: number | null;
+  scores: JudgeScores | null;
+  createdAt: string;
+}
+
+export interface EvalRunListResponse {
+  evaluations: EvalRun[];
+  total: number;
+}
+
+export interface QualityRollup {
+  id: string;
+  workspaceId: string;
+  day: string;
+  avgFaithfulness: number | null;
+  abstentionRate: number;
+  n: number;
+  avgJudgeOverall: number | null;
+  avgHallucinationRisk: number | null;
+  avgConfidenceScore: number | null;
+  abstentionCount: number;
+  verificationPassCount: number;
+  totalAnswers: number;
+}
+
+export interface QualityDashboard {
+  rollups: QualityRollup[];
+  days: number;
+}
+
+export interface RegressionReport {
+  id: string;
+  workspaceId: string;
+  currentEvalId: string;
+  windowSize: number;
+  baselineAvgJudgeOverall: number | null;
+  currentJudgeOverall: number | null;
+  judgeOverallDelta: number | null;
+  hasRegression: boolean;
+  regressionFlags: string[];
+  createdAt: string;
+}
+
+export interface RegressionListResponse {
+  reports: RegressionReport[];
+  total: number;
+}
+
+export interface ModelComparison {
+  modelVersion: string;
+  runCount: number;
+  totalCases: number;
+  avgJudgeOverall: number | null;
+  avgTrustConfidence: number | null;
+  avgLatencyMs: number | null;
+}
+
+export interface ModelComparisonListResponse {
+  comparisons: ModelComparison[];
+  total: number;
+}
+
+export interface CitationQualityBucket {
+  range: string;
+  count: number;
+}
+
+export interface TopCitedDocument {
+  documentId: string;
+  citationCount: number;
+}
+
+export interface CitationAnalytics {
+  totalCitations: number;
+  answersWithCitations: number;
+  answersWithoutCitations: number;
+  avgCitationsPerAnswer: number;
+  avgCitationQualityScore: number | null;
+  citationQualityDistribution: CitationQualityBucket[];
+  topCitedDocuments: TopCitedDocument[];
+}
+
+export interface TrustVerdictBreakdown {
+  supported: number;
+  unsupported: number;
+  contradicted: number;
+  unknown: number;
+}
+
+export interface TrustBandBreakdown {
+  high: number;
+  medium: number;
+  low: number;
+}
+
+export interface TrustHistogramBucket {
+  bucket: string;
+  count: number;
+}
+
+export interface TrustAnalytics {
+  totalAnswers: number;
+  avgTrustOverall: number | null;
+  avgTrustFaithfulness: number | null;
+  avgTrustConfidence: number | null;
+  abstentionCount: number;
+  abstentionRate: number;
+  verdictBreakdown: TrustVerdictBreakdown;
+  confidenceBandBreakdown: TrustBandBreakdown;
+  trustHistogram: TrustHistogramBucket[];
+}
+
+export interface ConversationEvalSummary {
+  conversationId: string;
+  messageCount: number;
+  avgJudgeOverall: number | null;
+  avgTrustOverall: number | null;
+  avgHallucinationRisk: number | null;
+  avgCitationQuality: number | null;
+  abstentionCount: number;
+  createdAt: string;
+}
+
+export interface ConversationEvalListResponse {
+  conversations: ConversationEvalSummary[];
+  total: number;
+}

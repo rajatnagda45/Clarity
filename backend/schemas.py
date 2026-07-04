@@ -1068,3 +1068,111 @@ class AddDocumentToCollectionRequest(BaseModel):
     document_id: str = Field(alias="documentId")
 
     model_config = {"populate_by_name": True}
+
+
+# ─── Phase 11 — Evaluation Analytics schemas ──────────────────────────────────
+
+class CitationAnalyticsResponse(BaseModel):
+    total_citations: int = Field(alias="totalCitations")
+    answers_with_citations: int = Field(alias="answersWithCitations")
+    answers_without_citations: int = Field(alias="answersWithoutCitations")
+    avg_citations_per_answer: float = Field(alias="avgCitationsPerAnswer")
+    avg_citation_quality_score: float | None = Field(default=None, alias="avgCitationQualityScore")
+    citation_quality_distribution: list[dict] = Field(default_factory=list, alias="citationQualityDistribution")
+    top_cited_documents: list[dict] = Field(default_factory=list, alias="topCitedDocuments")
+
+    model_config = {"populate_by_name": True}
+
+
+class TrustVerdictBreakdown(BaseModel):
+    supported: int
+    unsupported: int
+    contradicted: int
+    unknown: int
+
+    model_config = {"populate_by_name": True}
+
+
+class TrustBandBreakdown(BaseModel):
+    high: int
+    medium: int
+    low: int
+
+    model_config = {"populate_by_name": True}
+
+
+class TrustAnalyticsResponse(BaseModel):
+    total_answers: int = Field(alias="totalAnswers")
+    avg_trust_overall: float | None = Field(default=None, alias="avgTrustOverall")
+    avg_trust_faithfulness: float | None = Field(default=None, alias="avgTrustFaithfulness")
+    avg_trust_confidence: float | None = Field(default=None, alias="avgTrustConfidence")
+    abstention_count: int = Field(alias="abstentionCount")
+    abstention_rate: float = Field(alias="abstentionRate")
+    verdict_breakdown: TrustVerdictBreakdown = Field(alias="verdictBreakdown")
+    confidence_band_breakdown: TrustBandBreakdown = Field(alias="confidenceBandBreakdown")
+    trust_histogram: list[dict] = Field(default_factory=list, alias="trustHistogram")
+
+    model_config = {"populate_by_name": True}
+
+
+class BenchmarkDatasetDetailResponse(BaseModel):
+    id: str
+    workspace_id: str = Field(alias="workspaceId")
+    name: str
+    dataset_type: str = Field(alias="datasetType")
+    description: str | None = None
+    case_count: int = Field(default=0, alias="caseCount")
+    run_count: int = Field(default=0, alias="runCount")
+    created_at: str = Field(alias="createdAt")
+
+    model_config = {"populate_by_name": True}
+
+
+class BenchmarkRunDetailResponse(BaseModel):
+    id: str
+    workspace_id: str = Field(alias="workspaceId")
+    dataset_id: str = Field(alias="datasetId")
+    prompt_version: str | None = Field(default=None, alias="promptVersion")
+    model_version: str | None = Field(default=None, alias="modelVersion")
+    writer_version: str | None = Field(default=None, alias="writerVersion")
+    status: str
+    total_cases: int = Field(default=0, alias="totalCases")
+    completed_cases: int = Field(default=0, alias="completedCases")
+    failed_cases: int = Field(default=0, alias="failedCases")
+    avg_judge_overall: float | None = Field(default=None, alias="avgJudgeOverall")
+    avg_trust_confidence: float | None = Field(default=None, alias="avgTrustConfidence")
+    avg_latency_ms: float | None = Field(default=None, alias="avgLatencyMs")
+    total_cost_usd: float | None = Field(default=None, alias="totalCostUsd")
+    started_at: str | None = Field(default=None, alias="startedAt")
+    completed_at: str | None = Field(default=None, alias="completedAt")
+    created_at: str = Field(alias="createdAt")
+
+    model_config = {"populate_by_name": True}
+
+
+class BenchmarkImportResponse(BaseModel):
+    imported: int
+    skipped: int
+    errors: list[str] = Field(default_factory=list)
+
+    model_config = {"populate_by_name": True}
+
+
+class ConversationEvalSummary(BaseModel):
+    conversation_id: str = Field(alias="conversationId")
+    message_count: int = Field(alias="messageCount")
+    avg_judge_overall: float | None = Field(default=None, alias="avgJudgeOverall")
+    avg_trust_overall: float | None = Field(default=None, alias="avgTrustOverall")
+    avg_hallucination_risk: float | None = Field(default=None, alias="avgHallucinationRisk")
+    avg_citation_quality: float | None = Field(default=None, alias="avgCitationQuality")
+    abstention_count: int = Field(default=0, alias="abstentionCount")
+    created_at: str = Field(alias="createdAt")
+
+    model_config = {"populate_by_name": True}
+
+
+class ConversationEvalListResponse(BaseModel):
+    conversations: list[ConversationEvalSummary]
+    total: int
+
+    model_config = {"populate_by_name": True}
