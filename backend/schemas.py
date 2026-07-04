@@ -1019,3 +1019,52 @@ class ModelComparisonResponse(BaseModel):
 class ModelComparisonListResponse(BaseModel):
     comparisons: list[ModelComparisonResponse]
     total: int
+
+
+# ─── Collections schemas ───────────────────────────────────────────────────────
+
+class CollectionSummary(BaseModel):
+    id: str
+    workspace_id: str = Field(alias="workspaceId")
+    name: str
+    description: str | None = None
+    color: str | None = Field(default="#6366f1")
+    icon: str | None = None
+    document_count: int = Field(default=0, alias="documentCount")
+    created_at: str = Field(alias="createdAt")
+    updated_at: str | None = Field(default=None, alias="updatedAt")
+
+    model_config = {"populate_by_name": True}
+
+
+class CollectionListResponse(BaseModel):
+    collections: list[CollectionSummary]
+    total: int
+
+
+class CollectionDetailResponse(CollectionSummary):
+    documents: list[DocumentSummary]
+
+
+class CreateCollectionRequest(BaseModel):
+    name: str = Field(min_length=1, max_length=200)
+    description: str | None = None
+    color: str | None = None
+    icon: str | None = None
+
+    model_config = {"populate_by_name": True}
+
+
+class UpdateCollectionRequest(BaseModel):
+    name: str | None = None
+    description: str | None = None
+    color: str | None = None
+    icon: str | None = None
+
+    model_config = {"populate_by_name": True}
+
+
+class AddDocumentToCollectionRequest(BaseModel):
+    document_id: str = Field(alias="documentId")
+
+    model_config = {"populate_by_name": True}

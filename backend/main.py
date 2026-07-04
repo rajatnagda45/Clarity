@@ -46,6 +46,7 @@ from api.routers import benchmark_suggestions
 from api.routers import billing
 from api.routers import members
 from api.routers import metrics as metrics_router
+from api.routers import collections
 
 
 @asynccontextmanager
@@ -163,3 +164,4 @@ app.include_router(benchmark_suggestions.router)
 app.include_router(billing.router)
 app.include_router(members.router)
 app.include_router(metrics_router.router)
+app.include_router(collections.router)

@@ -36,6 +36,11 @@ import type {
   MembersListResponse,
   SystemHealth,
   LiveMetrics,
+  Collection,
+  CollectionDetail,
+  CollectionListResponse,
+  CreateCollectionPayload,
+  UpdateCollectionPayload,
 } from '@/types/clarity';
 
 const BACKEND_URL = process.env.NEXT_PUBLIC_BACKEND_URL ?? 'http://localhost:8000';
@@ -710,4 +715,75 @@ export async function getLiveMetrics(): Promise<LiveMetrics> {
   const res = await fetch(`${BACKEND_URL}/api/metrics`);
   if (!res.ok) throw new Error(`Metrics fetch failed: ${res.status}`);
   return res.json() as Promise<LiveMetrics>;
+}
+
+// ---------------------------------------------------------------------------
+// Collections
+// ---------------------------------------------------------------------------
+
+export async function listCollections(auth: AuthContext): Promise<CollectionListResponse> {
+  return apiFetch<CollectionListResponse>('/api/collections', { method: 'GET', ...auth });
+}
+
+export async function createCollection(
+  auth: AuthContext,
+  payload: CreateCollectionPayload,
+): Promise<Collection> {
+  return apiFetch<Collection>('/api/collections', {
+    method: 'POST',
+    body: JSON.stringify(payload),
+    ...auth,
+  });
+}
+
+export async function getCollection(
+  auth: AuthContext,
+  collectionId: string,
+): Promise<CollectionDetail> {
+  return apiFetch<CollectionDetail>(`/api/collections/${collectionId}`, {
+    method: 'GET',
+    ...auth,
+  });
+}
+
+export async function updateCollection(
+  auth: AuthContext,
+  collectionId: string,
+  payload: UpdateCollectionPayload,
+): Promise<Collection> {
+  return apiFetch<Collection>(`/api/collections/${collectionId}`, {
+    method: 'PATCH',
+    body: JSON.stringify(payload),
+    ...auth,
+  });
+}
+
+export async function deleteCollection(auth: AuthContext, collectionId: string): Promise<void> {
+  await apiFetch<void>(`/api/collections/${collectionId}`, {
+    method: 'DELETE',
+    ...auth,
+  });
+}
+
+export async function addDocumentToCollection(
+  auth: AuthContext,
+  collectionId: string,
+  documentId: string,
+): Promise<void> {
+  await apiFetch<void>(`/api/collections/${collectionId}/documents`, {
+    method: 'POST',
+    body: JSON.stringify({ document_id: documentId }),
+    ...auth,
+  });
+}
+
+export async function removeDocumentFromCollection(
+  auth: AuthContext,
+  collectionId: string,
+  documentId: string,
+): Promise<void> {
+  await apiFetch<void>(`/api/collections/${collectionId}/documents/${documentId}`, {
+    method: 'DELETE',
+    ...auth,
+  });
 }

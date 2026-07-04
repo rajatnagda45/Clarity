@@ -722,3 +722,42 @@ export interface LiveMetrics {
   active_requests: number;
   endpoints: Record<string, EndpointMetric>;
 }
+
+// ---------------------------------------------------------------------------
+// Collections
+// ---------------------------------------------------------------------------
+
+export interface Collection {
+  id: string;
+  workspaceId: string;
+  name: string;
+  description: string | null;
+  color: string | null;
+  icon: string | null;
+  documentCount: number;
+  createdAt: string;
+  updatedAt: string | null;
+}
+
+export interface CollectionDetail extends Collection {
+  documents: Document[];
+}
+
+export interface CollectionListResponse {
+  collections: Collection[];
+  total: number;
+}
+
+export interface CreateCollectionPayload {
+  name: string;
+  description?: string;
+  color?: string;
+  icon?: string;
+}
+
+export interface UpdateCollectionPayload {
+  name?: string;
+  description?: string;
+  color?: string;
+  icon?: string;
+}

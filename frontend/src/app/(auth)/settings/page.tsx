@@ -2,14 +2,13 @@
 
 import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { 
-  User, Building2, Bell, Palette, ShieldCheck, Cpu, 
+import {
+  User, Building2, Bell, Palette, ShieldCheck, Cpu,
   Puzzle, Key, CreditCard, Activity, Settings2, Info, Search
 } from 'lucide-react';
 import { PremiumBackground } from '@/components/landing/PremiumBackground';
 import { WorkspaceTab } from '@/components/settings/WorkspaceTab';
 import { BillingTab } from '@/components/settings/BillingTab';
-import { PlaceholderTab } from '@/components/settings/PlaceholderTab';
 import { AccountOverviewTab } from '@/components/settings/AccountOverviewTab';
 import { PersonalInfoTab } from '@/components/settings/PersonalInfoTab';
 import { SecurityTab } from '@/components/settings/SecurityTab';
@@ -18,6 +17,11 @@ import { AIUsageTab } from '@/components/settings/AIUsageTab';
 import { ApiKeysTab } from '@/components/settings/ApiKeysTab';
 import { ActivityTab } from '@/components/settings/ActivityTab';
 import { AdvancedSettingsTab } from '@/components/settings/AdvancedSettingsTab';
+import { AppearanceTab } from '@/components/settings/AppearanceTab';
+import { NotificationsTab } from '@/components/settings/NotificationsTab';
+import { PreferencesTab } from '@/components/settings/PreferencesTab';
+import { UsageTab } from '@/components/settings/UsageTab';
+import { AboutTab } from '@/components/settings/AboutTab';
 
 const NAV_GROUPS = [
   {
@@ -90,11 +94,11 @@ export default function SettingsHub() {
       
       case 'advanced': return <AdvancedSettingsTab />;
 
-      case 'preferences': return <PlaceholderTab title="Preferences" description="Customize your personal workspace experience." icon={Settings2} />;
-      case 'appearance': return <PlaceholderTab title="Appearance" description="Customize themes, colors, and layout density." icon={Palette} />;
-      case 'notifications': return <PlaceholderTab title="Notifications" description="Configure email and desktop alerts for your workspace." icon={Bell} />;
-      case 'usage': return <PlaceholderTab title="Usage Quotas" description="Monitor detailed API, token, and storage consumption." icon={Activity} />;
-      case 'about': return <PlaceholderTab title="About" description="System status, versions, and documentation." icon={Info} />;
+      case 'preferences': return <PreferencesTab />;
+      case 'appearance': return <AppearanceTab />;
+      case 'notifications': return <NotificationsTab />;
+      case 'usage': return <UsageTab />;
+      case 'about': return <AboutTab />;
       
       default: return <AccountOverviewTab />;
     }
