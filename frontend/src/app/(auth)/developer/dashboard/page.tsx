@@ -15,6 +15,8 @@ import {
 
 import { getAnswerMetrics, getDeveloperDashboard, getEmbeddingMetrics, getIndexMetrics, getRetrievalMetrics } from '@/lib/api';
 import type { AnswerMetrics, DeveloperDashboard, EmbeddingMetrics, IndexMetrics, RetrievalMetrics } from '@/types/clarity';
+import { SystemHealthPanel } from '@/components/developer/SystemHealthPanel';
+import { LiveMetricsPanel } from '@/components/developer/LiveMetricsPanel';
 
 type LoadState = 'idle' | 'loading' | 'loaded' | 'error';
 
@@ -458,6 +460,12 @@ export default function DeveloperDashboardPage() {
                 ))}
               </div>
             </SectionCard>
+
+            {/* Observability */}
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+              <SystemHealthPanel />
+              <LiveMetricsPanel />
+            </div>
 
           </div>
         )}

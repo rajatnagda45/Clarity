@@ -690,3 +690,35 @@ export interface MembersListResponse {
   members: WorkspaceMember[];
   total: number;
 }
+
+// ---------------------------------------------------------------------------
+// Observability
+// ---------------------------------------------------------------------------
+
+export interface HealthProbeResult {
+  ok: boolean;
+  latency_ms: number | null;
+  detail: string | null;
+}
+
+export interface SystemHealth {
+  status: "ready" | "degraded" | "unavailable";
+  version: string;
+  environment: string;
+  checks: Record<string, HealthProbeResult>;
+}
+
+export interface EndpointMetric {
+  count: number;
+  total_ms: number;
+  errors: number;
+}
+
+export interface LiveMetrics {
+  uptime_seconds: number;
+  request_count: number;
+  error_count: number;
+  avg_latency_ms: number;
+  active_requests: number;
+  endpoints: Record<string, EndpointMetric>;
+}

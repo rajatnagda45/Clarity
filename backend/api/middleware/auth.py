@@ -31,7 +31,7 @@ _jwks_cache: dict[str, str] = {}  # kid → PEM public key
 _jwks_lock = threading.Lock()
 
 # Paths that never require authentication
-_PUBLIC_PATHS_ALWAYS = {"/", "/health", "/api/health", "/api/billing/webhook"}
+_PUBLIC_PATHS_ALWAYS = {"/", "/health", "/health/live", "/health/ready", "/api/health", "/api/metrics", "/api/billing/webhook"}
 # Docs paths exposed only outside production to avoid schema enumeration in prod
 _PUBLIC_PATHS_DEV = {"/docs", "/openapi.json", "/redoc"}
 _PUBLIC_PATH_PREFIXES = ("/api/documents/dev-file/",)

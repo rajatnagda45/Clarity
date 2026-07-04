@@ -10,6 +10,8 @@ Startup order:
 """
 
 import os
+import logging
+import logging.config
 from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
@@ -19,6 +21,8 @@ from api.errors import install_error_handlers
 from config import settings
 from api.middleware.auth import AuthMiddleware
 from api.middleware.rate_limit import RateLimitMiddleware
+from api.middleware.logging import LoggingMiddleware
+from api.middleware.metrics import MetricsMiddleware
 from api.routers import claims
 from api.routers import developer
 from api.routers import documents
@@ -41,6 +45,7 @@ from api.routers import model_comparisons
 from api.routers import benchmark_suggestions
 from api.routers import billing
 from api.routers import members
+from api.routers import metrics as metrics_router
 
 
 @asynccontextmanager
@@ -68,7 +73,31 @@ def _init_sentry() -> None:
         )
 
 
+def _configure_logging() -> None:
+    log_level = os.getenv("LOG_LEVEL", "INFO").upper()
+    logging.config.dictConfig({
+        "version": 1,
+        "disable_existing_loggers": False,
+        "formatters": {
+            "json": {
+                "()": "logging.Formatter",
+                "fmt": '{"time":"%(asctime)s","level":"%(levelname)s","logger":"%(name)s","message":"%(message)s"}',
+                "datefmt": "%Y-%m-%dT%H:%M:%S",
+            },
+        },
+        "handlers": {
+            "console": {
+                "class": "logging.StreamHandler",
+                "formatter": "json",
+                "stream": "ext://sys.stdout",
+            },
+        },
+        "root": {"level": log_level, "handlers": ["console"]},
+    })
+
+
 _init_sentry()
+_configure_logging()
 
 app = FastAPI(
     title="Clarity API",
@@ -96,9 +125,12 @@ _allowed_origins = os.getenv(
 #    RateLimitMiddleware reads it. Rate limits are keyed by user_id, not IP.
 #  - RateLimit is innermost so it only fires after the JWT is validated.
 #
-# Registration order (first registered = innermost):
+# Execution order: CORS → Logging → Metrics → Auth → RateLimit → handler.
+# Registration order is reversed (first registered = innermost).
 app.add_middleware(RateLimitMiddleware)
 app.add_middleware(AuthMiddleware)
+app.add_middleware(MetricsMiddleware)
+app.add_middleware(LoggingMiddleware)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=_allowed_origins,
@@ -130,3 +162,4 @@ app.include_router(model_comparisons.router)
 app.include_router(benchmark_suggestions.router)
 app.include_router(billing.router)
 app.include_router(members.router)
+app.include_router(metrics_router.router)

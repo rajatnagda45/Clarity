@@ -84,6 +84,43 @@ class HealthResponse(BaseModel):
     environment: str
 
 
+class HealthProbeResult(BaseModel):
+    ok: bool
+    latency_ms: float | None = None
+    detail: str | None = None
+
+
+class ReadinessResponse(BaseModel):
+    status: str  # "ready" | "degraded" | "unavailable"
+    version: str
+    environment: str
+    checks: dict[str, HealthProbeResult]
+
+
+class LivenessResponse(BaseModel):
+    status: str = "alive"
+    uptime_seconds: float
+
+
+class MetricCounter(BaseModel):
+    count: int = 0
+    total_ms: float = 0.0
+    errors: int = 0
+
+    @property
+    def avg_ms(self) -> float:
+        return self.total_ms / self.count if self.count else 0.0
+
+
+class LiveMetricsResponse(BaseModel):
+    uptime_seconds: float
+    request_count: int
+    error_count: int
+    avg_latency_ms: float
+    active_requests: int
+    endpoints: dict[str, MetricCounter]
+
+
 class ErrorResponse(BaseModel):
     error: str
     detail: str | None = None

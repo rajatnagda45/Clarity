@@ -34,6 +34,8 @@ import type {
   SpanRef,
   WorkspaceMember,
   MembersListResponse,
+  SystemHealth,
+  LiveMetrics,
 } from '@/types/clarity';
 
 const BACKEND_URL = process.env.NEXT_PUBLIC_BACKEND_URL ?? 'http://localhost:8000';
@@ -669,4 +671,20 @@ export async function dismissSuggestion(
   suggestionId: string,
 ): Promise<import('@/types/clarity').BenchmarkSuggestion> {
   return apiFetch(`/api/benchmark-suggestions/${suggestionId}/dismiss`, { method: 'POST', ...auth });
+}
+
+// ---------------------------------------------------------------------------
+// Observability
+// ---------------------------------------------------------------------------
+
+export async function getSystemHealth(): Promise<SystemHealth> {
+  const res = await fetch(`${BACKEND_URL}/health/ready`);
+  if (!res.ok && res.status !== 503) throw new Error(`Health check failed: ${res.status}`);
+  return res.json() as Promise<SystemHealth>;
+}
+
+export async function getLiveMetrics(): Promise<LiveMetrics> {
+  const res = await fetch(`${BACKEND_URL}/api/metrics`);
+  if (!res.ok) throw new Error(`Metrics fetch failed: ${res.status}`);
+  return res.json() as Promise<LiveMetrics>;
 }
