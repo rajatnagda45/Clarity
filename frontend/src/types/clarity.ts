@@ -978,3 +978,173 @@ export interface ConversationEvalListResponse {
   conversations: ConversationEvalSummary[];
   total: number;
 }
+
+// ─── Phase 12 — Enterprise types ──────────────────────────────────────────────
+
+export interface ApiKey {
+  id: string;
+  workspaceId: string;
+  name: string;
+  keyPrefix: string;
+  scopes: string[];
+  lastUsedAt: string | null;
+  expiresAt: string | null;
+  createdAt: string;
+}
+
+export interface ApiKeyCreated extends ApiKey {
+  plaintextKey: string;
+}
+
+export interface ApiKeyListResponse {
+  keys: ApiKey[];
+  total: number;
+}
+
+export interface CreateApiKeyPayload {
+  name: string;
+  scopes?: string[];
+  expiresInDays?: number;
+}
+
+export interface Webhook {
+  id: string;
+  workspaceId: string;
+  url: string;
+  events: string[];
+  description: string | null;
+  enabled: boolean;
+  secretPreview?: string | null;
+  createdAt: string;
+}
+
+export interface WebhookListResponse {
+  webhooks: Webhook[];
+  total: number;
+}
+
+export interface WebhookDelivery {
+  id: string;
+  webhookId: string;
+  workspaceId: string;
+  eventType: string;
+  status: 'success' | 'failure' | 'pending';
+  responseCode: number | null;
+  latencyMs: number | null;
+  error: string | null;
+  createdAt: string;
+}
+
+export interface WebhookDeliveryListResponse {
+  deliveries: WebhookDelivery[];
+  total: number;
+}
+
+export interface CreateWebhookPayload {
+  url: string;
+  events: string[];
+  description?: string;
+}
+
+export interface AuditLog {
+  id: string;
+  workspaceId: string;
+  userId: string | null;
+  action: string;
+  resourceType: string | null;
+  resourceId: string | null;
+  metadata: Record<string, unknown>;
+  ipAddress: string | null;
+  severity: 'info' | 'warning' | 'critical';
+  createdAt: string;
+}
+
+export interface AuditLogListResponse {
+  logs: AuditLog[];
+  total: number;
+}
+
+export interface AuditLogFilters {
+  action?: string;
+  userId?: string;
+  resourceType?: string;
+  severity?: string;
+  limit?: number;
+  offset?: number;
+}
+
+export interface Integration {
+  id: string;
+  workspaceId: string;
+  provider: string;
+  displayName: string;
+  description: string;
+  status: 'active' | 'disconnected' | 'error' | 'not_connected';
+  lastSyncAt: string | null;
+  docsImported: number;
+  config: Record<string, unknown>;
+  featureFlag: boolean;
+  createdAt: string | null;
+}
+
+export interface IntegrationListResponse {
+  integrations: Integration[];
+}
+
+export interface AutomationRule {
+  id: string;
+  workspaceId: string;
+  name: string;
+  triggerType: string;
+  condition: Record<string, unknown>;
+  actions: Record<string, unknown>[];
+  enabled: boolean;
+  runCount: number;
+  lastRunAt: string | null;
+  createdAt: string;
+}
+
+export interface AutomationRuleListResponse {
+  rules: AutomationRule[];
+  total: number;
+}
+
+export interface CreateAutomationRulePayload {
+  name: string;
+  trigger_type: string;
+  condition?: Record<string, unknown>;
+  actions?: Record<string, unknown>[];
+}
+
+export interface PromptLibraryEntry {
+  id: string;
+  workspaceId: string;
+  title: string;
+  content: string;
+  category: string;
+  variables: string[];
+  isFavorite: boolean;
+  useCount: number;
+  createdBy: string | null;
+  createdAt: string;
+}
+
+export interface PromptLibraryListResponse {
+  prompts: PromptLibraryEntry[];
+  total: number;
+}
+
+export interface CreatePromptPayload {
+  title: string;
+  content: string;
+  category?: string;
+  variables?: string[];
+}
+
+export interface UpdatePromptPayload {
+  title?: string;
+  content?: string;
+  category?: string;
+  variables?: string[];
+  is_favorite?: boolean;
+}

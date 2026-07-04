@@ -4,7 +4,8 @@ import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   User, Building2, Bell, Palette, ShieldCheck, Cpu,
-  Puzzle, Key, CreditCard, Activity, Settings2, Info, Search
+  Puzzle, Key, CreditCard, Activity, Settings2, Info, Search,
+  Plug, Webhook, Shield, Zap, BookOpen, Bookmark
 } from 'lucide-react';
 import { PremiumBackground } from '@/components/landing/PremiumBackground';
 import { WorkspaceTab } from '@/components/settings/WorkspaceTab';
@@ -22,6 +23,12 @@ import { NotificationsTab } from '@/components/settings/NotificationsTab';
 import { PreferencesTab } from '@/components/settings/PreferencesTab';
 import { UsageTab } from '@/components/settings/UsageTab';
 import { AboutTab } from '@/components/settings/AboutTab';
+import { IntegrationsTab } from '@/components/settings/IntegrationsTab';
+import { WebhooksTab } from '@/components/settings/WebhooksTab';
+import { AuditLogsTab } from '@/components/settings/AuditLogsTab';
+import { AutomationTab } from '@/components/settings/AutomationTab';
+import { PromptLibraryTab } from '@/components/settings/PromptLibraryTab';
+import { SavedViewsTab } from '@/components/settings/SavedViewsTab';
 
 const NAV_GROUPS = [
   {
@@ -43,6 +50,17 @@ const NAV_GROUPS = [
       { id: 'workspace', label: 'Workspace Settings', icon: Building2 },
       { id: 'billing', label: 'Billing & Plans', icon: CreditCard },
       { id: 'usage', label: 'Workspace Usage', icon: Activity },
+    ]
+  },
+  {
+    title: 'Enterprise',
+    items: [
+      { id: 'integrations', label: 'Integrations', icon: Plug },
+      { id: 'webhooks', label: 'Webhooks', icon: Webhook },
+      { id: 'audit-logs', label: 'Audit Logs', icon: Shield },
+      { id: 'automation', label: 'Automation', icon: Zap },
+      { id: 'prompt-library', label: 'Prompt Library', icon: BookOpen },
+      { id: 'saved-views', label: 'Saved Views', icon: Bookmark },
     ]
   },
   {
@@ -99,7 +117,14 @@ export default function SettingsHub() {
       case 'notifications': return <NotificationsTab />;
       case 'usage': return <UsageTab />;
       case 'about': return <AboutTab />;
-      
+
+      case 'integrations': return <IntegrationsTab />;
+      case 'webhooks': return <WebhooksTab />;
+      case 'audit-logs': return <AuditLogsTab />;
+      case 'automation': return <AutomationTab />;
+      case 'prompt-library': return <PromptLibraryTab />;
+      case 'saved-views': return <SavedViewsTab />;
+
       default: return <AccountOverviewTab />;
     }
   };

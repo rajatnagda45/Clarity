@@ -47,6 +47,12 @@ from api.routers import billing
 from api.routers import members
 from api.routers import metrics as metrics_router
 from api.routers import collections
+from api.routers import api_keys
+from api.routers import webhooks
+from api.routers import audit_logs
+from api.routers import integrations
+from api.routers import automation
+from api.routers import prompt_library
 
 
 @asynccontextmanager
@@ -165,3 +171,9 @@ app.include_router(billing.router)
 app.include_router(members.router)
 app.include_router(metrics_router.router)
 app.include_router(collections.router)
+app.include_router(api_keys.router)
+app.include_router(webhooks.router)
+app.include_router(audit_logs.router)
+app.include_router(integrations.router)
+app.include_router(automation.router)
+app.include_router(prompt_library.router)

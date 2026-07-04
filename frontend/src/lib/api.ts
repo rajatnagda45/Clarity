@@ -58,6 +58,26 @@ import type {
   CitationAnalytics,
   TrustAnalytics,
   ConversationEvalListResponse,
+  ApiKey,
+  ApiKeyCreated,
+  ApiKeyListResponse,
+  CreateApiKeyPayload,
+  Webhook,
+  WebhookListResponse,
+  WebhookDeliveryListResponse,
+  CreateWebhookPayload,
+  AuditLog,
+  AuditLogListResponse,
+  AuditLogFilters,
+  Integration,
+  IntegrationListResponse,
+  AutomationRule,
+  AutomationRuleListResponse,
+  CreateAutomationRulePayload,
+  PromptLibraryEntry,
+  PromptLibraryListResponse,
+  CreatePromptPayload,
+  UpdatePromptPayload,
 } from '@/types/clarity';
 
 const BACKEND_URL = process.env.NEXT_PUBLIC_BACKEND_URL ?? 'http://localhost:8000';
@@ -912,4 +932,121 @@ export async function getRegression(auth: AuthContext, reportId: string): Promis
 
 export async function listModelComparisons(auth: AuthContext): Promise<ModelComparisonListResponse> {
   return apiFetch<ModelComparisonListResponse>('/api/model-comparisons', auth);
+}
+
+// ─── Phase 12 — Enterprise API ────────────────────────────────────────────────
+
+export async function listApiKeys(auth: AuthContext): Promise<ApiKeyListResponse> {
+  return apiFetch<ApiKeyListResponse>('/api/enterprise/api-keys', auth);
+}
+
+export async function createApiKey(auth: AuthContext, payload: CreateApiKeyPayload): Promise<ApiKeyCreated> {
+  return apiFetch<ApiKeyCreated>('/api/enterprise/api-keys', {
+    method: 'POST',
+    body: JSON.stringify({ name: payload.name, scopes: payload.scopes ?? [], expires_in_days: payload.expiresInDays }),
+    ...auth,
+  });
+}
+
+export async function revokeApiKey(auth: AuthContext, keyId: string): Promise<void> {
+  await apiFetch<unknown>(`/api/enterprise/api-keys/${keyId}`, { method: 'DELETE', ...auth });
+}
+
+export async function listWebhooks(auth: AuthContext): Promise<WebhookListResponse> {
+  return apiFetch<WebhookListResponse>('/api/enterprise/webhooks', auth);
+}
+
+export async function createWebhook(auth: AuthContext, payload: CreateWebhookPayload): Promise<Webhook> {
+  return apiFetch<Webhook>('/api/enterprise/webhooks', {
+    method: 'POST',
+    body: JSON.stringify(payload),
+    ...auth,
+  });
+}
+
+export async function toggleWebhook(auth: AuthContext, webhookId: string): Promise<Webhook> {
+  return apiFetch<Webhook>(`/api/enterprise/webhooks/${webhookId}`, { method: 'PATCH', ...auth });
+}
+
+export async function deleteWebhook(auth: AuthContext, webhookId: string): Promise<void> {
+  await apiFetch<unknown>(`/api/enterprise/webhooks/${webhookId}`, { method: 'DELETE', ...auth });
+}
+
+export async function listWebhookDeliveries(auth: AuthContext, webhookId: string): Promise<WebhookDeliveryListResponse> {
+  return apiFetch<WebhookDeliveryListResponse>(`/api/enterprise/webhooks/${webhookId}/deliveries`, auth);
+}
+
+export async function listAuditLogs(auth: AuthContext, filters?: AuditLogFilters): Promise<AuditLogListResponse> {
+  const params = new URLSearchParams();
+  if (filters?.action) params.set('action', filters.action);
+  if (filters?.userId) params.set('user_id', filters.userId);
+  if (filters?.resourceType) params.set('resource_type', filters.resourceType);
+  if (filters?.severity) params.set('severity', filters.severity);
+  if (filters?.limit) params.set('limit', String(filters.limit));
+  if (filters?.offset) params.set('offset', String(filters.offset));
+  const qs = params.toString();
+  return apiFetch<AuditLogListResponse>(`/api/enterprise/audit-logs${qs ? `?${qs}` : ''}`, auth);
+}
+
+export async function listIntegrations(auth: AuthContext): Promise<IntegrationListResponse> {
+  return apiFetch<IntegrationListResponse>('/api/enterprise/integrations', auth);
+}
+
+export async function disconnectIntegration(auth: AuthContext, provider: string): Promise<Integration> {
+  return apiFetch<Integration>(`/api/enterprise/integrations/${provider}/disconnect`, { method: 'POST', ...auth });
+}
+
+export async function listAutomationRules(auth: AuthContext): Promise<AutomationRuleListResponse> {
+  return apiFetch<AutomationRuleListResponse>('/api/enterprise/automation-rules', auth);
+}
+
+export async function createAutomationRule(auth: AuthContext, payload: CreateAutomationRulePayload): Promise<AutomationRule> {
+  return apiFetch<AutomationRule>('/api/enterprise/automation-rules', {
+    method: 'POST',
+    body: JSON.stringify(payload),
+    ...auth,
+  });
+}
+
+export async function toggleAutomationRule(auth: AuthContext, ruleId: string): Promise<AutomationRule> {
+  return apiFetch<AutomationRule>(`/api/enterprise/automation-rules/${ruleId}`, { method: 'PATCH', ...auth });
+}
+
+export async function deleteAutomationRule(auth: AuthContext, ruleId: string): Promise<void> {
+  await apiFetch<unknown>(`/api/enterprise/automation-rules/${ruleId}`, { method: 'DELETE', ...auth });
+}
+
+export async function listPromptLibrary(
+  auth: AuthContext,
+  opts?: { category?: string; favoritesOnly?: boolean },
+): Promise<PromptLibraryListResponse> {
+  const params = new URLSearchParams();
+  if (opts?.category) params.set('category', opts.category);
+  if (opts?.favoritesOnly) params.set('favorites_only', 'true');
+  const qs = params.toString();
+  return apiFetch<PromptLibraryListResponse>(`/api/enterprise/prompt-library${qs ? `?${qs}` : ''}`, auth);
+}
+
+export async function createPromptEntry(auth: AuthContext, payload: CreatePromptPayload): Promise<PromptLibraryEntry> {
+  return apiFetch<PromptLibraryEntry>('/api/enterprise/prompt-library', {
+    method: 'POST',
+    body: JSON.stringify(payload),
+    ...auth,
+  });
+}
+
+export async function updatePromptEntry(
+  auth: AuthContext,
+  promptId: string,
+  payload: UpdatePromptPayload,
+): Promise<PromptLibraryEntry> {
+  return apiFetch<PromptLibraryEntry>(`/api/enterprise/prompt-library/${promptId}`, {
+    method: 'PATCH',
+    body: JSON.stringify(payload),
+    ...auth,
+  });
+}
+
+export async function deletePromptEntry(auth: AuthContext, promptId: string): Promise<void> {
+  await apiFetch<unknown>(`/api/enterprise/prompt-library/${promptId}`, { method: 'DELETE', ...auth });
 }

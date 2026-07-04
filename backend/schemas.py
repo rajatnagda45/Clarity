@@ -1176,3 +1176,180 @@ class ConversationEvalListResponse(BaseModel):
     total: int
 
     model_config = {"populate_by_name": True}
+
+
+# ─── Phase 12 — Enterprise schemas ────────────────────────────────────────────
+
+class CreateApiKeyRequest(BaseModel):
+    name: str = Field(min_length=1, max_length=100)
+    scopes: list[str] = Field(default_factory=list)
+    expires_in_days: int | None = Field(default=None, ge=1, le=365)
+
+
+class ApiKeyResponse(BaseModel):
+    id: str
+    workspace_id: str = Field(alias="workspaceId")
+    name: str
+    key_prefix: str = Field(alias="keyPrefix")
+    scopes: list[str]
+    last_used_at: str | None = Field(default=None, alias="lastUsedAt")
+    expires_at: str | None = Field(default=None, alias="expiresAt")
+    created_at: str = Field(alias="createdAt")
+
+    model_config = {"populate_by_name": True}
+
+
+class ApiKeyCreatedResponse(ApiKeyResponse):
+    plaintext_key: str = Field(alias="plaintextKey")
+
+    model_config = {"populate_by_name": True}
+
+
+class ApiKeyListResponse(BaseModel):
+    keys: list[ApiKeyResponse]
+    total: int
+
+
+class CreateWebhookRequest(BaseModel):
+    url: str = Field(min_length=1)
+    events: list[str] = Field(min_length=1)
+    description: str | None = None
+
+
+class WebhookResponse(BaseModel):
+    id: str
+    workspace_id: str = Field(alias="workspaceId")
+    url: str
+    events: list[str]
+    description: str | None = None
+    enabled: bool
+    secret_preview: str | None = Field(default=None, alias="secretPreview")
+    created_at: str = Field(alias="createdAt")
+
+    model_config = {"populate_by_name": True}
+
+
+class WebhookListResponse(BaseModel):
+    webhooks: list[WebhookResponse]
+    total: int
+
+
+class WebhookDeliveryResponse(BaseModel):
+    id: str
+    webhook_id: str = Field(alias="webhookId")
+    workspace_id: str = Field(alias="workspaceId")
+    event_type: str = Field(alias="eventType")
+    status: Literal["success", "failure", "pending"]
+    response_code: int | None = Field(default=None, alias="responseCode")
+    latency_ms: int | None = Field(default=None, alias="latencyMs")
+    error: str | None = None
+    created_at: str = Field(alias="createdAt")
+
+    model_config = {"populate_by_name": True}
+
+
+class WebhookDeliveryListResponse(BaseModel):
+    deliveries: list[WebhookDeliveryResponse]
+    total: int
+
+
+class AuditLogResponse(BaseModel):
+    id: str
+    workspace_id: str = Field(alias="workspaceId")
+    user_id: str | None = Field(default=None, alias="userId")
+    action: str
+    resource_type: str | None = Field(default=None, alias="resourceType")
+    resource_id: str | None = Field(default=None, alias="resourceId")
+    metadata: dict = Field(default_factory=dict)
+    ip_address: str | None = Field(default=None, alias="ipAddress")
+    severity: Literal["info", "warning", "critical"] = "info"
+    created_at: str = Field(alias="createdAt")
+
+    model_config = {"populate_by_name": True}
+
+
+class AuditLogListResponse(BaseModel):
+    logs: list[AuditLogResponse]
+    total: int
+
+
+class IntegrationResponse(BaseModel):
+    id: str
+    workspace_id: str = Field(alias="workspaceId")
+    provider: str
+    display_name: str = Field(alias="displayName")
+    description: str
+    status: Literal["active", "disconnected", "error", "not_connected"]
+    last_sync_at: str | None = Field(default=None, alias="lastSyncAt")
+    docs_imported: int = Field(default=0, alias="docsImported")
+    config: dict = Field(default_factory=dict)
+    feature_flag: bool = Field(default=False, alias="featureFlag")
+    created_at: str | None = Field(default=None, alias="createdAt")
+
+    model_config = {"populate_by_name": True}
+
+
+class IntegrationListResponse(BaseModel):
+    integrations: list[IntegrationResponse]
+
+
+class AutomationRuleResponse(BaseModel):
+    id: str
+    workspace_id: str = Field(alias="workspaceId")
+    name: str
+    trigger_type: str = Field(alias="triggerType")
+    condition: dict = Field(default_factory=dict)
+    actions: list[dict] = Field(default_factory=list)
+    enabled: bool = True
+    run_count: int = Field(default=0, alias="runCount")
+    last_run_at: str | None = Field(default=None, alias="lastRunAt")
+    created_at: str = Field(alias="createdAt")
+
+    model_config = {"populate_by_name": True}
+
+
+class AutomationRuleListResponse(BaseModel):
+    rules: list[AutomationRuleResponse]
+    total: int
+
+
+class CreateAutomationRuleRequest(BaseModel):
+    name: str = Field(min_length=1, max_length=200)
+    trigger_type: str
+    condition: dict = Field(default_factory=dict)
+    actions: list[dict] = Field(default_factory=list)
+
+
+class PromptLibraryEntryResponse(BaseModel):
+    id: str
+    workspace_id: str = Field(alias="workspaceId")
+    title: str
+    content: str
+    category: str
+    variables: list[str] = Field(default_factory=list)
+    is_favorite: bool = Field(default=False, alias="isFavorite")
+    use_count: int = Field(default=0, alias="useCount")
+    created_by: str | None = Field(default=None, alias="createdBy")
+    created_at: str = Field(alias="createdAt")
+
+    model_config = {"populate_by_name": True}
+
+
+class PromptLibraryListResponse(BaseModel):
+    prompts: list[PromptLibraryEntryResponse]
+    total: int
+
+
+class CreatePromptLibraryEntryRequest(BaseModel):
+    title: str = Field(min_length=1, max_length=200)
+    content: str = Field(min_length=1)
+    category: str = Field(default="general")
+    variables: list[str] = Field(default_factory=list)
+
+
+class UpdatePromptLibraryEntryRequest(BaseModel):
+    title: str | None = None
+    content: str | None = None
+    category: str | None = None
+    variables: list[str] | None = None
+    is_favorite: bool | None = None
