@@ -17,6 +17,7 @@ import { getAnswerMetrics, getDeveloperDashboard, getEmbeddingMetrics, getIndexM
 import type { AnswerMetrics, DeveloperDashboard, EmbeddingMetrics, IndexMetrics, RetrievalMetrics } from '@/types/clarity';
 import { SystemHealthPanel } from '@/components/developer/SystemHealthPanel';
 import { LiveMetricsPanel } from '@/components/developer/LiveMetricsPanel';
+import { useWorkspace } from '@/contexts/WorkspaceContext';
 
 type LoadState = 'idle' | 'loading' | 'loaded' | 'error';
 
@@ -95,7 +96,8 @@ function MetricCard({ label, value, subValue }: any) {
 // -----------------------------------------------------------------------------
 export default function DeveloperDashboardPage() {
   const searchParams = useSearchParams();
-  const workspaceId = searchParams.get('workspace') ?? '';
+  const { activeWorkspace } = useWorkspace();
+  const workspaceId = searchParams.get('workspace') || activeWorkspace?.id || '';
   const { getToken } = useAuth();
 
   const [dashboard, setDashboard] = useState<DeveloperDashboard | null>(null);

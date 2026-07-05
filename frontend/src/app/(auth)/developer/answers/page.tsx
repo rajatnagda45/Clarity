@@ -12,6 +12,7 @@ import { VerifiedClaimChip } from '@/components/chat/VerifiedClaimChip';
 import { getAnswerExplorer, getAnswerMetrics } from '@/lib/api';
 import { buildVerificationTimeline } from '@/lib/verifiedAnswer';
 import type { AnswerExplorerResponse, AnswerMetrics } from '@/types/clarity';
+import { useWorkspace } from '@/contexts/WorkspaceContext';
 
 
 const DebatePanel = dynamic(
@@ -29,7 +30,8 @@ type LoadState = 'idle' | 'loading' | 'loaded' | 'error';
 
 export default function DeveloperAnswersPage() {
   const searchParams = useSearchParams();
-  const workspaceId = searchParams.get('workspace') ?? '';
+  const { activeWorkspace } = useWorkspace();
+  const workspaceId = searchParams.get('workspace') || activeWorkspace?.id || '';
   const { getToken } = useAuth();
 
   const [answers, setAnswers] = useState<AnswerExplorerResponse | null>(null);

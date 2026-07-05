@@ -7,6 +7,7 @@ import { useSearchParams } from 'next/navigation';
 
 import { getEmbeddingMetrics } from '@/lib/api';
 import type { EmbeddingMetrics } from '@/types/clarity';
+import { useWorkspace } from '@/contexts/WorkspaceContext';
 
 
 type LoadState = 'idle' | 'loading' | 'loaded' | 'error';
@@ -19,7 +20,8 @@ function formatRate(value: number): string {
 
 export default function EmbeddingMetricsPage() {
   const searchParams = useSearchParams();
-  const workspaceId = searchParams.get('workspace') ?? '';
+  const { activeWorkspace } = useWorkspace();
+  const workspaceId = searchParams.get('workspace') || activeWorkspace?.id || '';
   const { getToken } = useAuth();
 
   const [metrics, setMetrics] = useState<EmbeddingMetrics | null>(null);

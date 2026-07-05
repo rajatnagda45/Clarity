@@ -1,9 +1,12 @@
 import Link from 'next/link';
 import { motion, AnimatePresence } from 'framer-motion';
-import { FileText, MoreHorizontal, Search, Cpu, Database, Layers, MessageSquare, Trash2, Edit2, Check } from 'lucide-react';
+import { FileText, MoreHorizontal, Search, Database, Layers, MessageSquare, Trash2, Loader2, Check } from 'lucide-react';
 import { useState, useRef, useEffect } from 'react';
+import { useAuth } from '@clerk/nextjs';
 import type { Document } from '@/types/clarity';
 import { formatRelativeTime } from '@/lib/time';
+import { deleteDocument } from '@/lib/api';
+import { useToast } from '@/contexts/ToastContext';
 
 function statusTone(status: Document['status']) {
   if (status === 'indexed') return { bg: 'bg-green-500/10', text: 'text-green-400', border: 'border-green-500/20' };
@@ -36,19 +39,41 @@ export function DocumentCard({
   workspaceId,
   isSelected = false,
   onToggleSelect,
+  onDelete,
 }: {
   document: Document;
   workspaceId: string;
   isSelected?: boolean;
   onToggleSelect?: () => void;
+  onDelete?: (id: string) => void;
 }) {
+  const { getToken } = useAuth();
+  const { toast } = useToast();
   const [showMenu, setShowMenu] = useState(false);
+  const [deleting, setDeleting] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
 
   const tone = statusTone(document.status);
   const isReady = document.status === 'indexed';
   const isFailed = document.status === 'failed';
   const isProcessing = !isReady && !isFailed;
+
+  async function handleDelete(e: React.MouseEvent) {
+    e.stopPropagation();
+    if (!workspaceId) return;
+    setDeleting(true);
+    setShowMenu(false);
+    try {
+      const token = await getToken();
+      if (!token) throw new Error('No auth token');
+      await deleteDocument({ token, workspaceId }, document.id);
+      onDelete?.(document.id);
+      toast.success(`"${document.filename}" deleted`);
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Failed to delete document');
+      setDeleting(false);
+    }
+  }
 
   // Close menu when clicking outside
   useEffect(() => {
@@ -139,15 +164,20 @@ export function DocumentCard({
                   transition={{ duration: 0.15 }}
                   className="absolute right-0 top-full mt-2 w-48 rounded-xl border border-white/[0.08] bg-[#151923] p-1 shadow-2xl z-50 origin-top-right"
                 >
-                  <Link href={`/dashboard/chat?document=${document.id}`} className="flex items-center gap-2 rounded-lg px-3 py-2 text-sm text-[#F1F3F9] hover:bg-purple-500/10 hover:text-purple-400 transition-colors">
+                  <Link href={`/chat?document=${document.id}`} className="flex items-center gap-2 rounded-lg px-3 py-2 text-sm text-[#F1F3F9] hover:bg-purple-500/10 hover:text-purple-400 transition-colors">
                     <MessageSquare size={14} /> Ask AI
                   </Link>
                   <Link href={`/documents/${document.id}?workspace=${encodeURIComponent(workspaceId)}`} className="flex items-center gap-2 rounded-lg px-3 py-2 text-sm text-[#F1F3F9] hover:bg-white/[0.04] transition-colors">
                     <Search size={14} /> Clause Map
                   </Link>
                   <div className="h-px bg-white/[0.04] my-1 mx-2" />
-                  <button className="w-full flex items-center gap-2 rounded-lg px-3 py-2 text-sm text-red-400 hover:bg-red-500/10 transition-colors text-left">
-                    <Trash2 size={14} /> Delete
+                  <button
+                    onClick={handleDelete}
+                    disabled={deleting}
+                    className="w-full flex items-center gap-2 rounded-lg px-3 py-2 text-sm text-red-400 hover:bg-red-500/10 transition-colors text-left disabled:opacity-50"
+                  >
+                    {deleting ? <Loader2 size={14} className="animate-spin" /> : <Trash2 size={14} />}
+                    {deleting ? 'Deleting...' : 'Delete'}
                   </button>
                 </motion.div>
               )}
@@ -168,7 +198,7 @@ export function DocumentCard({
       {workspaceId && isReady && (
         <div className={`mt-5 flex flex-wrap gap-2 relative z-10 opacity-70 group-hover:opacity-100 transition-opacity ${onToggleSelect ? 'pl-8' : ''}`}>
           <Link
-            href={`/dashboard/chat?document=${document.id}`}
+            href={`/chat?document=${document.id}`}
             className="inline-flex items-center gap-1.5 rounded-lg border border-purple-500/30 bg-purple-500/10 px-3 py-1.5 text-xs font-medium text-purple-400 transition hover:bg-purple-500/20"
           >
             <MessageSquare size={12} /> Summarize

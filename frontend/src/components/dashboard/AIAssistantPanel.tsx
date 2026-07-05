@@ -28,7 +28,7 @@ export function AIAssistantPanel() {
           </div>
         </div>
 
-        <Link href="/dashboard/chat">
+        <Link href="/chat">
           <button className="w-full bg-white/[0.03] hover:bg-white/[0.08] border border-white/[0.08] hover:border-white/[0.15] text-[#F1F3F9] rounded-xl py-3 px-4 flex items-center justify-between transition-all duration-300 group/btn mb-6 shadow-sm">
             <span className="flex items-center gap-2 font-medium text-sm">
               <MessageSquare size={16} className="text-blue-400" />

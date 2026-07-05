@@ -8,12 +8,14 @@ import { useEffect, useState } from 'react';
 import { ClauseMap } from '@/components/documents/ClauseMap';
 import { getDocument, getDocumentFile } from '@/lib/api';
 import type { DocumentDetail, DocumentFile } from '@/types/clarity';
+import { useWorkspace } from '@/contexts/WorkspaceContext';
 
 
 export default function DocumentDetailPage() {
   const params = useParams<{ documentId: string }>();
   const searchParams = useSearchParams();
-  const workspaceId = searchParams.get('workspace') ?? '';
+  const { activeWorkspace } = useWorkspace();
+  const workspaceId = searchParams.get('workspace') || activeWorkspace?.id || '';
   const { getToken } = useAuth();
 
   const [document, setDocument] = useState<DocumentDetail | null>(null);

@@ -7,6 +7,7 @@ import Link from 'next/link';
 
 import { listBenchmarkSuggestions, scanBenchmarkSuggestions, dismissSuggestion } from '@/lib/api';
 import type { BenchmarkSuggestion } from '@/types/clarity';
+import { useWorkspace } from '@/contexts/WorkspaceContext';
 
 type LoadState = 'idle' | 'loading' | 'loaded' | 'error';
 
@@ -25,7 +26,8 @@ const REASON_LABELS: Record<string, string> = {
 
 export default function BenchmarkSuggestionsPage() {
   const searchParams = useSearchParams();
-  const workspaceId = searchParams.get('workspace') ?? '';
+  const { activeWorkspace } = useWorkspace();
+  const workspaceId = searchParams.get('workspace') || activeWorkspace?.id || '';
   const { getToken } = useAuth();
 
   const [suggestions, setSuggestions] = useState<BenchmarkSuggestion[]>([]);

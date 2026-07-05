@@ -7,6 +7,7 @@ import { useParams, useSearchParams } from 'next/navigation';
 
 import { getDocumentEmbeddings } from '@/lib/api';
 import type { DocumentEmbeddingInspector } from '@/types/clarity';
+import { useWorkspace } from '@/contexts/WorkspaceContext';
 
 
 type LoadState = 'idle' | 'loading' | 'loaded' | 'error';
@@ -15,7 +16,8 @@ type LoadState = 'idle' | 'loading' | 'loaded' | 'error';
 export default function DocumentEmbeddingExplorerPage() {
   const params = useParams<{ documentId: string }>();
   const searchParams = useSearchParams();
-  const workspaceId = searchParams.get('workspace') ?? '';
+  const { activeWorkspace } = useWorkspace();
+  const workspaceId = searchParams.get('workspace') || activeWorkspace?.id || '';
   const { getToken } = useAuth();
 
   const [inspector, setInspector] = useState<DocumentEmbeddingInspector | null>(null);

@@ -9,11 +9,13 @@ export function DocumentList({
   workspaceId,
   loading = false,
   viewMode = 'grid',
+  onDelete,
 }: {
   documents: Document[];
   workspaceId: string;
   loading?: boolean;
   viewMode?: 'grid' | 'list';
+  onDelete?: (id: string) => void;
 }) {
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
 
@@ -109,11 +111,12 @@ export function DocumentList({
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: Math.min(i * 0.05, 0.5), duration: 0.4, ease: "easeOut" }}
           >
-            <DocumentCard 
-              document={document} 
-              workspaceId={workspaceId} 
+            <DocumentCard
+              document={document}
+              workspaceId={workspaceId}
               isSelected={selectedIds.has(document.id)}
               onToggleSelect={() => toggleSelect(document.id)}
+              onDelete={onDelete}
             />
           </motion.div>
         ))}
@@ -142,7 +145,13 @@ export function DocumentList({
             
             <div className="w-px h-6 bg-white/10" />
 
-            <button className="flex items-center gap-2 text-sm text-red-400 hover:text-red-300 transition-colors">
+            <button
+              onClick={() => {
+                selectedIds.forEach((id) => onDelete?.(id));
+                setSelectedIds(new Set());
+              }}
+              className="flex items-center gap-2 text-sm text-red-400 hover:text-red-300 transition-colors"
+            >
               <Trash2 size={16} /> Delete
             </button>
 

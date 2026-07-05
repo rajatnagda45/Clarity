@@ -136,6 +136,10 @@ export default function DocumentsPage() {
       )
     : documents;
 
+  function handleDocumentDeleted(id: string) {
+    setDocuments((current) => current.filter((d) => d.id !== id));
+  }
+
   async function handleFilesSelected(files: File[]) {
     if (!workspaceId) {
       toast.error('Choose a workspace before uploading documents.');
@@ -287,6 +291,7 @@ export default function DocumentsPage() {
             workspaceId={workspaceId}
             loading={loadState === 'loading'}
             viewMode={viewMode}
+            onDelete={handleDocumentDeleted}
           />
         </section>
       </div>

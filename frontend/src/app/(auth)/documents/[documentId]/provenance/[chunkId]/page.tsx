@@ -9,6 +9,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { getClaimSpans, getDocumentFile } from '@/lib/api';
 import { formatPercent } from '@/lib/verifiedAnswer';
 import type { DocumentFile, SpanRef } from '@/types/clarity';
+import { useWorkspace } from '@/contexts/WorkspaceContext';
 
 
 const PdfEvidenceViewer = dynamic(
@@ -20,7 +21,8 @@ const PdfEvidenceViewer = dynamic(
 export default function ProvenanceViewerPage() {
   const params = useParams<{ documentId: string; chunkId: string }>();
   const searchParams = useSearchParams();
-  const workspaceId = searchParams.get('workspace') ?? '';
+  const { activeWorkspace } = useWorkspace();
+  const workspaceId = searchParams.get('workspace') || activeWorkspace?.id || '';
   const citationKey = searchParams.get('citationKey');
   const claimText = searchParams.get('claimText');
   const criticStatus = searchParams.get('criticStatus');

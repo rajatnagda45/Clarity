@@ -7,6 +7,7 @@ import Link from 'next/link';
 
 import { listReleaseNotes } from '@/lib/api';
 import type { ReleaseNote } from '@/types/clarity';
+import { useWorkspace } from '@/contexts/WorkspaceContext';
 
 type LoadState = 'idle' | 'loading' | 'loaded' | 'error';
 
@@ -22,7 +23,8 @@ function DeltaBadge({ value }: { value: number }) {
 
 export default function ReleaseNotesPage() {
   const searchParams = useSearchParams();
-  const workspaceId = searchParams.get('workspace') ?? '';
+  const { activeWorkspace } = useWorkspace();
+  const workspaceId = searchParams.get('workspace') || activeWorkspace?.id || '';
   const { getToken } = useAuth();
 
   const [notes, setNotes] = useState<ReleaseNote[]>([]);

@@ -7,11 +7,13 @@ import { useSearchParams } from 'next/navigation';
 
 import { exploreRetrieval } from '@/lib/api';
 import type { RetrievalExplorerResponse } from '@/types/clarity';
+import { useWorkspace } from '@/contexts/WorkspaceContext';
 
 
 export default function RetrievalExplorerPage() {
   const searchParams = useSearchParams();
-  const workspaceId = searchParams.get('workspace') ?? '';
+  const { activeWorkspace } = useWorkspace();
+  const workspaceId = searchParams.get('workspace') || activeWorkspace?.id || '';
   const { getToken } = useAuth();
 
   const [query, setQuery] = useState('');

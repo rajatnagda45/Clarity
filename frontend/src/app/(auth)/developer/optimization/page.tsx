@@ -7,6 +7,7 @@ import Link from 'next/link';
 
 import { listOptimizationRecommendations, runOptimizationAnalysis, updateRecommendation } from '@/lib/api';
 import type { OptimizationRecommendation } from '@/types/clarity';
+import { useWorkspace } from '@/contexts/WorkspaceContext';
 
 type LoadState = 'idle' | 'loading' | 'loaded' | 'error';
 
@@ -18,7 +19,8 @@ const SEVERITY_STYLES: Record<string, string> = {
 
 export default function OptimizationPage() {
   const searchParams = useSearchParams();
-  const workspaceId = searchParams.get('workspace') ?? '';
+  const { activeWorkspace } = useWorkspace();
+  const workspaceId = searchParams.get('workspace') || activeWorkspace?.id || '';
   const { getToken } = useAuth();
 
   const [recs, setRecs] = useState<OptimizationRecommendation[]>([]);

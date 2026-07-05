@@ -7,12 +7,14 @@ import Link from 'next/link';
 
 import { listQualityGateRules, listQualityGateRuns } from '@/lib/api';
 import type { QualityGateRule, QualityGateRun } from '@/types/clarity';
+import { useWorkspace } from '@/contexts/WorkspaceContext';
 
 type LoadState = 'idle' | 'loading' | 'loaded' | 'error';
 
 export default function QualityGatesPage() {
   const searchParams = useSearchParams();
-  const workspaceId = searchParams.get('workspace') ?? '';
+  const { activeWorkspace } = useWorkspace();
+  const workspaceId = searchParams.get('workspace') || activeWorkspace?.id || '';
   const { getToken } = useAuth();
 
   const [rules, setRules] = useState<QualityGateRule[]>([]);

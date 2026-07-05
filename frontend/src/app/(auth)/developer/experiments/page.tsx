@@ -7,6 +7,7 @@ import Link from 'next/link';
 
 import { listExperiments } from '@/lib/api';
 import type { Experiment } from '@/types/clarity';
+import { useWorkspace } from '@/contexts/WorkspaceContext';
 
 type LoadState = 'idle' | 'loading' | 'loaded' | 'error';
 
@@ -18,7 +19,8 @@ const STATUS_COLORS: Record<string, string> = {
 
 export default function ExperimentsPage() {
   const searchParams = useSearchParams();
-  const workspaceId = searchParams.get('workspace') ?? '';
+  const { activeWorkspace } = useWorkspace();
+  const workspaceId = searchParams.get('workspace') || activeWorkspace?.id || '';
   const { getToken } = useAuth();
 
   const [experiments, setExperiments] = useState<Experiment[]>([]);
