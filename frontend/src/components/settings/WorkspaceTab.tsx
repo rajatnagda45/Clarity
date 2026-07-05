@@ -2,10 +2,9 @@
 
 import { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { 
-  Building2, Users, Shield, Key, History, Puzzle, Activity, 
-  Copy, Plus, Settings, Upload, MessageSquare, Database, FileText, CheckCircle2,
-  Lock, AlertTriangle, Fingerprint, HardDrive
+import {
+  Building2, Users, Shield, Key, History, Puzzle,
+  Copy, Plus, Settings, Upload, CheckCircle2, Lock
 } from 'lucide-react';
 
 import { useWorkspace } from '@/contexts/WorkspaceContext';
@@ -17,6 +16,10 @@ import { formatBytes } from '@/lib/format';
 import { MemberList } from '@/components/settings/members/MemberList';
 import { AddMemberForm } from '@/components/settings/members/AddMemberForm';
 import { RolePermissionsMatrix } from '@/components/settings/members/RolePermissionsMatrix';
+import { SecurityTab } from '@/components/settings/SecurityTab';
+import { ApiKeysTab } from '@/components/settings/ApiKeysTab';
+import { AuditLogsTab } from '@/components/settings/AuditLogsTab';
+import { IntegrationsTab } from '@/components/settings/IntegrationsTab';
 
 const TABS = [
   { id: 'overview', label: 'Overview', icon: Building2 },
@@ -244,7 +247,10 @@ export function WorkspaceTab() {
               <div className="space-y-6">
                 <h2 className="text-lg font-bold text-[#F1F3F9]">Quick Actions</h2>
                 <div className="flex flex-col gap-3">
-                  <button className="flex items-center gap-3 p-4 bg-[#0F1117] border border-white/[0.06] rounded-xl hover:bg-purple-500/10 hover:border-purple-500/30 transition-colors group text-left">
+                  <button
+                    onClick={() => setActiveTab('members')}
+                    className="flex items-center gap-3 p-4 bg-[#0F1117] border border-white/[0.06] rounded-xl hover:bg-purple-500/10 hover:border-purple-500/30 transition-colors group text-left"
+                  >
                     <div className="w-8 h-8 rounded-lg bg-white/5 flex items-center justify-center group-hover:bg-purple-500/20 group-hover:text-purple-400 transition-colors">
                       <Users size={16} />
                     </div>
@@ -253,7 +259,10 @@ export function WorkspaceTab() {
                       <p className="text-xs text-[#8892AA]">Add teammates to this workspace</p>
                     </div>
                   </button>
-                  <button className="flex items-center gap-3 p-4 bg-[#0F1117] border border-white/[0.06] rounded-xl hover:bg-purple-500/10 hover:border-purple-500/30 transition-colors group text-left">
+                  <button
+                    onClick={() => window.location.href = '/documents'}
+                    className="flex items-center gap-3 p-4 bg-[#0F1117] border border-white/[0.06] rounded-xl hover:bg-purple-500/10 hover:border-purple-500/30 transition-colors group text-left"
+                  >
                     <div className="w-8 h-8 rounded-lg bg-white/5 flex items-center justify-center group-hover:bg-purple-500/20 group-hover:text-purple-400 transition-colors">
                       <Upload size={16} />
                     </div>
@@ -262,7 +271,10 @@ export function WorkspaceTab() {
                       <p className="text-xs text-[#8892AA]">Add data to vector storage</p>
                     </div>
                   </button>
-                  <button className="flex items-center gap-3 p-4 bg-[#0F1117] border border-white/[0.06] rounded-xl hover:bg-purple-500/10 hover:border-purple-500/30 transition-colors group text-left">
+                  <button
+                    onClick={() => setActiveTab('roles')}
+                    className="flex items-center gap-3 p-4 bg-[#0F1117] border border-white/[0.06] rounded-xl hover:bg-purple-500/10 hover:border-purple-500/30 transition-colors group text-left"
+                  >
                     <div className="w-8 h-8 rounded-lg bg-white/5 flex items-center justify-center group-hover:bg-purple-500/20 group-hover:text-purple-400 transition-colors">
                       <Settings size={16} />
                     </div>
@@ -287,17 +299,20 @@ export function WorkspaceTab() {
             <RolePermissionsMatrix />
           )}
 
-          {/* Placeholder for not-yet-implemented tabs */}
-          {activeTab !== 'overview' && activeTab !== 'members' && activeTab !== 'roles' && (
-            <div className="flex flex-col items-center justify-center py-20 bg-[#0F1117] border border-white/[0.06] rounded-2xl">
-              <div className="w-16 h-16 rounded-2xl bg-white/[0.02] border border-white/[0.04] flex items-center justify-center mb-6">
-                <AlertTriangle size={24} className="text-[#4A5168]" />
-              </div>
-              <h2 className="text-lg font-bold text-[#F1F3F9] mb-2 capitalize">{activeTab} Initializing</h2>
-              <p className="text-sm text-[#8892AA] max-w-sm text-center">
-                The {activeTab} module is currently being provisioned for your workspace.
-              </p>
-            </div>
+          {activeTab === 'security' && (
+            <SecurityTab />
+          )}
+
+          {activeTab === 'api' && (
+            <ApiKeysTab />
+          )}
+
+          {activeTab === 'audit' && (
+            <AuditLogsTab />
+          )}
+
+          {activeTab === 'integrations' && (
+            <IntegrationsTab />
           )}
         </motion.div>
       </AnimatePresence>

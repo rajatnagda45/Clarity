@@ -252,7 +252,7 @@ function EnterpriseModal({ open, onClose }: { open: boolean; onClose: () => void
     const body = encodeURIComponent(
       `Hi,\n\nI'm interested in Clarity AI Docs Enterprise.\n\nCompany: \nTeam size: \nUse case: \n\nPlease get back to me to arrange a demo.\n\nThanks`
     );
-    window.open(`mailto:rajatnagda2004@gmail.com?subject=${subject}&body=${body}`, '_blank');
+    window.open(`mailto:enterprise@clarity.ai?subject=${subject}&body=${body}`, '_blank');
     onClose();
   }
 
@@ -408,7 +408,7 @@ export function BillingTab() {
               </h2>
               <p className="text-sm text-[#8892AA] mt-2 flex items-center gap-1.5">
                 <Clock size={14} />
-                Renews on {new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toLocaleDateString()}
+                Manage renewal via the billing portal
               </p>
             </div>
             <div className="mt-6 md:mt-0 flex gap-3">
@@ -590,7 +590,11 @@ export function BillingTab() {
               <CreditCard size={15} className="text-orange-400" />
               <h2 className="text-sm font-semibold text-[#F1F3F9]">Payment Methods</h2>
             </div>
-            <button className="text-xs font-medium text-orange-400 flex items-center gap-1 hover:text-orange-300 transition-colors">
+            <button
+              onClick={handleManageSubscription}
+              disabled={portalLoading}
+              className="text-xs font-medium text-orange-400 flex items-center gap-1 hover:text-orange-300 transition-colors disabled:opacity-50"
+            >
               <Plus size={13} /> Add Card
             </button>
           </div>
