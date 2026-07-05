@@ -126,20 +126,8 @@ export function UIProvider({ children }: { children: ReactNode }) {
   const openCommandPalette = useCallback(() => setCommandPaletteOpen(true), []);
   const closeCommandPalette = useCallback(() => setCommandPaletteOpen(false), []);
 
-  // Global keyboard shortcut: ⌘K or Ctrl+K
-  useEffect(() => {
-    function handleKeyDown(e: KeyboardEvent) {
-      if ((e.metaKey || e.ctrlKey) && e.key === 'k') {
-        e.preventDefault();
-        setCommandPaletteOpen((prev) => !prev);
-      }
-      if (e.key === 'Escape') {
-        setCommandPaletteOpen(false);
-      }
-    }
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
-  }, []);
+  // ⌘K is handled by CommandContext to avoid double-firing.
+  // UIContext only manages theme, sidebar, and palette open-state for legacy shell components.
 
   return (
     <UIContext.Provider

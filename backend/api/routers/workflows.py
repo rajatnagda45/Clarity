@@ -125,7 +125,7 @@ async def update_workflow(
         rows = (tenant_query("workflows", workspace_id).select("*").eq("id", workflow_id).execute()).data or []
         return _row_to_workflow(rows[0])
 
-    result = get_client().table("workflows").update(updates).eq("id", workflow_id).execute().data
+    result = get_client().table("workflows").update(updates).eq("id", workflow_id).eq("workspace_id", workspace_id).execute().data
     if not result:
         raise api_error(502, "workflow_update_failed", "Failed to update workflow.")
     return _row_to_workflow(result[0])

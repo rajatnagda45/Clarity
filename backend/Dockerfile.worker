@@ -10,7 +10,7 @@ RUN pip install --no-cache-dir poetry==2.4.1
 COPY pyproject.toml poetry.lock* ./
 
 RUN poetry config virtualenvs.in-project true \
-    && poetry install --no-root --no-dev --no-interaction --no-ansi
+    && poetry install --no-root --without dev --no-interaction --no-ansi
 
 # ── Runtime stage ──────────────────────────────────────────────────────────────
 FROM python:3.11-slim AS runtime
@@ -27,6 +27,9 @@ ENV PATH="/app/.venv/bin:$PATH" \
     PYTHONDONTWRITEBYTECODE=1
 
 USER app
+
+HEALTHCHECK --interval=30s --timeout=10s --start-period=30s --retries=3 \
+    CMD python -c "import os, redis, sys; r=redis.from_url(os.getenv('REDIS_URL','redis://redis:6379/0'),socket_timeout=2); sys.exit(0 if r.keys('arq:health:*') else 1)"
 
 # ARQ worker entrypoint — discovers WorkerSettings from worker.py
 CMD ["arq", "worker.WorkerSettings"]

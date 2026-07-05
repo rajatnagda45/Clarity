@@ -16,5 +16,6 @@ export function useDocuments() {
       return listDocuments({ token, workspaceId: activeWorkspace!.id });
     },
     enabled: !!activeWorkspace,
+    staleTime: 60_000,
   });
 }

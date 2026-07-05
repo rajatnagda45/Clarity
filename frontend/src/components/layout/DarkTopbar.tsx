@@ -1,6 +1,6 @@
 'use client';
 
-import { usePathname } from 'next/navigation';
+import { usePathname, useRouter } from 'next/navigation';
 import { useUser } from '@clerk/nextjs';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Menu, Search, Upload, Bell } from 'lucide-react';
@@ -12,16 +12,27 @@ import { useGlobalUpload } from '@/hooks/useGlobalUpload';
 function getPageTitle(pathname: string): string {
   if (pathname === '/dashboard') return 'Dashboard';
   if (pathname === '/documents') return 'Documents';
+  if (pathname.startsWith('/documents/')) return 'Document';
   if (pathname === '/chat') return 'AI Chat';
   if (pathname === '/eval') return 'Analytics';
+  if (pathname.startsWith('/eval/benchmarks')) return 'Benchmarks';
   if (pathname === '/conversations') return 'Conversations';
   if (pathname.startsWith('/settings')) return 'Settings';
   if (pathname.startsWith('/contradictions')) return 'Contradictions';
+  if (pathname === '/agents') return 'Agents';
+  if (pathname.startsWith('/agents/')) return 'Agent';
+  if (pathname === '/collections') return 'Collections';
+  if (pathname === '/workspace') return 'Workspace';
+  if (pathname === '/help') return 'Help';
+  if (pathname.startsWith('/developer')) return 'Developer';
+  if (pathname === '/onboarding') return 'Onboarding';
+  if (pathname === '/provenance') return 'Provenance';
   return 'Clarity';
 }
 
 export function DarkTopbar() {
   const pathname = usePathname();
+  const router = useRouter();
   const { toggleSidebar, sidebarCollapsed } = useUI();
   const { toggle: toggleCommand } = useCommand();
   const { toggle: toggleNotifications, unreadCount } = useNotifications();
@@ -112,13 +123,14 @@ export function DarkTopbar() {
           </AnimatePresence>
         </motion.button>
 
-        {/* Avatar */}
+        {/* Avatar — navigates to Settings */}
         <motion.button
           whileHover={{ scale: 1.05 }}
           whileTap={{ scale: 0.95 }}
           type="button"
+          onClick={() => router.push('/settings')}
           className="flex h-8 w-8 items-center justify-center rounded-full bg-[rgba(91,110,240,0.2)] text-xs font-semibold uppercase text-[#5B6EF0]"
-          aria-label="Profile"
+          aria-label="Open settings"
         >
           {initials || '?'}
         </motion.button>

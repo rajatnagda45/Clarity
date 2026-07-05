@@ -320,7 +320,7 @@ async def update_agent(
         rows = (tenant_query("agents", workspace_id).select("*").eq("id", agent_id).execute()).data or []
         return _row_to_agent(rows[0])
 
-    result = get_client().table("agents").update(updates).eq("id", agent_id).execute().data
+    result = get_client().table("agents").update(updates).eq("id", agent_id).eq("workspace_id", workspace_id).execute().data
     if not result:
         raise api_error(502, "agent_update_failed", "Failed to update agent.")
     return _row_to_agent(result[0])
@@ -342,8 +342,8 @@ async def delete_agent(
     if not existing:
         raise api_error(404, "agent_not_found", "Agent not found.")
 
-    get_client().table("agent_runs").delete().eq("agent_id", agent_id).execute()
-    get_client().table("agents").delete().eq("id", agent_id).execute()
+    get_client().table("agent_runs").delete().eq("agent_id", agent_id).eq("workspace_id", workspace_id).execute()
+    get_client().table("agents").delete().eq("id", agent_id).eq("workspace_id", workspace_id).execute()
     return Response(status_code=status.HTTP_204_NO_CONTENT)
 
 
@@ -365,7 +365,7 @@ async def archive_agent(
 
     result = get_client().table("agents").update({
         "archived_at": datetime.now(UTC).isoformat(),
-    }).eq("id", agent_id).execute().data
+    }).eq("id", agent_id).eq("workspace_id", workspace_id).execute().data
     if not result:
         raise api_error(502, "agent_archive_failed", "Failed to archive agent.")
     return _row_to_agent(result[0])

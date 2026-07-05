@@ -25,8 +25,8 @@ def _error(status_code: int, code: str, message: str) -> HTTPException:
     return HTTPException(status_code=status_code, detail={"code": code, "message": message})
 
 
-def _require_editor(request: Request) -> tuple[str, str]:
-    return require_workspace_role(request, "editor")
+async def _require_editor(request: Request) -> tuple[str, str]:
+    return await require_workspace_role(request, "editor")
 
 
 def _collection_summary_from_row(row: dict, document_count: int = 0) -> CollectionSummary:

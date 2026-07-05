@@ -11,7 +11,7 @@ COPY pyproject.toml poetry.lock* ./
 
 # Install deps into /app/.venv so we can copy just the venv to the final image
 RUN poetry config virtualenvs.in-project true \
-    && poetry install --no-root --no-dev --no-interaction --no-ansi
+    && poetry install --no-root --without dev --no-interaction --no-ansi
 
 # ── Runtime stage ──────────────────────────────────────────────────────────────
 FROM python:3.11-slim AS runtime

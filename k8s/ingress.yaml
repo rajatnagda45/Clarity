@@ -12,6 +12,7 @@ metadata:
     nginx.ingress.kubernetes.io/proxy-body-size: "60m"    # 50 MB upload + overhead
     nginx.ingress.kubernetes.io/enable-cors: "true"
     nginx.ingress.kubernetes.io/cors-allow-credentials: "true"
+    nginx.ingress.kubernetes.io/cors-allow-origin: "https://clarity.ai"   # replace with your frontend domain
 spec:
   ingressClassName: nginx
   rules:

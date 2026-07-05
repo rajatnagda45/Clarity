@@ -90,7 +90,7 @@ async def toggle_automation_rule(
 
     updated = get_client().table("automation_rules").update({
         "enabled": not rows[0].get("enabled", True),
-    }).eq("id", rule_id).execute().data
+    }).eq("id", rule_id).eq("workspace_id", workspace_id).execute().data
 
     if not updated:
         raise api_error(502, "rule_update_failed", "Failed to update rule.")

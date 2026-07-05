@@ -13,6 +13,7 @@ import { useDocuments } from '@/hooks/useDocuments';
 import { useDashboardMetrics } from '@/hooks/useDashboardMetrics';
 import { CreateWorkspaceModal } from '@/components/workspace/CreateWorkspaceModal';
 import { EmptyState } from '@/components/ds/EmptyState';
+import { formatBytes } from '@/lib/format';
 import { MemberList } from '@/components/settings/members/MemberList';
 import { AddMemberForm } from '@/components/settings/members/AddMemberForm';
 import { RolePermissionsMatrix } from '@/components/settings/members/RolePermissionsMatrix';
@@ -40,13 +41,6 @@ function wsColor(name: string): string {
   return PALETTE[Math.abs(hash) % PALETTE.length];
 }
 
-function formatBytes(bytes: number) {
-  if (bytes === 0) return '0 B';
-  const k = 1024;
-  const sizes = ['B', 'KB', 'MB', 'GB', 'TB'];
-  const i = Math.floor(Math.log(bytes) / Math.log(k));
-  return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
-}
 
 export function WorkspaceTab() {
   const { activeWorkspace, workspaces, setActiveWorkspace } = useWorkspace();

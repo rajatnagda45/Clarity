@@ -180,8 +180,8 @@ async def _schedule_embedding_refresh(
     )
 
 
-def require_editor_workspace(request: Request) -> tuple[str, str]:
-    return require_workspace_role(request, "editor")
+async def require_editor_workspace(request: Request) -> tuple[str, str]:
+    return await require_workspace_role(request, "editor")
 
 
 def _validate_upload_metadata(file: UploadFile) -> tuple[str, str]:

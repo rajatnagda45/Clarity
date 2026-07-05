@@ -14,6 +14,7 @@ import json
 import base64
 import logging
 import threading
+import time
 from datetime import timedelta
 from typing import Callable
 import httpx
@@ -26,8 +27,10 @@ from config import settings
 
 logger = logging.getLogger(__name__)
 
-# Module-level JWKS cache — populated on first RS256 request, never changes
+# Module-level JWKS cache with TTL — refreshes after 1 hour to handle key rotation
 _jwks_cache: dict[str, str] = {}  # kid → PEM public key
+_jwks_fetched_at: float = 0.0     # unix timestamp of last JWKS fetch
+_JWKS_TTL = 3600                   # 1 hour
 _jwks_lock = threading.Lock()
 
 # Paths that never require authentication
@@ -115,14 +118,12 @@ def _verify_clerk_token(token: str) -> dict:
     """
     Verifies a Clerk-issued JWT.
     - RS256 (Clerk production): fetches the RSA public key from Clerk JWKS, caches by kid.
-    - HS256 (dev/test): uses SUPABASE_JWT_SECRET directly.
+    - HS256 (dev/test only): uses SUPABASE_JWT_SECRET directly.
+      HS256 is rejected in production to prevent algorithm-confusion attacks.
     """
     header = _decode_header(token)
     algorithm = header.get("alg", "HS256")
 
-    # Allow 60 s of clock skew between the backend server and Clerk's token issuer.
-    # Without leeway, tokens where iat is a few seconds in the future (common in
-    # local dev where clocks drift) are rejected with "not yet valid (iat)".
     _leeway = timedelta(seconds=60)
 
     if algorithm.startswith("RS"):
@@ -139,14 +140,17 @@ def _verify_clerk_token(token: str) -> dict:
             audience=audience,
             issuer=issuer,
         )
-    else:
-        return pyjwt.decode(
-            token,
-            settings.supabase_jwt_secret,
-            algorithms=["HS256"],
-            options={"verify_exp": True},
-            leeway=_leeway,
-        )
+
+    if settings.environment == "production":
+        raise pyjwt.PyJWTError("HS256 tokens are not accepted in production. Use Clerk RS256 tokens.")
+
+    return pyjwt.decode(
+        token,
+        settings.supabase_jwt_secret,
+        algorithms=["HS256"],
+        options={"verify_exp": True},
+        leeway=_leeway,
+    )
 
 
 def _get_jwks_keys(jwks_url: str) -> dict:
@@ -166,19 +170,28 @@ def _get_jwks_keys(jwks_url: str) -> dict:
 
 
 def _get_jwks_key(kid: str) -> str:
-    """Fetch and cache the RSA public key for the given kid from Clerk's JWKS endpoint."""
+    """Fetch and cache the RSA public key for the given kid.
+
+    Cache is refreshed after _JWKS_TTL seconds to handle key rotation gracefully.
+    An unknown kid within the TTL window also triggers an immediate refresh so
+    newly-rotated keys are picked up without a process restart.
+    """
+    global _jwks_fetched_at
+
     with _jwks_lock:
-        if kid in _jwks_cache:
+        cache_fresh = (time.monotonic() - _jwks_fetched_at) < _JWKS_TTL
+        if kid in _jwks_cache and cache_fresh:
             return _jwks_cache[kid]
 
     jwks_url = getattr(settings, "clerk_jwks_url", "") or _infer_jwks_url()
     key_dict = _get_jwks_keys(jwks_url)
 
     from jwt.algorithms import RSAAlgorithm
-    for key_kid, key_data in key_dict.items():
-        public_key = RSAAlgorithm.from_jwk(json.dumps(key_data))
-        with _jwks_lock:
-            _jwks_cache[key_kid] = public_key  # type: ignore[assignment]
+    with _jwks_lock:
+        _jwks_cache.clear()
+        for key_kid, key_data in key_dict.items():
+            _jwks_cache[key_kid] = RSAAlgorithm.from_jwk(json.dumps(key_data))  # type: ignore[assignment]
+        _jwks_fetched_at = time.monotonic()
 
     with _jwks_lock:
         if kid in _jwks_cache:

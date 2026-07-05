@@ -67,12 +67,12 @@ spec:
               cpu: "200m"
           livenessProbe:
             exec:
-              command: ["redis-cli", "ping"]
+              command: ["redis-cli", "--no-auth-warning", "-a", "$(REDIS_PASSWORD)", "ping"]
             initialDelaySeconds: 5
             periodSeconds: 10
           readinessProbe:
             exec:
-              command: ["redis-cli", "ping"]
+              command: ["redis-cli", "--no-auth-warning", "-a", "$(REDIS_PASSWORD)", "ping"]
             initialDelaySeconds: 2
             periodSeconds: 5
           volumeMounts:

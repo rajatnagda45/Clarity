@@ -95,7 +95,7 @@ async def toggle_webhook(
 
     updated = get_client().table("webhooks").update({
         "enabled": not rows[0].get("enabled", True),
-    }).eq("id", webhook_id).execute().data
+    }).eq("id", webhook_id).eq("workspace_id", workspace_id).execute().data
 
     if not updated:
         raise api_error(502, "webhook_update_failed", "Failed to update webhook.")
@@ -118,7 +118,7 @@ async def delete_webhook(
     if not rows:
         raise api_error(404, "webhook_not_found", "Webhook not found.")
 
-    get_client().table("webhooks").delete().eq("id", webhook_id).execute()
+    get_client().table("webhooks").delete().eq("id", webhook_id).eq("workspace_id", workspace_id).execute()
     return Response(status_code=status.HTTP_204_NO_CONTENT)
 
 

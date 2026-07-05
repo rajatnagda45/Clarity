@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import asyncio
 import logging
 from typing import Literal
 
@@ -57,7 +58,7 @@ async def invalidate_role_cache(workspace_id: str, user_id: str) -> None:
         pass
 
 
-def require_workspace_role(
+async def require_workspace_role(
     request: Request,
     minimum_role: WorkspaceRole = "viewer",
 ) -> tuple[str, WorkspaceRole]:
@@ -72,18 +73,11 @@ def require_workspace_role(
         )
 
     # Fast path: check Redis cache before hitting the DB
-    cached_role: str | None = None
-    try:
-        import asyncio
-        loop = asyncio.get_event_loop()
-        if not loop.is_closed():
-            cached_role = loop.run_until_complete(_get_cached_role(workspace_id, user_id))
-    except Exception:
-        cached_role = None
+    cached_role = await _get_cached_role(workspace_id, user_id)
 
     if cached_role is None:
-        membership = (
-            get_client()
+        membership = await asyncio.to_thread(
+            lambda: get_client()
             .table("memberships")
             .select("role")
             .eq("workspace_id", workspace_id)
@@ -99,12 +93,7 @@ def require_workspace_role(
                 "User is not a member of the selected workspace.",
             )
         cached_role = row["role"]
-        try:
-            loop = asyncio.get_event_loop()
-            if not loop.is_closed():
-                loop.run_until_complete(_set_cached_role(workspace_id, user_id, cached_role))
-        except Exception:
-            pass
+        await _set_cached_role(workspace_id, user_id, cached_role)
 
     role: WorkspaceRole = cached_role  # type: ignore[assignment]
     if ROLE_ORDER[role] < ROLE_ORDER[minimum_role]:

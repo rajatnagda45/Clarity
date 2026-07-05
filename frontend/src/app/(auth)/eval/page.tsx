@@ -83,8 +83,13 @@ function EmptyState({ icon: Icon, title, sub }: { icon: React.ElementType; title
 }
 
 function LoadingGrid({ cols = 4, rows = 1 }: { cols?: number; rows?: number }) {
+  const colClass =
+    cols === 1 ? 'grid-cols-1' :
+    cols === 2 ? 'grid-cols-2' :
+    cols === 3 ? 'grid-cols-3' :
+    'grid-cols-4';
   return (
-    <div className={`grid grid-cols-${cols} gap-4`}>
+    <div className={`grid ${colClass} gap-4`}>
       {Array.from({ length: cols * rows }).map((_, i) => (
         <div key={i} className="h-28 bg-white/[0.03] border border-white/[0.04] rounded-2xl animate-pulse" />
       ))}

@@ -1,7 +1,7 @@
 'use client';
 
 import { useAuth } from '@clerk/nextjs';
-import { FormEvent, useEffect, useMemo, useState, useRef } from 'react';
+import { useEffect, useMemo, useState, useRef, useCallback } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Bot, User, Sparkles } from 'lucide-react';
@@ -62,6 +62,7 @@ export default function ChatPage() {
   const [streamingAbstention, setStreamingAbstention] = useState<any | null>(null);
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const stopStreamRef = useRef<(() => void) | null>(null);
 
   // Auto-scroll to bottom
   useEffect(() => {
@@ -226,6 +227,7 @@ export default function ChatPage() {
       }
     };
 
+    stopStreamRef.current = null;
     const stop = streamQuery(
       { token, workspaceId },
       {
@@ -255,7 +257,14 @@ export default function ChatPage() {
         setIsStreaming(false);
       },
     );
+    stopStreamRef.current = stop;
   }
+
+  const handleStop = useCallback(() => {
+    stopStreamRef.current?.();
+    stopStreamRef.current = null;
+    setIsStreaming(false);
+  }, []);
 
   // Combine historical messages with streaming UI state
   const activeCitations = isStreaming ? streamingCitations : (messages[messages.length - 1]?.citations || []);
@@ -365,10 +374,11 @@ export default function ChatPage() {
               {errorMessage}
             </div>
           )}
-          <Composer 
+          <Composer
             value={composer}
             onChange={setComposer}
             onSubmit={handleSubmit}
+            onStop={handleStop}
             isStreaming={isStreaming}
             disabled={!workspaceId}
           />

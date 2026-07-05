@@ -13,20 +13,13 @@ import { useDashboardMetrics } from '@/hooks/useDashboardMetrics';
 import { ProgressBar } from '@/components/ds/Progress';
 import { EmptyState } from '@/components/ds/EmptyState';
 import { createCheckoutSession, createPortalSession } from '@/lib/api';
+import { formatBytes } from '@/lib/format';
 
 const PLANS = [
   { name: 'free', label: 'Starter', price: '$0', storage: 50 * 1024 * 1024, queries: 100, seats: 1 },
   { name: 'pro', label: 'Pro', price: '$49', storage: 5 * 1024 * 1024 * 1024, queries: 5000, seats: 5 },
   { name: 'team', label: 'Business', price: '$199', storage: 20 * 1024 * 1024 * 1024, queries: 25000, seats: 20 },
 ];
-
-function formatBytes(bytes: number) {
-  if (bytes === 0) return '0 B';
-  const k = 1024;
-  const sizes = ['B', 'KB', 'MB', 'GB', 'TB'];
-  const i = Math.floor(Math.log(bytes) / Math.log(k));
-  return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
-}
 
 function UpgradeModal({
   open,

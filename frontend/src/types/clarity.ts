@@ -899,20 +899,6 @@ export interface RegressionListResponse {
   total: number;
 }
 
-export interface ModelComparison {
-  modelVersion: string;
-  runCount: number;
-  totalCases: number;
-  avgJudgeOverall: number | null;
-  avgTrustConfidence: number | null;
-  avgLatencyMs: number | null;
-}
-
-export interface ModelComparisonListResponse {
-  comparisons: ModelComparison[];
-  total: number;
-}
-
 export interface CitationQualityBucket {
   range: string;
   count: number;

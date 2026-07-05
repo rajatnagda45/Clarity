@@ -99,7 +99,7 @@ async def update_prompt_entry(
     if not updates:
         return _row_to_entry(rows[0])
 
-    updated = get_client().table("prompt_library").update(updates).eq("id", prompt_id).execute().data
+    updated = get_client().table("prompt_library").update(updates).eq("id", prompt_id).eq("workspace_id", workspace_id).execute().data
     if not updated:
         raise api_error(502, "prompt_update_failed", "Failed to update prompt.")
     return _row_to_entry(updated[0])
