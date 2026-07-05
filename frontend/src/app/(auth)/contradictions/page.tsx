@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import { useAuth } from '@clerk/nextjs';
 import { useWorkspace } from '@/contexts/WorkspaceContext';
+import { useToast } from '@/contexts/ToastContext';
 import { Badge } from '@/components/ds/Badge';
 import { Skeleton } from '@/components/ds/Skeleton';
 import { EmptyState } from '@/components/ds/EmptyState';
@@ -12,22 +13,28 @@ import type { Contradiction } from '@/types/clarity';
 export default function ContradictionsPage() {
   const { getToken } = useAuth();
   const { activeWorkspace } = useWorkspace();
+  const { toast } = useToast();
   const [contradictions, setContradictions] = useState<Contradiction[]>([]);
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
     if (!activeWorkspace) return;
+    let cancelled = false;
     setLoading(true);
     getToken().then(async (token) => {
-      if (!token) return;
+      if (!token || cancelled) return;
       try {
         const data = await listContradictions({ token, workspaceId: activeWorkspace.id });
-        setContradictions(data);
+        if (!cancelled) setContradictions(data);
+      } catch (err) {
+        if (!cancelled) toast.error(err instanceof Error ? err.message : 'Failed to load contradictions');
       } finally {
-        setLoading(false);
+        if (!cancelled) setLoading(false);
       }
     });
-  }, [activeWorkspace, getToken]);
+    return () => { cancelled = true; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeWorkspace?.id, getToken]);
 
   return (
       <div className="mx-auto w-full max-w-3xl px-6 py-8 flex flex-col gap-6">

@@ -1,8 +1,11 @@
 import { useState } from 'react';
+import { useAuth } from '@clerk/nextjs';
 import type { Document } from '@/types/clarity';
 import { motion, AnimatePresence } from 'framer-motion';
 import { DocumentCard } from './DocumentCard';
-import { FileUp, Trash2, Tag, Archive } from 'lucide-react';
+import { FileUp, Trash2, Loader2 } from 'lucide-react';
+import { deleteDocument } from '@/lib/api';
+import { useToast } from '@/contexts/ToastContext';
 
 export function DocumentList({
   documents,
@@ -17,7 +20,28 @@ export function DocumentList({
   viewMode?: 'grid' | 'list';
   onDelete?: (id: string) => void;
 }) {
+  const { getToken } = useAuth();
+  const { toast } = useToast();
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [bulkDeleting, setBulkDeleting] = useState(false);
+
+  async function handleBulkDelete() {
+    if (!workspaceId || selectedIds.size === 0) return;
+    setBulkDeleting(true);
+    try {
+      const token = await getToken();
+      if (!token) throw new Error('No auth token');
+      const ids = Array.from(selectedIds);
+      await Promise.all(ids.map((id) => deleteDocument({ token, workspaceId }, id)));
+      ids.forEach((id) => onDelete?.(id));
+      setSelectedIds(new Set());
+      toast.success(`Deleted ${ids.length} document${ids.length > 1 ? 's' : ''}`);
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Failed to delete documents');
+    } finally {
+      setBulkDeleting(false);
+    }
+  }
 
   function toggleSelect(id: string) {
     const next = new Set(selectedIds);
@@ -135,24 +159,14 @@ export function DocumentList({
             </span>
             
             <div className="w-px h-6 bg-white/10" />
-            
-            <button className="flex items-center gap-2 text-sm text-[#8892AA] hover:text-white transition-colors">
-              <Tag size={16} /> Label
-            </button>
-            <button className="flex items-center gap-2 text-sm text-[#8892AA] hover:text-white transition-colors">
-              <Archive size={16} /> Archive
-            </button>
-            
-            <div className="w-px h-6 bg-white/10" />
 
             <button
-              onClick={() => {
-                selectedIds.forEach((id) => onDelete?.(id));
-                setSelectedIds(new Set());
-              }}
-              className="flex items-center gap-2 text-sm text-red-400 hover:text-red-300 transition-colors"
+              onClick={handleBulkDelete}
+              disabled={bulkDeleting}
+              className="flex items-center gap-2 text-sm text-red-400 hover:text-red-300 transition-colors disabled:opacity-50"
             >
-              <Trash2 size={16} /> Delete
+              {bulkDeleting ? <Loader2 size={16} className="animate-spin" /> : <Trash2 size={16} />}
+              {bulkDeleting ? 'Deleting...' : 'Delete'}
             </button>
 
             <button 
