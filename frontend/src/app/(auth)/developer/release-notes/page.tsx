@@ -47,6 +47,7 @@ export default function ReleaseNotesPage() {
 
     void load();
     return () => { cancelled = true; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [workspaceId]);
 
   return (

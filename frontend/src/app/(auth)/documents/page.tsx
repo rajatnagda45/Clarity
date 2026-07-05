@@ -80,6 +80,7 @@ export default function DocumentsPage() {
       cancelled = true;
       if (pollTimer) clearTimeout(pollTimer);
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [getToken, workspaceId, pollRefreshKey]);
 
   // Global Drag Events

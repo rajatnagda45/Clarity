@@ -82,6 +82,7 @@ export function PersonalInfoTab() {
           <h2 className="text-sm font-semibold text-white mb-6 uppercase tracking-wider">Profile Photo</h2>
           <div className="flex items-center gap-6">
             <div className="relative group cursor-pointer">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
               <img
                 src={user.imageUrl}
                 alt={user.fullName || 'User'}

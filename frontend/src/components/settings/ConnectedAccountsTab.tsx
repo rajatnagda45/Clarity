@@ -83,6 +83,7 @@ export function ConnectedAccountsTab() {
             >
               <div className="flex items-start justify-between mb-4">
                 <div className="w-12 h-12 rounded-xl bg-white p-2.5 flex items-center justify-center shadow-lg">
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
                   <img src={integration.icon} alt={integration.name} className="w-full h-full object-contain" />
                 </div>
                 

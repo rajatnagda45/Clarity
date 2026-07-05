@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
@@ -39,10 +39,10 @@ export function CommandCenter() {
     }
   }, [isOpen]);
 
-  const handleAction = (result: SearchResult) => {
+  const handleAction = useCallback((result: SearchResult) => {
     result.action();
     setIsOpen(false);
-  };
+  }, [setIsOpen]);
 
   // Compile Static Results
   const STATIC_RESULTS: SearchResult[] = [
@@ -118,7 +118,7 @@ export function CommandCenter() {
     
     document.addEventListener('keydown', handleKeyDown);
     return () => document.removeEventListener('keydown', handleKeyDown);
-  }, [isOpen, filteredResults, selectedIndex]);
+  }, [isOpen, filteredResults, selectedIndex, handleAction]);
 
   // Reset index on query change
   useEffect(() => {

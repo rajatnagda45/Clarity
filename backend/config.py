@@ -116,11 +116,13 @@ class Settings(BaseSettings):
     langchain_api_key: str = ""
     langchain_project: str = "clarity"
 
-    # Stripe
-    stripe_secret_key: str = ""
-    stripe_webhook_secret: str = ""
-    stripe_price_id_pro: str = ""    # Stripe Price ID for the Pro plan
-    stripe_price_id_team: str = ""   # Stripe Price ID for the Team plan
+    # Dodo Payments
+    dodo_api_key: str = ""
+    dodo_webhook_secret: str = ""
+    dodo_product_id_pro: str = ""         # Dodo Product ID — Pro monthly
+    dodo_product_id_team: str = ""        # Dodo Product ID — Business monthly
+    dodo_product_id_pro_yearly: str = ""  # Dodo Product ID — Pro yearly (falls back to monthly if unset)
+    dodo_product_id_team_yearly: str = "" # Dodo Product ID — Business yearly (falls back to monthly if unset)
 
     # App
     backend_url: str = "http://localhost:8000"

@@ -45,9 +45,10 @@ export function AccountOverviewTab() {
         <div className="px-8 pb-8">
           <div className="relative flex justify-between items-end -mt-16 mb-6">
             <div className="relative group cursor-pointer">
-              <img 
-                src={user.imageUrl} 
-                alt={user.fullName || 'User'} 
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src={user.imageUrl}
+                alt={user.fullName || 'User'}
                 className="w-32 h-32 rounded-2xl border-4 border-[#0F1117] object-cover shadow-xl"
               />
               <div className="absolute inset-0 bg-black/60 rounded-2xl opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center border-4 border-transparent">

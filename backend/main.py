@@ -63,8 +63,8 @@ def _validate_production_config() -> None:
     if settings.environment != "production":
         return
     errors: list[str] = []
-    if not settings.stripe_webhook_secret:
-        errors.append("STRIPE_WEBHOOK_SECRET must be set in production to prevent webhook spoofing.")
+    if not settings.dodo_webhook_secret:
+        errors.append("DODO_WEBHOOK_SECRET must be set in production to prevent webhook spoofing.")
     if not settings.redis_url:
         errors.append("REDIS_URL must be set in production for rate limiting and job queue.")
     allowed = os.getenv("ALLOWED_ORIGINS", "")

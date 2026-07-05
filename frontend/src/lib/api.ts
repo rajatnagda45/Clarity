@@ -196,10 +196,16 @@ export async function createCheckoutSession(
   plan: string,
   successUrl: string,
   cancelUrl: string,
+  billingPeriod: 'monthly' | 'yearly' = 'monthly',
 ): Promise<{ url: string }> {
   return apiFetch<{ url: string }>('/api/billing/checkout', {
     method: 'POST',
-    body: JSON.stringify({ plan, success_url: successUrl, cancel_url: cancelUrl }),
+    body: JSON.stringify({
+      plan,
+      success_url: successUrl,
+      cancel_url: cancelUrl,
+      billing_period: billingPeriod,
+    }),
     ...auth,
   });
 }

@@ -146,6 +146,7 @@ export default function DeveloperDashboardPage() {
     };
     fetch();
     return () => { cancelled = true; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [getToken, workspaceId]);
 
   // Derived Data

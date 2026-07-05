@@ -1,8 +1,7 @@
 """
-Unit tests for the Stripe billing endpoints.
+Unit tests for Dodo Payments billing endpoints.
 
-Uses the conftest async client with real HS256 JWTs.
-All Stripe SDK calls and DB calls are mocked — no real network requests.
+All Dodo SDK calls and DB calls are mocked — no real network requests.
 """
 from __future__ import annotations
 
@@ -18,7 +17,6 @@ import pytest
 # ---------------------------------------------------------------------------
 
 def _chain_query(execute_data: list) -> MagicMock:
-    """Returns a MagicMock that chains select/eq/limit/update/execute calls."""
     q = MagicMock()
     q.select.return_value = q
     q.eq.return_value = q
@@ -28,10 +26,9 @@ def _chain_query(execute_data: list) -> MagicMock:
     return q
 
 
-def _db_client(role: str = "owner", stripe_customer_id: str | None = None) -> MagicMock:
-    """DB client mock with memberships and workspaces table behaviour."""
+def _db_client(role: str = "owner", dodo_customer_id: str | None = None) -> MagicMock:
     memberships_q = _chain_query([{"role": role}])
-    workspaces_q = _chain_query([{"stripe_customer_id": stripe_customer_id}])
+    workspaces_q = _chain_query([{"dodo_customer_id": dodo_customer_id}])
     mock = MagicMock()
     mock.table.side_effect = lambda name: {
         "memberships": memberships_q,
@@ -41,7 +38,6 @@ def _db_client(role: str = "owner", stripe_customer_id: str | None = None) -> Ma
 
 
 def _patch_db(db_mock: MagicMock):
-    """Context-manager stack that patches DB access in both deps and billing router."""
     from contextlib import ExitStack
     from api import deps as deps_module
     from api.routers import billing as billing_router
@@ -51,20 +47,41 @@ def _patch_db(db_mock: MagicMock):
     return stack
 
 
+def _mock_dodo_client():
+    """Build a MagicMock that mirrors the Dodo SDK's client structure."""
+    mock = MagicMock()
+
+    # checkout_sessions.create → response with checkout_url
+    mock.checkout_sessions.create.return_value = SimpleNamespace(
+        checkout_url="https://checkout.dodopayments.com/test-session"
+    )
+
+    # customers.customer_portal.create → response with link
+    mock.customers.customer_portal.create.return_value = SimpleNamespace(
+        link="https://customer.dodopayments.com/portal/test"
+    )
+
+    # webhooks.unwrap raises by default — override per-test
+    mock.webhooks.unwrap.side_effect = Exception("Unwrap not mocked")
+
+    return mock
+
+
 # ---------------------------------------------------------------------------
 # POST /api/billing/checkout
 # ---------------------------------------------------------------------------
 
 class TestCheckout:
     @pytest.mark.asyncio
-    async def test_returns_503_when_stripe_not_configured(self, client, token_a, workspace_id_a):
+    async def test_returns_503_when_dodo_not_configured(self, client, token_a, workspace_id_a):
         db = _db_client()
         with _patch_db(db):
             with patch("api.routers.billing.settings") as mock_settings:
-                mock_settings.stripe_secret_key = ""
-                mock_settings.stripe_webhook_secret = ""
-                mock_settings.stripe_price_id_pro = ""
-                mock_settings.stripe_price_id_team = ""
+                mock_settings.dodo_api_key = ""
+                mock_settings.dodo_webhook_secret = ""
+                mock_settings.dodo_product_id_pro = ""
+                mock_settings.dodo_product_id_team = ""
+                mock_settings.environment = "development"
                 resp = await client.post(
                     "/api/billing/checkout",
                     json={"plan": "pro", "success_url": "https://ok", "cancel_url": "https://cancel"},
@@ -76,15 +93,11 @@ class TestCheckout:
     async def test_returns_checkout_url(self, client, token_a, workspace_id_a):
         from api.routers import billing as billing_router
 
-        mock_session = MagicMock()
-        mock_session.url = "https://checkout.stripe.com/test-session"
-        mock_stripe = MagicMock()
-        mock_stripe.checkout.Session.create.return_value = mock_session
-
+        mock_dodo = _mock_dodo_client()
         db = _db_client()
         with _patch_db(db):
-            with patch.object(billing_router, "_get_stripe", return_value=mock_stripe):
-                with patch.object(billing_router, "_price_id_for_plan", return_value="price_pro"):
+            with patch.object(billing_router, "_get_dodo", return_value=mock_dodo):
+                with patch.object(billing_router, "_product_id_for_plan", return_value="prod_pro"):
                     resp = await client.post(
                         "/api/billing/checkout",
                         json={"plan": "pro", "success_url": "https://ok", "cancel_url": "https://cancel"},
@@ -92,43 +105,39 @@ class TestCheckout:
                     )
 
         assert resp.status_code == 200
-        assert resp.json()["url"] == "https://checkout.stripe.com/test-session"
+        assert resp.json()["url"] == "https://checkout.dodopayments.com/test-session"
 
     @pytest.mark.asyncio
-    async def test_checkout_passes_workspace_id_as_client_reference(self, client, token_a, workspace_id_a):
+    async def test_checkout_passes_workspace_id_in_metadata(self, client, token_a, workspace_id_a):
         from api.routers import billing as billing_router
 
-        mock_session = MagicMock()
-        mock_session.url = "https://checkout.stripe.com/x"
-        mock_stripe = MagicMock()
-        mock_stripe.checkout.Session.create.return_value = mock_session
-
+        mock_dodo = _mock_dodo_client()
         db = _db_client()
         with _patch_db(db):
-            with patch.object(billing_router, "_get_stripe", return_value=mock_stripe):
-                with patch.object(billing_router, "_price_id_for_plan", return_value="price_pro"):
+            with patch.object(billing_router, "_get_dodo", return_value=mock_dodo):
+                with patch.object(billing_router, "_product_id_for_plan", return_value="prod_pro"):
                     await client.post(
                         "/api/billing/checkout",
                         json={"plan": "pro", "success_url": "https://ok", "cancel_url": "https://cancel"},
                         headers={"Authorization": f"Bearer {token_a}", "X-Workspace-Id": workspace_id_a},
                     )
 
-        call_kwargs = mock_stripe.checkout.Session.create.call_args.kwargs
-        assert call_kwargs["client_reference_id"] == workspace_id_a
+        call_kwargs = mock_dodo.checkout_sessions.create.call_args.kwargs
         assert call_kwargs["metadata"]["workspace_id"] == workspace_id_a
 
     @pytest.mark.asyncio
-    async def test_returns_422_when_price_not_configured(self, client, token_a, workspace_id_a):
+    async def test_returns_422_when_product_not_configured(self, client, token_a, workspace_id_a):
         from api.routers import billing as billing_router
 
-        mock_stripe = MagicMock()
+        mock_dodo = _mock_dodo_client()
         db = _db_client()
         with _patch_db(db):
-            with patch.object(billing_router, "_get_stripe", return_value=mock_stripe):
+            with patch.object(billing_router, "_get_dodo", return_value=mock_dodo):
                 with patch("api.routers.billing.settings") as mock_settings:
-                    mock_settings.stripe_secret_key = "sk_test_fake"
-                    mock_settings.stripe_price_id_pro = ""
-                    mock_settings.stripe_price_id_team = ""
+                    mock_settings.dodo_api_key = "test_key"
+                    mock_settings.dodo_product_id_pro = ""
+                    mock_settings.dodo_product_id_team = ""
+                    mock_settings.environment = "development"
                     resp = await client.post(
                         "/api/billing/checkout",
                         json={"plan": "pro", "success_url": "https://ok", "cancel_url": "https://cancel"},
@@ -143,13 +152,13 @@ class TestCheckout:
 
 class TestPortal:
     @pytest.mark.asyncio
-    async def test_returns_422_when_no_stripe_customer(self, client, token_a, workspace_id_a):
+    async def test_returns_422_when_no_dodo_customer(self, client, token_a, workspace_id_a):
         from api.routers import billing as billing_router
 
-        mock_stripe = MagicMock()
-        db = _db_client(stripe_customer_id=None)
+        mock_dodo = _mock_dodo_client()
+        db = _db_client(dodo_customer_id=None)
         with _patch_db(db):
-            with patch.object(billing_router, "_get_stripe", return_value=mock_stripe):
+            with patch.object(billing_router, "_get_dodo", return_value=mock_dodo):
                 resp = await client.post(
                     "/api/billing/portal",
                     json={"return_url": "https://app.example.com/billing"},
@@ -162,14 +171,10 @@ class TestPortal:
     async def test_returns_portal_url(self, client, token_a, workspace_id_a):
         from api.routers import billing as billing_router
 
-        mock_portal = MagicMock()
-        mock_portal.url = "https://billing.stripe.com/portal/test"
-        mock_stripe = MagicMock()
-        mock_stripe.billing_portal.Session.create.return_value = mock_portal
-
-        db = _db_client(stripe_customer_id="cus_abc123")
+        mock_dodo = _mock_dodo_client()
+        db = _db_client(dodo_customer_id="cus_dodo_abc123")
         with _patch_db(db):
-            with patch.object(billing_router, "_get_stripe", return_value=mock_stripe):
+            with patch.object(billing_router, "_get_dodo", return_value=mock_dodo):
                 resp = await client.post(
                     "/api/billing/portal",
                     json={"return_url": "https://app.example.com/billing"},
@@ -177,104 +182,58 @@ class TestPortal:
                 )
 
         assert resp.status_code == 200
-        assert resp.json()["url"] == "https://billing.stripe.com/portal/test"
+        assert resp.json()["url"] == "https://customer.dodopayments.com/portal/test"
 
 
 # ---------------------------------------------------------------------------
-# POST /api/billing/webhook  (public path — no JWT needed)
+# POST /api/billing/webhook
 # ---------------------------------------------------------------------------
 
 class TestWebhook:
     def _payload(self, event_type: str, data: dict) -> bytes:
-        return json.dumps({"type": event_type, "data": {"object": data}}).encode()
+        return json.dumps({"type": event_type, "data": data}).encode()
 
     @pytest.mark.asyncio
     async def test_returns_400_on_invalid_signature(self, client):
         from api.routers import billing as billing_router
 
-        mock_stripe = MagicMock()
-        mock_stripe.Webhook.construct_event.side_effect = Exception("Bad sig")
+        mock_dodo = _mock_dodo_client()
+        mock_dodo.webhooks.unwrap.side_effect = Exception("Bad sig")
 
-        with patch.object(billing_router, "_get_stripe", return_value=mock_stripe):
+        with patch.object(billing_router, "_get_dodo", return_value=mock_dodo):
             with patch("api.routers.billing.settings") as mock_settings:
-                mock_settings.stripe_secret_key = "sk_test_fake"
-                mock_settings.stripe_webhook_secret = "whsec_fake"
-                mock_settings.stripe_price_id_pro = ""
-                mock_settings.stripe_price_id_team = ""
+                mock_settings.dodo_api_key = "test_key"
+                mock_settings.dodo_webhook_secret = "whsec_fake"
+                mock_settings.dodo_product_id_pro = ""
+                mock_settings.dodo_product_id_team = ""
+                mock_settings.environment = "development"
                 resp = await client.post(
                     "/api/billing/webhook",
                     content=b'{"type":"test"}',
-                    headers={"stripe-signature": "invalid", "Content-Type": "application/json"},
+                    headers={"webhook-id": "test", "Content-Type": "application/json"},
                 )
 
         assert resp.status_code == 400
 
     @pytest.mark.asyncio
-    async def test_checkout_completed_saves_customer_id(self, client):
+    async def test_subscription_active_saves_customer_and_plan(self, client):
         from api.routers import billing as billing_router
 
         mock_db = MagicMock()
-        mock_stripe = MagicMock()
-        payload = self._payload("checkout.session.completed", {
-            "client_reference_id": "ws-test",
-            "customer": "cus_newcustomer",
-            "subscription": "sub_abc",
+        payload = self._payload("subscription.active", {
+            "subscription_id": "sub_dodo_001",
+            "customer": {"customer_id": "cus_dodo_new"},
+            "product_id": "prod_pro_123",
+            "metadata": {"workspace_id": "ws-test"},
         })
 
-        with patch.object(billing_router, "_get_stripe", return_value=mock_stripe):
-            with patch.object(billing_router, "get_client", return_value=mock_db):
-                with patch("api.routers.billing.settings") as mock_settings:
-                    mock_settings.stripe_secret_key = "sk_test_fake"
-                    mock_settings.stripe_webhook_secret = ""
-                    mock_settings.stripe_price_id_pro = ""
-                    mock_settings.stripe_price_id_team = ""
-                    resp = await client.post(
-                        "/api/billing/webhook",
-                        content=payload,
-                        headers={"Content-Type": "application/json"},
-                    )
-
-        assert resp.status_code == 200
-        assert resp.json() == {"received": True}
-        mock_db.table.return_value.update.assert_called_once()
-
-    @pytest.mark.asyncio
-    async def test_subscription_deleted_resets_plan(self, client):
-        from api.routers import billing as billing_router
-
-        mock_db = MagicMock()
-        mock_stripe = MagicMock()
-        payload = self._payload("customer.subscription.deleted", {"customer": "cus_existing"})
-
-        with patch.object(billing_router, "_get_stripe", return_value=mock_stripe):
-            with patch.object(billing_router, "get_client", return_value=mock_db):
-                with patch("api.routers.billing.settings") as mock_settings:
-                    mock_settings.stripe_secret_key = "sk_test_fake"
-                    mock_settings.stripe_webhook_secret = ""
-                    mock_settings.stripe_price_id_pro = ""
-                    mock_settings.stripe_price_id_team = ""
-                    resp = await client.post(
-                        "/api/billing/webhook",
-                        content=payload,
-                        headers={"Content-Type": "application/json"},
-                    )
-
-        assert resp.status_code == 200
-        update_args = mock_db.table.return_value.update.call_args
-        updated = update_args.args[0] if update_args.args else {}
-        assert updated.get("plan") == "free"
-
-    @pytest.mark.asyncio
-    async def test_unknown_event_type_returns_200(self, client):
-        from api.routers import billing as billing_router
-
-        mock_stripe = MagicMock()
-        payload = json.dumps({"type": "payment_intent.created", "data": {"object": {}}}).encode()
-
-        with patch.object(billing_router, "_get_stripe", return_value=mock_stripe):
+        with patch.object(billing_router, "get_client", return_value=mock_db):
             with patch("api.routers.billing.settings") as mock_settings:
-                mock_settings.stripe_secret_key = "sk_test_fake"
-                mock_settings.stripe_webhook_secret = ""
+                mock_settings.dodo_api_key = "test_key"
+                mock_settings.dodo_webhook_secret = ""
+                mock_settings.dodo_product_id_pro = "prod_pro_123"
+                mock_settings.dodo_product_id_team = "prod_team_456"
+                mock_settings.environment = "development"
                 resp = await client.post(
                     "/api/billing/webhook",
                     content=payload,
@@ -282,30 +241,79 @@ class TestWebhook:
                 )
 
         assert resp.status_code == 200
+        assert resp.json() == {"received": True}
+        mock_db.table.return_value.update.assert_called_once()
+        update_args = mock_db.table.return_value.update.call_args.args[0]
+        assert update_args["dodo_customer_id"] == "cus_dodo_new"
+        assert update_args["plan"] == "pro"
+
+    @pytest.mark.asyncio
+    async def test_subscription_cancelled_resets_plan(self, client):
+        from api.routers import billing as billing_router
+
+        mock_db = MagicMock()
+        payload = self._payload("subscription.cancelled", {
+            "subscription_id": "sub_dodo_001",
+            "customer": {"customer_id": "cus_dodo_existing"},
+            "metadata": {"workspace_id": "ws-test"},
+        })
+
+        with patch.object(billing_router, "get_client", return_value=mock_db):
+            with patch("api.routers.billing.settings") as mock_settings:
+                mock_settings.dodo_api_key = "test_key"
+                mock_settings.dodo_webhook_secret = ""
+                mock_settings.dodo_product_id_pro = ""
+                mock_settings.dodo_product_id_team = ""
+                mock_settings.environment = "development"
+                resp = await client.post(
+                    "/api/billing/webhook",
+                    content=payload,
+                    headers={"Content-Type": "application/json"},
+                )
+
+        assert resp.status_code == 200
+        update_args = mock_db.table.return_value.update.call_args.args[0]
+        assert update_args.get("plan") == "free"
+
+    @pytest.mark.asyncio
+    async def test_unknown_event_type_returns_200(self, client):
+        payload = json.dumps({"type": "payment.succeeded", "data": {}}).encode()
+
+        with patch("api.routers.billing.settings") as mock_settings:
+            mock_settings.dodo_api_key = "test_key"
+            mock_settings.dodo_webhook_secret = ""
+            mock_settings.environment = "development"
+            resp = await client.post(
+                "/api/billing/webhook",
+                content=payload,
+                headers={"Content-Type": "application/json"},
+            )
+
+        assert resp.status_code == 200
 
 
 # ---------------------------------------------------------------------------
-# _plan_from_price_id helper
+# _plan_from_product_id helper
 # ---------------------------------------------------------------------------
 
-class TestPlanFromPriceId:
-    def test_maps_pro_price(self):
-        from api.routers.billing import _plan_from_price_id
+class TestPlanFromProductId:
+    def test_maps_pro_product(self):
+        from api.routers.billing import _plan_from_product_id
         with patch("api.routers.billing.settings") as mock_settings:
-            mock_settings.stripe_price_id_pro = "price_pro_123"
-            mock_settings.stripe_price_id_team = "price_team_456"
-            assert _plan_from_price_id("price_pro_123") == "pro"
+            mock_settings.dodo_product_id_pro = "prod_pro_123"
+            mock_settings.dodo_product_id_team = "prod_team_456"
+            assert _plan_from_product_id("prod_pro_123") == "pro"
 
-    def test_maps_team_price(self):
-        from api.routers.billing import _plan_from_price_id
+    def test_maps_team_product(self):
+        from api.routers.billing import _plan_from_product_id
         with patch("api.routers.billing.settings") as mock_settings:
-            mock_settings.stripe_price_id_pro = "price_pro_123"
-            mock_settings.stripe_price_id_team = "price_team_456"
-            assert _plan_from_price_id("price_team_456") == "team"
+            mock_settings.dodo_product_id_pro = "prod_pro_123"
+            mock_settings.dodo_product_id_team = "prod_team_456"
+            assert _plan_from_product_id("prod_team_456") == "team"
 
-    def test_unknown_price_defaults_to_free(self):
-        from api.routers.billing import _plan_from_price_id
+    def test_unknown_product_defaults_to_free(self):
+        from api.routers.billing import _plan_from_product_id
         with patch("api.routers.billing.settings") as mock_settings:
-            mock_settings.stripe_price_id_pro = "price_pro_123"
-            mock_settings.stripe_price_id_team = "price_team_456"
-            assert _plan_from_price_id("price_unknown") == "free"
+            mock_settings.dodo_product_id_pro = "prod_pro_123"
+            mock_settings.dodo_product_id_team = "prod_team_456"
+            assert _plan_from_product_id("prod_unknown") == "free"

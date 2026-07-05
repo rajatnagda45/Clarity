@@ -71,18 +71,18 @@ redis-cli LLEN dlq:aborted_jobs   # check for systemic failures
 kubectl rollout restart deployment/clarity-api -n clarity
 ```
 
-### Stripe Webhook Rejection
+### Dodo Payments Webhook Rejection
 
-**Symptoms**: Billing plan not updating after payment, `stripe_webhook_failed` errors
-**Check**: Is `STRIPE_WEBHOOK_SECRET` set and matching the Stripe dashboard?
+**Symptoms**: Billing plan not updating after payment, webhook signature failures
+**Check**: Is `DODO_WEBHOOK_SECRET` set and matching the Dodo Payments dashboard?
 ```bash
-kubectl get secret clarity-secrets -n clarity -o jsonpath='{.data.STRIPE_WEBHOOK_SECRET}' | base64 -d
+kubectl get secret clarity-secrets -n clarity -o jsonpath='{.data.DODO_WEBHOOK_SECRET}' | base64 -d
 ```
 
 ### Security Breach Suspected
 
 **Immediate actions**:
-1. Rotate all secrets: Supabase service role key, Clerk secret, Stripe keys
+1. Rotate all secrets: Supabase service role key, Clerk secret, Dodo Payments API key
 2. Invalidate all active sessions via Clerk dashboard
 3. Review `audit_logs` table for anomalous activity
 4. Check Supabase logs for unexpected queries

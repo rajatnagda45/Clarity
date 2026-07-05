@@ -88,6 +88,7 @@ export default function HelpHub() {
     if (queryTab && queryTab !== activeTab) {
       setActiveTab(queryTab);
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [queryTab]);
 
   const handleTabChange = (tabId: string) => {

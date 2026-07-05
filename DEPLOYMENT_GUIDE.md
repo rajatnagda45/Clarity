@@ -26,8 +26,10 @@ All non-secret config is in the `clarity-config` ConfigMap.
 | `OPENAI_API_KEY` | OpenAI API key |
 | `PINECONE_API_KEY` | Pinecone vector store key |
 | `CLERK_SECRET_KEY` | Clerk backend secret key |
-| `STRIPE_SECRET_KEY` | Stripe secret key |
-| `STRIPE_WEBHOOK_SECRET` | **Required in production** — Stripe webhook signing secret |
+| `DODO_API_KEY` | Dodo Payments API key |
+| `DODO_WEBHOOK_SECRET` | **Required in production** — Dodo Payments webhook signing secret |
+| `DODO_PRODUCT_ID_PRO` | Dodo Product ID for the Pro plan |
+| `DODO_PRODUCT_ID_TEAM` | Dodo Product ID for the Team plan |
 | `REDIS_URL` | Redis connection URL (e.g. `rediss://...` for TLS) |
 | `REDIS_PASSWORD` | Redis auth password |
 | `COHERE_API_KEY` | Cohere rerank key |
@@ -57,8 +59,10 @@ kubectl create secret generic clarity-secrets \
   --from-literal=OPENAI_API_KEY=<value> \
   --from-literal=PINECONE_API_KEY=<value> \
   --from-literal=CLERK_SECRET_KEY=<value> \
-  --from-literal=STRIPE_SECRET_KEY=<value> \
-  --from-literal=STRIPE_WEBHOOK_SECRET=<value> \
+  --from-literal=DODO_API_KEY=<value> \
+  --from-literal=DODO_WEBHOOK_SECRET=<value> \
+  --from-literal=DODO_PRODUCT_ID_PRO=<value> \
+  --from-literal=DODO_PRODUCT_ID_TEAM=<value> \
   --from-literal=REDIS_URL=<value> \
   --from-literal=REDIS_PASSWORD=<value> \
   --from-literal=COHERE_API_KEY=<value>

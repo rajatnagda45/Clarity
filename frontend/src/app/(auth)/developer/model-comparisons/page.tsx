@@ -23,7 +23,7 @@ function MetricBadge({ value, label, color }: { value: string; label: string; co
 
 export default function ModelComparisonsPage() {
   const { data, isLoading, isError } = useModelComparisons();
-  const comparisons = data?.comparisons ?? [];
+  const comparisons = useMemo(() => data?.comparisons ?? [], [data?.comparisons]);
 
   const radarData = useMemo(() => {
     if (!comparisons.length) return [];

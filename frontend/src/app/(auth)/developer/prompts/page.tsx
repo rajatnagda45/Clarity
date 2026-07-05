@@ -43,6 +43,7 @@ export default function PromptsPage() {
 
   useEffect(() => {
     void load();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [workspaceId]);
 
   async function handleActivate(promptId: string) {

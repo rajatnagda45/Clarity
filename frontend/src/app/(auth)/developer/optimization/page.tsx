@@ -42,6 +42,7 @@ export default function OptimizationPage() {
     }
   }
 
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => { void load(); }, [workspaceId]);
 
   async function handleAnalyze() {

@@ -15,7 +15,7 @@ Clarity AI Docs is a self-auditing enterprise document intelligence platform. It
 - **IDOR protection**: All database mutations now include workspace_id scope even when using the service-role client
 - **Async role cache**: `require_workspace_role` converted to async — Redis cache now actually works (was broken by event-loop deadlock in prior releases)
 - **HTTP security headers**: CSP, HSTS, X-Frame-Options, Referrer-Policy on all frontend routes
-- **Stripe webhook hardened**: Server refuses to start in production without `STRIPE_WEBHOOK_SECRET`
+- **Webhook hardened**: Server refuses to start in production without `DODO_WEBHOOK_SECRET`
 
 ### Complete Database Schema
 
@@ -67,6 +67,6 @@ All tables: Row Level Security enabled, tenant isolation policy, FK constraints,
 
 1. Run migrations 014, 015, 016 against your Supabase project
 2. Rotate `REDIS_URL` and `REDIS_PASSWORD` secrets if using the k8s Redis pod
-3. Set `STRIPE_WEBHOOK_SECRET` in `clarity-secrets` before redeploying
+3. Set `DODO_API_KEY`, `DODO_WEBHOOK_SECRET`, `DODO_PRODUCT_ID_PRO`, `DODO_PRODUCT_ID_TEAM` in `clarity-secrets` before redeploying
 4. Update any custom code that calls `require_workspace_role` directly to `async def` with `await`
 5. Deploy with `kubectl apply -f k8s/`
