@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import asyncio
 import json
 import logging
 from typing import Any
@@ -173,6 +174,7 @@ async def run_critic_node(state: AgentState) -> AgentState:
 
 
 async def _batch_nli(pairs: list[tuple[str, str]]) -> list[Any]:
-    import asyncio
-
-    return list(await asyncio.gather(*[check_entailment(c, s) for c, s in pairs]))
+    if asyncio.iscoroutinefunction(check_entailment):
+        # Supports AsyncMock in tests
+        return list(await asyncio.gather(*[check_entailment(c, s) for c, s in pairs]))
+    return list(await asyncio.gather(*[asyncio.to_thread(check_entailment, c, s) for c, s in pairs]))

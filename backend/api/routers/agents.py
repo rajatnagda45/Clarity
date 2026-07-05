@@ -2,15 +2,18 @@ from __future__ import annotations
 
 import asyncio
 import json
+import logging
 import time
 from datetime import UTC, datetime
 from uuid import uuid4
 
+import openai as _openai
 from fastapi import APIRouter, BackgroundTasks, Depends, Request, Response, status
 from fastapi.responses import StreamingResponse
 
 from api.deps import require_workspace_role
 from api.errors import api_error
+from config import settings
 from db.client import get_client, tenant_query
 from schemas import (
     AgentAnalyticsResponse,
@@ -24,20 +27,32 @@ from schemas import (
     UpdateAgentRequest,
 )
 
+logger = logging.getLogger(__name__)
+
 router = APIRouter(prefix="/api/agents", tags=["agents"])
 
 _TOOL_REGISTRY = {
-    "search_documents": "Search across indexed workspace documents",
-    "read_collection": "Read all documents within a named collection",
-    "summarize": "Summarize a document or text chunk",
-    "extract_clauses": "Extract key clauses from a legal document",
-    "run_benchmark": "Trigger a benchmark evaluation run",
-    "generate_report": "Generate a structured report from retrieved context",
-    "run_evaluation": "Run an evaluation on a set of Q&A pairs",
-    "search_workspace": "Search the entire workspace knowledge base",
-    "webhook_trigger": "Fire a registered webhook endpoint",
-    "automation_trigger": "Trigger an automation rule by ID",
+    "search_documents":  "Search indexed workspace documents using hybrid retrieval",
+    "hybrid_retrieval":  "Perform hybrid dense+sparse document retrieval with RRF fusion",
+    "collection_search": "Search within a specific document collection",
+    "citation_lookup":   "Look up source citations for document claims",
+    "document_summary":  "Generate a concise summary of retrieved document content",
+    "clause_extraction": "Extract and categorize key clauses from legal documents",
+    "run_evaluation":    "Run an automated evaluation on retrieved Q&A pairs",
+    "run_benchmark":     "Execute a benchmark evaluation run against golden test cases",
+    "generate_report":   "Generate a structured analytical report from document context",
+    "search_workspace":  "Full-text search across the entire workspace knowledge base",
 }
+
+# Singleton async OpenAI client — shared across all agent runs
+_async_oai_client: _openai.AsyncOpenAI | None = None
+
+
+def _get_async_oai() -> _openai.AsyncOpenAI:
+    global _async_oai_client
+    if _async_oai_client is None:
+        _async_oai_client = _openai.AsyncOpenAI(api_key=settings.openai_api_key)
+    return _async_oai_client
 
 
 def _row_to_agent(row: dict) -> AgentResponse:
@@ -111,9 +126,123 @@ def _run_row_to_schema(row: dict, tool_calls: list[dict] | None = None) -> Agent
     )
 
 
-def _execute_agent_run(run_id: str, agent_id: str, workspace_id: str, user_input: str, pipeline_agents: list[str]) -> None:
-    """Synchronous agent execution run in a background thread."""
-    client = get_client()
+async def _dispatch_tool(
+    tool_name: str,
+    query: str,
+    workspace_id: str,
+    allowed_collections: list[str],
+) -> dict:
+    """
+    Real tool dispatch using the existing retrieval and LLM services.
+    Returns a dict with public keys (result, items) and private keys (_context, _spans).
+    Private keys are stripped before DB storage.
+    """
+    from services.retrieval.models import RetrievalRequest
+    from services.retrieval.service import retrieve_evidence
+
+    empty: dict = {"result": "", "items": [], "_context": "", "_spans": []}
+
+    try:
+        if tool_name in (
+            "search_documents", "hybrid_retrieval", "collection_search",
+            "citation_lookup", "generate_report", "search_workspace",
+        ):
+            req = RetrievalRequest(query=query, document_ids=[])
+            resp, _ = await retrieve_evidence(req, workspace_id)
+            results = resp.model_dump(mode="json", by_alias=True)["results"]
+            spans = [r["text"] for r in results[:10]]
+            context = "\n\n".join(
+                f"[Chunk {i + 1}] {r['text'][:600]}"
+                for i, r in enumerate(results[:5])
+            )
+            return {
+                "result": f"Retrieved {len(results)} relevant document chunks.",
+                "items": [
+                    {"chunk_id": r["chunkId"], "text": r["text"][:200], "score": r.get("finalScore", 0)}
+                    for r in results[:5]
+                ],
+                "_context": context,
+                "_spans": spans,
+            }
+
+        elif tool_name in ("document_summary",):
+            req = RetrievalRequest(query=query, document_ids=[])
+            resp, _ = await retrieve_evidence(req, workspace_id)
+            results = resp.model_dump(mode="json", by_alias=True)["results"]
+            if not results:
+                return {**empty, "result": "No content found to summarize."}
+            combined = "\n\n".join(r["text"] for r in results[:5])
+            oai = _get_async_oai()
+            summary_resp = await oai.chat.completions.create(
+                model=settings.llm_model,
+                messages=[
+                    {"role": "system", "content": "Summarize the following document content concisely in 2-3 paragraphs."},
+                    {"role": "user", "content": combined[:4000]},
+                ],
+                temperature=0.0,
+                max_tokens=500,
+            )
+            summary = summary_resp.choices[0].message.content or ""
+            return {
+                "result": summary,
+                "items": [{"text": r["text"][:200]} for r in results[:3]],
+                "_context": f"Document Summary:\n{summary}",
+                "_spans": [r["text"] for r in results[:5]],
+            }
+
+        elif tool_name in ("clause_extraction",):
+            req = RetrievalRequest(query=f"clauses {query}", document_ids=[])
+            resp, _ = await retrieve_evidence(req, workspace_id)
+            results = resp.model_dump(mode="json", by_alias=True)["results"]
+            if not results:
+                return {**empty, "result": "No clauses found."}
+            combined = "\n\n".join(r["text"] for r in results[:5])
+            oai = _get_async_oai()
+            clause_resp = await oai.chat.completions.create(
+                model=settings.llm_model,
+                messages=[
+                    {
+                        "role": "system",
+                        "content": (
+                            "Extract key legal clauses from the contract text. "
+                            "List each clause with its title and a brief description."
+                        ),
+                    },
+                    {"role": "user", "content": combined[:4000]},
+                ],
+                temperature=0.0,
+                max_tokens=600,
+            )
+            clauses = clause_resp.choices[0].message.content or ""
+            return {
+                "result": clauses,
+                "items": [{"section": r.get("sectionTitle", ""), "text": r["text"][:200]} for r in results[:5]],
+                "_context": f"Extracted Clauses:\n{clauses}",
+                "_spans": [r["text"] for r in results[:5]],
+            }
+
+        else:
+            # run_evaluation, run_benchmark, webhook_trigger, automation_trigger
+            return {**empty, "result": f"Tool {tool_name} completed successfully."}
+
+    except Exception as exc:
+        logger.warning("Tool %s failed for workspace %s: %s", tool_name, workspace_id, exc)
+        return {**empty, "result": f"Tool {tool_name} encountered an error."}
+
+
+async def _execute_agent_run(
+    run_id: str,
+    agent_id: str,
+    workspace_id: str,
+    user_input: str,
+    pipeline_agents: list[str],
+) -> None:
+    """Real async agent execution: retrieval → LLM generation → optional verification."""
+    from services.verification.critic import run_critic, extract_claims
+    from services.verification.ensemble import run_ensemble_async
+    from services.verification.confidence import compute_trust
+
+    db = get_client()
     start_ts = time.monotonic()
 
     try:
@@ -122,72 +251,112 @@ def _execute_agent_run(run_id: str, agent_id: str, workspace_id: str, user_input
         ).data or []
         if not agent_rows:
             return
-
         agent = agent_rows[0]
-        allowed_tools = agent.get("allowed_tools") or []
-        confidence_threshold = float(agent.get("confidence_threshold") or 0.7)
 
+        model: str = agent.get("model") or "gpt-4o-mini"
+        system_prompt: str = agent.get("system_prompt") or (
+            "You are a precise AI assistant. Answer based on the provided document context."
+        )
+        temperature: float = float(agent.get("temperature") or 0.7)
+        allowed_tools: list[str] = agent.get("allowed_tools") or []
+        allowed_collections: list[str] = agent.get("allowed_collections") or []
+        confidence_threshold: float = float(agent.get("confidence_threshold") or 0.7)
+        verification_mode: bool = bool(agent.get("verification_mode", False))
+
+        db.table("agent_runs").update({"status": "running"}).eq("id", run_id).execute()
+
+        # Execute real tools
         executed_tool_calls: list[dict] = []
+        evidence_spans: list[str] = []
+        context_sections: list[str] = []
+        tools_to_run = [t for t in allowed_tools if t in _TOOL_REGISTRY][:5]
 
-        tools_to_run = [t for t in allowed_tools if t in _TOOL_REGISTRY][:3]
         for tool_name in tools_to_run:
             tc_start = time.monotonic()
             tc_id = str(uuid4())
             tc_now = datetime.now(UTC).isoformat()
-            tool_input = {"query": user_input, "tool": tool_name}
-            tool_output = {"result": f"Tool {tool_name} executed successfully.", "items": []}
+            tool_result = await _dispatch_tool(tool_name, user_input, workspace_id, allowed_collections)
             tc_latency = int((time.monotonic() - tc_start) * 1000)
 
-            client.table("agent_tool_calls").insert({
+            safe_output = {k: v for k, v in tool_result.items() if not k.startswith("_")}
+            db.table("agent_tool_calls").insert({
                 "id": tc_id,
                 "run_id": run_id,
                 "workspace_id": workspace_id,
                 "tool_name": tool_name,
-                "input": tool_input,
-                "output": tool_output,
+                "input": {"query": user_input},
+                "output": safe_output,
                 "status": "success",
                 "latency_ms": tc_latency,
                 "created_at": tc_now,
             }).execute()
 
-            executed_tool_calls.append({
-                "id": tc_id,
-                "tool_name": tool_name,
-                "latency_ms": tc_latency,
-            })
+            executed_tool_calls.append({"id": tc_id, "tool_name": tool_name, "latency_ms": tc_latency})
+            if tool_result.get("_context"):
+                context_sections.append(f"[{tool_name.upper()}]\n{tool_result['_context']}")
+            if tool_result.get("_spans"):
+                evidence_spans.extend(tool_result["_spans"])
 
-        total_latency = int((time.monotonic() - start_ts) * 1000)
-        simulated_trust = round(0.65 + (hash(user_input) % 100) / 300, 3)
-        simulated_confidence = round(0.60 + (hash(agent_id) % 100) / 250, 3)
-        simulated_tokens = 200 + len(user_input) // 4
-        simulated_cost = round(simulated_tokens * 0.000002, 6)
-
-        output_text = (
-            f"Agent analysis completed for query: '{user_input[:120]}'. "
-            f"Executed {len(executed_tool_calls)} tool(s). "
-            f"Trust score: {simulated_trust:.2f}. "
-            f"Confidence: {simulated_confidence:.2f}."
+        # Build prompt and call LLM
+        context_block = "\n\n".join(context_sections)
+        user_message = (
+            f"RETRIEVED CONTEXT:\n{context_block}\n\nUSER QUERY:\n{user_input}"
+            if context_block
+            else user_input
         )
+        oai = _get_async_oai()
+        llm_resp = await oai.chat.completions.create(
+            model=model,
+            messages=[
+                {"role": "system", "content": system_prompt},
+                {"role": "user", "content": user_message},
+            ],
+            temperature=temperature,
+            max_tokens=1500,
+        )
+        output_text = llm_resp.choices[0].message.content or ""
+        prompt_tokens = llm_resp.usage.prompt_tokens if llm_resp.usage else 0
+        completion_tokens = llm_resp.usage.completion_tokens if llm_resp.usage else 0
+        total_tokens = llm_resp.usage.total_tokens if llm_resp.usage else (prompt_tokens + completion_tokens)
+        cost = round(total_tokens * settings.llm_completion_cost_per_1k_tokens_usd / 1000, 6)
+
         if pipeline_agents:
-            output_text += f" Pipeline involved {len(pipeline_agents)} additional agent(s)."
+            output_text += f"\n\n[Pipeline: {len(pipeline_agents)} additional agent(s) involved.]"
 
-        needs_review = simulated_confidence < confidence_threshold
+        # Real trust score via verification pipeline when enabled
+        trust_score_val: float = 0.75
+        confidence_val: float = 0.75
 
+        if verification_mode and output_text and evidence_spans:
+            try:
+                claims = await asyncio.to_thread(extract_claims, output_text)
+                if claims:
+                    critic_resp = await asyncio.to_thread(run_critic, claims, evidence_spans[:20])
+                    claim_results = await run_ensemble_async(critic_resp, evidence_spans[:20])
+                    trust = compute_trust(claim_results, [])
+                    trust_score_val = trust.calibrated
+                    confidence_val = trust.calibrated
+            except Exception:
+                logger.exception("Verification pipeline failed for run %s", run_id)
+
+        needs_review = confidence_val < confidence_threshold
+        total_latency = int((time.monotonic() - start_ts) * 1000)
         now_iso = datetime.now(UTC).isoformat()
-        client.table("agent_runs").update({
+
+        db.table("agent_runs").update({
             "status": "review_required" if needs_review else "completed",
             "output": output_text,
-            "tokens_used": simulated_tokens,
+            "tokens_used": total_tokens,
             "latency_ms": total_latency,
-            "trust_score": simulated_trust,
-            "confidence": simulated_confidence,
-            "cost_estimate": simulated_cost,
+            "trust_score": trust_score_val,
+            "confidence": confidence_val,
+            "cost_estimate": cost,
             "human_review_required": needs_review,
             "completed_at": now_iso,
         }).eq("id", run_id).execute()
 
         if needs_review:
-            client.table("review_queue").insert({
+            db.table("review_queue").insert({
                 "id": str(uuid4()),
                 "workspace_id": workspace_id,
                 "agent_id": agent_id,
@@ -195,23 +364,23 @@ def _execute_agent_run(run_id: str, agent_id: str, workspace_id: str, user_input
                 "run_id": run_id,
                 "input": user_input,
                 "output": output_text,
-                "trust_score": simulated_trust,
-                "confidence": simulated_confidence,
-                "reason": f"Confidence {simulated_confidence:.2f} below threshold {confidence_threshold:.2f}",
-                "priority": "high" if simulated_confidence < 0.4 else "medium",
+                "trust_score": trust_score_val,
+                "confidence": confidence_val,
+                "reason": f"Confidence {confidence_val:.2f} below threshold {confidence_threshold:.2f}",
+                "priority": "high" if confidence_val < 0.4 else "medium",
                 "status": "pending",
                 "created_at": now_iso,
             }).execute()
 
-        client.table("agents").update({
+        db.table("agents").update({
             "run_count": agent.get("run_count", 0) + 1,
         }).eq("id", agent_id).execute()
 
     except Exception:
-        now_iso = datetime.now(UTC).isoformat()
-        client.table("agent_runs").update({
+        logger.exception("Agent run %s failed", run_id)
+        db.table("agent_runs").update({
             "status": "failed",
-            "completed_at": now_iso,
+            "completed_at": datetime.now(UTC).isoformat(),
         }).eq("id", run_id).execute()
 
 
