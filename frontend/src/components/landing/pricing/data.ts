@@ -55,9 +55,9 @@ export const pricingPlans = [
       "Higher API limits",
       "Priority Support",
     ],
-    cta: "Contact Sales",
+    cta: "Upgrade to Business",
     popular: false,
-    contactSales: true,
+    contactSales: false,
   },
   {
     id: "enterprise",

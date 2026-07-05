@@ -2,6 +2,7 @@
 
 import { motion } from "framer-motion";
 import { Server, ShieldCheck, HeadphonesIcon, Globe, Network } from "lucide-react";
+import Link from "next/link";
 import { MagneticButton } from "../ui/MagneticButton";
 
 export function EnterprisePanel() {
@@ -68,14 +69,9 @@ export function EnterprisePanel() {
 
               <div className="flex flex-col sm:flex-row gap-4">
                 <MagneticButton intensity={0.1}>
-                  <button className="px-8 py-4 bg-white text-black font-semibold rounded-lg shadow-xl hover:bg-gray-200 transition-colors w-full sm:w-auto">
+                  <Link href="/signup" className="px-8 py-4 bg-white text-black font-semibold rounded-lg shadow-xl hover:bg-gray-200 transition-colors w-full sm:w-auto flex items-center justify-center">
                     Contact Sales
-                  </button>
-                </MagneticButton>
-                <MagneticButton intensity={0.1}>
-                  <button className="px-8 py-4 bg-white/5 text-white font-semibold rounded-lg hover:bg-white/10 border border-white/10 transition-colors w-full sm:w-auto">
-                    View Documentation
-                  </button>
+                  </Link>
                 </MagneticButton>
               </div>
             </div>

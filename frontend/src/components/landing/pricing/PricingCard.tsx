@@ -2,6 +2,7 @@
 
 import { motion } from "framer-motion";
 import { Check } from "lucide-react";
+import Link from "next/link";
 import { SpotlightCard } from "../ui/SpotlightCard";
 import { MagneticButton } from "../ui/MagneticButton";
 import { AnimatedCounter } from "./AnimatedCounter";
@@ -93,15 +94,21 @@ export function PricingCard({ plan, isYearly, index }: PricingCardProps) {
 
           <div className="mt-auto">
             <MagneticButton intensity={0.1} className="w-full">
-              <button className={`w-full py-3 px-4 rounded-lg font-semibold text-sm transition-all duration-300 flex items-center justify-center gap-2 group relative overflow-hidden
-                ${isPopular 
-                  ? "bg-gradient-to-r from-orange-500 to-orange-600 text-white shadow-[0_0_20px_rgba(245,158,11,0.2)] hover:shadow-[0_0_30px_rgba(245,158,11,0.4)]" 
-                  : "bg-white/5 text-white border border-white/10 hover:bg-white/10"
-                }`}
-              >
-                {isPopular && <div className="absolute inset-0 bg-white/20 translate-y-[100%] group-hover:translate-y-[0%] transition-transform duration-300 ease-out" />}
-                <span className="relative z-10">{plan.cta}</span>
-              </button>
+              {plan.id === "starter" ? (
+                <Link href="/signup" className={`w-full py-3 px-4 rounded-lg font-semibold text-sm transition-all duration-300 flex items-center justify-center gap-2 group relative overflow-hidden bg-white/5 text-white border border-white/10 hover:bg-white/10`}>
+                  <span className="relative z-10">{plan.cta}</span>
+                </Link>
+              ) : (
+                <Link href="/signup" className={`w-full py-3 px-4 rounded-lg font-semibold text-sm transition-all duration-300 flex items-center justify-center gap-2 group relative overflow-hidden
+                  ${isPopular
+                    ? "bg-gradient-to-r from-orange-500 to-orange-600 text-white shadow-[0_0_20px_rgba(245,158,11,0.2)] hover:shadow-[0_0_30px_rgba(245,158,11,0.4)]"
+                    : "bg-white/5 text-white border border-white/10 hover:bg-white/10"
+                  }`}
+                >
+                  {isPopular && <div className="absolute inset-0 bg-white/20 translate-y-[100%] group-hover:translate-y-[0%] transition-transform duration-300 ease-out" />}
+                  <span className="relative z-10">{plan.cta}</span>
+                </Link>
+              )}
             </MagneticButton>
           </div>
         </div>

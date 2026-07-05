@@ -28,19 +28,13 @@ export function CTASection() {
             Join the forward-thinking legal, procurement, and risk teams using Clarity to safely chat with their most critical documents.
           </p>
 
-          <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
+          <div className="flex items-center justify-center">
             <MagneticButton intensity={0.2}>
               <Link href="/signup" className="w-full sm:w-auto px-8 py-4 text-base font-semibold text-white bg-gradient-to-r from-orange-500 to-orange-600 rounded-lg shadow-[0_0_30px_rgba(245,158,11,0.25)] hover:shadow-[0_0_50px_rgba(245,158,11,0.6)] transition-all duration-300 flex items-center justify-center gap-2 relative overflow-hidden group block">
                 <div className="absolute inset-0 bg-white/20 translate-y-[100%] group-hover:translate-y-[0%] transition-transform duration-300 ease-out" />
                 <span className="relative z-10">Start free trial</span>
                 <span className="relative z-10 ml-1 group-hover:translate-x-1 transition-transform">→</span>
               </Link>
-            </MagneticButton>
-            
-            <MagneticButton intensity={0.1}>
-              <button className="w-full sm:w-auto px-8 py-4 text-base font-semibold text-white bg-white/5 border border-white/10 rounded-lg hover:bg-white/10 transition-colors">
-                Contact sales
-              </button>
             </MagneticButton>
           </div>
         </motion.div>
