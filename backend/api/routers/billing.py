@@ -116,15 +116,29 @@ async def create_checkout_session(
     dodo = _get_dodo()
     product_id = _product_id_for_plan(body.plan, body.billing_period)
 
-    session = await asyncio.to_thread(
-        lambda: dodo.checkout_sessions.create(
-            product_cart=[{"product_id": product_id, "quantity": 1}],
-            metadata={"workspace_id": workspace_id},
-            return_url=body.success_url,
-            cancel_url=body.cancel_url,
+    try:
+        session = await asyncio.to_thread(
+            lambda: dodo.checkout_sessions.create(
+                product_cart=[{"product_id": product_id, "quantity": 1}],
+                metadata={"workspace_id": workspace_id},
+                return_url=body.success_url,
+                cancel_url=body.cancel_url,
+            )
         )
-    )
-    return CheckoutResponse(url=session.checkout_url)
+    except Exception as exc:
+        logger.error("Dodo checkout_sessions.create failed: %s", exc)
+        raise HTTPException(
+            status_code=status.HTTP_502_BAD_GATEWAY,
+            detail=f"Payment provider error: {exc}",
+        ) from exc
+
+    checkout_url = session.checkout_url
+    if not checkout_url:
+        raise HTTPException(
+            status_code=status.HTTP_502_BAD_GATEWAY,
+            detail="Payment provider did not return a checkout URL.",
+        )
+    return CheckoutResponse(url=checkout_url)
 
 
 @router.post("/portal", response_model=PortalResponse)
@@ -151,12 +165,20 @@ async def create_portal_session(
             detail="No active subscription found for this workspace.",
         )
 
-    portal = await asyncio.to_thread(
-        lambda: dodo.customers.customer_portal.create(
-            customer_id,
-            return_url=body.return_url,
+    try:
+        portal = await asyncio.to_thread(
+            lambda: dodo.customers.customer_portal.create(
+                customer_id,
+                return_url=body.return_url,
+            )
         )
-    )
+    except Exception as exc:
+        logger.error("Dodo customer_portal.create failed: %s", exc)
+        raise HTTPException(
+            status_code=status.HTTP_502_BAD_GATEWAY,
+            detail=f"Payment provider error: {exc}",
+        ) from exc
+
     return PortalResponse(url=portal.link)
 
 

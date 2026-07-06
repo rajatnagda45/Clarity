@@ -11,6 +11,7 @@ import {
 import { useWorkspace } from '@/contexts/WorkspaceContext';
 import { useDocuments } from '@/hooks/useDocuments';
 import { useDashboardMetrics } from '@/hooks/useDashboardMetrics';
+import { useToast } from '@/contexts/ToastContext';
 import { ProgressBar } from '@/components/ds/Progress';
 import { createCheckoutSession, createPortalSession } from '@/lib/api';
 import { formatBytes } from '@/lib/format';
@@ -329,6 +330,7 @@ function EnterpriseModal({ open, onClose }: { open: boolean; onClose: () => void
 export function BillingTab() {
   const { activeWorkspace } = useWorkspace();
   const { getToken } = useAuth();
+  const { toast } = useToast();
   const { data: documents } = useDocuments();
   const { devDashboard, answerMetrics } = useDashboardMetrics();
 
@@ -346,7 +348,8 @@ export function BillingTab() {
       if (!token) throw new Error('Session unavailable.');
       const { url } = await createPortalSession({ token, workspaceId: activeWorkspace.id }, window.location.href);
       window.location.href = url;
-    } catch {
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Failed to open billing portal.');
       setPortalLoading(false);
     }
   }
