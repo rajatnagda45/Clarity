@@ -13,6 +13,7 @@ type OnboardingStep =
 interface OnboardingState {
   hasSeenWelcome: boolean;
   isWizardComplete: boolean;
+  celebrationDismissed: boolean;
   completedSteps: Record<OnboardingStep, boolean>;
   dismissedSpotlights: Record<string, boolean>;
 }
@@ -24,6 +25,7 @@ interface OnboardingContextType {
   showChecklist: boolean;
   markWelcomeSeen: () => void;
   markWizardComplete: () => void;
+  dismissCelebration: () => void;
   completeStep: (step: OnboardingStep) => void;
   dismissSpotlight: (id: string) => void;
   isSpotlightDismissed: (id: string) => boolean;
@@ -33,6 +35,7 @@ interface OnboardingContextType {
 const DEFAULT_STATE: OnboardingState = {
   hasSeenWelcome: false,
   isWizardComplete: false,
+  celebrationDismissed: false,
   completedSteps: {
     create_workspace: false,
     upload_document: false,
@@ -76,6 +79,10 @@ export function OnboardingProvider({ children }: { children: ReactNode }) {
 
   const markWizardComplete = () => {
     setState(s => ({ ...s, isWizardComplete: true }));
+  };
+
+  const dismissCelebration = () => {
+    setState(s => ({ ...s, celebrationDismissed: true }));
   };
 
   const completeStep = (step: OnboardingStep) => {
@@ -126,6 +133,7 @@ export function OnboardingProvider({ children }: { children: ReactNode }) {
       showChecklist,
       markWelcomeSeen,
       markWizardComplete,
+      dismissCelebration,
       completeStep,
       dismissSpotlight,
       isSpotlightDismissed,

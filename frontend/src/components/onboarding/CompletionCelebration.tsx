@@ -1,26 +1,16 @@
 'use client';
 
-import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Sparkles, ArrowRight, MessageSquare, UploadCloud, Users, BarChart2 } from 'lucide-react';
 import { useOnboarding } from '@/contexts/OnboardingContext';
 import { useWorkspace } from '@/contexts/WorkspaceContext';
 
 export function CompletionCelebration() {
-  const { state } = useOnboarding();
+  const { state, dismissCelebration } = useOnboarding();
   const { activeWorkspace } = useWorkspace();
-  const [isVisible, setIsVisible] = useState(false);
-  const [hasShown, setHasShown] = useState(false);
 
   const allStepsComplete = Object.values(state.completedSteps).every(Boolean);
-
-  useEffect(() => {
-    // Only show celebration once when all steps are completed
-    if (allStepsComplete && state.isWizardComplete && !hasShown) {
-      setIsVisible(true);
-      setHasShown(true);
-    }
-  }, [allStepsComplete, state.isWizardComplete, hasShown]);
+  const isVisible = allStepsComplete && state.isWizardComplete && !state.celebrationDismissed;
 
   if (!isVisible) return null;
 
@@ -74,7 +64,7 @@ export function CompletionCelebration() {
                 initial={{ opacity: 0, x: -10 }}
                 animate={{ opacity: 1, x: 0 }}
                 transition={{ delay: 0.4 + idx * 0.1 }}
-                onClick={() => setIsVisible(false)}
+                onClick={() => dismissCelebration()}
                 className="flex items-center gap-4 p-4 rounded-2xl bg-white/[0.02] border border-white/[0.04] hover:bg-white/[0.04] hover:border-white/[0.1] transition-all group"
               >
                 <div className={`w-10 h-10 rounded-xl bg-white/[0.02] flex items-center justify-center ${action.color}`}>
@@ -91,7 +81,7 @@ export function CompletionCelebration() {
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             transition={{ delay: 1 }}
-            onClick={() => setIsVisible(false)}
+            onClick={() => dismissCelebration()}
             className="group inline-flex items-center gap-2 bg-white text-[#05070B] px-8 py-3.5 rounded-xl font-bold hover:bg-white/90 transition-colors"
           >
             Go to Dashboard
