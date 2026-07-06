@@ -9,6 +9,7 @@ from uuid import uuid4
 
 from config import settings
 from db.client import get_client
+from services.events.bus import event_bus, make_event
 from services.embeddings.base import (
     EmbeddingProviderError,
     EmbeddingProviderRetryableError,
@@ -394,6 +395,7 @@ async def run_document_embedding(document_id: str, workspace_id: str) -> None:
         logger.info("embedding_skipped doc=%s ws=%s reason=already_current", document_id, workspace_id)
         return
 
+    filename = document.get("filename")
     logger.info("embedding_started doc=%s ws=%s model=%s", document_id, workspace_id, provider.target.model)
 
     retry_count = 0
@@ -403,6 +405,7 @@ async def run_document_embedding(document_id: str, workspace_id: str) -> None:
         logger.info("embedding_stage doc=%s stage=build_pending ms=%d chunks=%d", document_id, int((time.perf_counter() - t0) * 1000), len(pending))
 
         _update_document_for_run(document_id, workspace_id, run_id, status="embedding", error=None, embedding_retry_count=0)
+        event_bus.publish(make_event(document_id, workspace_id, "embedding", int((time.perf_counter() - pipeline_start) * 1000), filename=filename))
 
         if pending:
             t0 = time.perf_counter()
@@ -426,6 +429,7 @@ async def run_document_embedding(document_id: str, workspace_id: str) -> None:
         logger.info("embedding_complete doc=%s total_ms=%d chunks=%d — starting indexing", document_id, int((time.perf_counter() - pipeline_start) * 1000), len(chunks))
 
         if queue_document_for_indexing(document_id, workspace_id):
+            event_bus.publish(make_event(document_id, workspace_id, "awaiting_index", int((time.perf_counter() - pipeline_start) * 1000), filename=filename))
             await run_document_indexing_task(document_id, workspace_id)
     except EmbeddingOwnershipLost:
         logger.warning("embedding_ownership_lost doc=%s ws=%s", document_id, workspace_id)
@@ -433,12 +437,14 @@ async def run_document_embedding(document_id: str, workspace_id: str) -> None:
         logger.warning("embedding_failed doc=%s error=%s", document_id, exc)
         try:
             _finalize_document(document_id, workspace_id, run_id, status="failed", error=str(exc), embedding_retry_count=getattr(exc, "retry_count", retry_count))
+            event_bus.publish(make_event(document_id, workspace_id, "failed", int((time.perf_counter() - pipeline_start) * 1000), retry_count=retry_count, filename=filename, error=str(exc)))
         except EmbeddingOwnershipLost:
             pass
     except Exception as exc:
         logger.exception("embedding_unexpected_failure doc=%s error=%s", document_id, exc)
         try:
             _finalize_document(document_id, workspace_id, run_id, status="failed", error=f"Unexpected failure: {exc}", embedding_retry_count=retry_count)
+            event_bus.publish(make_event(document_id, workspace_id, "failed", int((time.perf_counter() - pipeline_start) * 1000), retry_count=retry_count, filename=filename, error=str(exc)))
         except EmbeddingOwnershipLost:
             pass
 

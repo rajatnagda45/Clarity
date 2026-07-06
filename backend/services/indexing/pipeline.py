@@ -10,6 +10,7 @@ from uuid import uuid4
 
 from config import settings
 from db.client import get_client
+from services.events.bus import event_bus, make_event
 from services.indexing.base import IndexProviderError, IndexProviderRetryableError
 from services.indexing.factory import get_index_provider
 from services.indexing.inspector import build_index_namespace
@@ -576,6 +577,7 @@ async def run_document_indexing(document_id: str, workspace_id: str) -> None:
         logger.info("indexing_skipped doc=%s ws=%s reason=already_indexed_or_no_embeddings", document_id, workspace_id)
         return
 
+    filename = document.get("filename")
     logger.info("indexing_started doc=%s ws=%s index=%s", document_id, workspace_id, target.index_name)
 
     retry_count = 0
@@ -602,6 +604,7 @@ async def run_document_indexing(document_id: str, workspace_id: str) -> None:
         ]
 
         _update_document_for_run(document_id, workspace_id, run_id, status="indexing", error=None, index_retry_count=0)
+        event_bus.publish(make_event(document_id, workspace_id, "indexing", int((time.perf_counter() - pipeline_start) * 1000), filename=filename))
 
         if rows_to_upsert:
             t0 = time.perf_counter()
@@ -613,6 +616,7 @@ async def run_document_indexing(document_id: str, workspace_id: str) -> None:
             await asyncio.to_thread(_mark_stale_rows, document_id, workspace_id, target, stale_vector_ids)
 
         _finalize_document(document_id, workspace_id, run_id, status="indexed", error=None, target=target, indexed_chunk_count=len(current_rows), index_retry_count=retry_count)
+        event_bus.publish(make_event(document_id, workspace_id, "indexed", int((time.perf_counter() - pipeline_start) * 1000), retry_count=retry_count, filename=filename))
         latency_ms = int((_now_utc() - started).total_seconds() * 1000)
         _record_usage_event(workspace_id, input_tokens=len(current_rows), latency_ms=latency_ms)
 
@@ -623,12 +627,14 @@ async def run_document_indexing(document_id: str, workspace_id: str) -> None:
         logger.warning("indexing_failed doc=%s error=%s", document_id, exc)
         try:
             _finalize_document(document_id, workspace_id, run_id, status="failed", error=str(exc), index_retry_count=getattr(exc, "retry_count", retry_count))
+            event_bus.publish(make_event(document_id, workspace_id, "failed", int((time.perf_counter() - pipeline_start) * 1000), retry_count=retry_count, filename=filename, error=str(exc)))
         except IndexingOwnershipLost:
             pass
     except Exception as exc:
         logger.exception("indexing_unexpected_failure doc=%s error=%s", document_id, exc)
         try:
             _finalize_document(document_id, workspace_id, run_id, status="failed", error=f"Unexpected failure: {exc}", index_retry_count=retry_count)
+            event_bus.publish(make_event(document_id, workspace_id, "failed", int((time.perf_counter() - pipeline_start) * 1000), retry_count=retry_count, filename=filename, error=str(exc)))
         except IndexingOwnershipLost:
             pass
 

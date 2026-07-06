@@ -2,6 +2,7 @@
 import { useQuery } from '@tanstack/react-query';
 import { useAuth } from '@clerk/nextjs';
 import { useWorkspace } from '@/contexts/WorkspaceContext';
+import { useDocumentEvents } from '@/hooks/useDocumentEvents';
 import { listDocuments } from '@/lib/api';
 import type { Document } from '@/types/clarity';
 
@@ -14,6 +15,7 @@ function hasInProgress(docs: Document[]) {
 export function useDocuments() {
   const { getToken } = useAuth();
   const { activeWorkspace } = useWorkspace();
+  const { connected } = useDocumentEvents();
 
   return useQuery({
     queryKey: ['documents', activeWorkspace?.id],
@@ -24,8 +26,12 @@ export function useDocuments() {
     },
     enabled: !!activeWorkspace,
     staleTime: 10_000,
-    // Poll every 3s while any document is processing, 30s when all are terminal
+    // SSE is the primary update mechanism — polling is a fallback only.
+    // When the SSE connection is live, poll every 60 s just to keep data
+    // fresh across browser tab switches or brief disconnects.
+    // When SSE is not available, fall back to aggressive polling.
     refetchInterval: (query) => {
+      if (connected) return 60_000;
       const data = query.state.data as Document[] | undefined;
       if (!data) return 3_000;
       return hasInProgress(data) ? 3_000 : 30_000;

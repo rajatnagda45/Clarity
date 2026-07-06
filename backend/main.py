@@ -26,6 +26,7 @@ from api.middleware.metrics import MetricsMiddleware
 from api.routers import claims
 from api.routers import developer
 from api.routers import documents
+from api.routers import events
 from api.routers import health
 from api.routers import chat
 from api.routers import conversations
@@ -188,6 +189,7 @@ app.add_middleware(
 app.include_router(health.router)
 app.include_router(workspaces.router)
 app.include_router(documents.router)
+app.include_router(events.router)
 app.include_router(retrieval.router)
 app.include_router(chat.router)
 app.include_router(conversations.router)

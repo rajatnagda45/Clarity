@@ -10,6 +10,7 @@ from uuid import uuid4
 
 from config import settings
 from db.client import get_client
+from services.events.bus import event_bus, make_event
 from services.ingestion.extractors.docx import DocxExtractionError, extract_docx_document
 from services.ingestion.extractors.pdf import PdfExtractionError, extract_pdf_document
 from services.embeddings.pipeline import run_document_embedding_task
@@ -417,7 +418,9 @@ async def run_document_ingestion(document_id: str, workspace_id: str) -> None:
         logger.info("ingestion_skipped doc=%s ws=%s reason=already_ready", document_id, workspace_id)
         return
 
-    logger.info("ingestion_started doc=%s ws=%s file=%s", document_id, workspace_id, document.get("filename"))
+    filename = document.get("filename")
+    logger.info("ingestion_started doc=%s ws=%s file=%s", document_id, workspace_id, filename)
+    event_bus.publish(make_event(document_id, workspace_id, "uploaded", elapsed_ms=0, filename=filename))
 
     try:
         # Stage 1: Fetch from R2
@@ -432,6 +435,7 @@ async def run_document_ingestion(document_id: str, workspace_id: str) -> None:
         logger.info("ingestion_stage doc=%s stage=extract ms=%d pages=%d", document_id, _ms_since(t0), extracted.page_count)
         _upsert_artifacts(document_id, workspace_id, run_id, source_sha256=source_sha256, extraction=extracted)
         _update_document_for_run(document_id, workspace_id, run_id, status="extracted", page_count=extracted.page_count, error=None)
+        event_bus.publish(make_event(document_id, workspace_id, "extracted", _ms_since(pipeline_start), filename=filename))
 
         # Stage 3: Normalize
         t0 = time.perf_counter()
@@ -439,6 +443,7 @@ async def run_document_ingestion(document_id: str, workspace_id: str) -> None:
         logger.info("ingestion_stage doc=%s stage=normalize ms=%d", document_id, _ms_since(t0))
         _upsert_artifacts(document_id, workspace_id, run_id, source_sha256=source_sha256, normalized=normalized)
         _update_document_for_run(document_id, workspace_id, run_id, status="normalized", page_count=normalized.page_count, error=None)
+        event_bus.publish(make_event(document_id, workspace_id, "normalized", _ms_since(pipeline_start), filename=filename))
 
         # Stage 4: Preprocess / metadata
         t0 = time.perf_counter()
@@ -446,10 +451,12 @@ async def run_document_ingestion(document_id: str, workspace_id: str) -> None:
         logger.info("ingestion_stage doc=%s stage=preprocess ms=%d", document_id, _ms_since(t0))
         _upsert_artifacts(document_id, workspace_id, run_id, source_sha256=source_sha256, preprocessing=preprocessing)
         _update_document_for_run(document_id, workspace_id, run_id, status="metadata_ready", page_count=preprocessing.metadata.page_count, error=None)
+        event_bus.publish(make_event(document_id, workspace_id, "metadata_ready", _ms_since(pipeline_start), filename=filename))
 
         # Stage 5: Chunk — transition through awaiting_chunking then set chunking BEFORE generating
         _update_document_for_run(document_id, workspace_id, run_id, status="awaiting_chunking", page_count=preprocessing.metadata.page_count, error=None)
         _update_document_for_run(document_id, workspace_id, run_id, status="chunking", page_count=preprocessing.metadata.page_count, error=None)
+        event_bus.publish(make_event(document_id, workspace_id, "chunking", _ms_since(pipeline_start), filename=filename))
         t0 = time.perf_counter()
         chunks = await asyncio.to_thread(generate_chunks, workspace_id, document_id, normalized, preprocessing)
         logger.info("ingestion_stage doc=%s stage=chunk ms=%d chunks=%d", document_id, _ms_since(t0), len(chunks))
@@ -463,6 +470,7 @@ async def run_document_ingestion(document_id: str, workspace_id: str) -> None:
         _finalize_document(document_id, workspace_id, run_id, status="chunked", page_count=preprocessing.metadata.page_count, error=None)
         _record_usage_event(workspace_id)
         _queue_document_for_embeddings(document_id, workspace_id)
+        event_bus.publish(make_event(document_id, workspace_id, "awaiting_embeddings", _ms_since(pipeline_start), filename=filename))
 
         logger.info("ingestion_complete doc=%s total_ms=%d — starting embedding", document_id, _ms_since(pipeline_start))
 
@@ -478,12 +486,14 @@ async def run_document_ingestion(document_id: str, workspace_id: str) -> None:
         logger.warning("ingestion_failed doc=%s error=%s", document_id, exc)
         try:
             _finalize_document(document_id, workspace_id, run_id, status="failed", error=str(exc))
+            event_bus.publish(make_event(document_id, workspace_id, "failed", _ms_since(pipeline_start), filename=filename, error=str(exc)))
         except IngestionOwnershipLost:
             pass
     except Exception as exc:
         logger.exception("ingestion_unexpected_failure doc=%s error=%s", document_id, exc)
         try:
             _finalize_document(document_id, workspace_id, run_id, status="failed", error=f"Unexpected failure: {exc}")
+            event_bus.publish(make_event(document_id, workspace_id, "failed", _ms_since(pipeline_start), filename=filename, error=str(exc)))
         except IngestionOwnershipLost:
             pass
 

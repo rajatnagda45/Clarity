@@ -17,7 +17,7 @@ export function useDashboardMetrics() {
     },
     enabled: !!activeWorkspace,
     staleTime: 20_000,
-    refetchInterval: 30_000,
+    refetchInterval: 60_000,
   });
 
   const answerMetrics = useQuery({
