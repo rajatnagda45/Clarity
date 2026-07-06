@@ -481,7 +481,7 @@ def _record_usage_event(
     get_client().table("usage_events").insert(
         {
             "workspace_id": workspace_id,
-            "kind": "index",
+            "kind": "ingest",
             "input_tokens": input_tokens,
             "output_tokens": 0,
             "latency_ms": latency_ms,

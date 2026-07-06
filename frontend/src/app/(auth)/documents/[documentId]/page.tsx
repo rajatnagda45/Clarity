@@ -4,6 +4,7 @@ import Link from 'next/link';
 import { useAuth } from '@clerk/nextjs';
 import { useParams, useSearchParams } from 'next/navigation';
 import { useEffect, useState } from 'react';
+import { ArrowLeft, ExternalLink, FileText } from 'lucide-react';
 
 import { ClauseMap } from '@/components/documents/ClauseMap';
 import { getDocument, getDocumentFile } from '@/lib/api';
@@ -54,44 +55,58 @@ export default function DocumentDetailPage() {
   }, [getToken, params.documentId, workspaceId]);
 
   return (
-    <div className="mx-auto flex w-full max-w-6xl flex-col gap-6 px-6 py-10">
-      <div className="flex items-center justify-between gap-4">
-        <div>
-          <p className="text-sm font-medium uppercase tracking-[0.2em] text-blue-600">Document Review</p>
-          <h1 className="text-3xl font-semibold text-slate-900">{document?.filename ?? 'Document'}</h1>
+    <div className="mx-auto flex w-full max-w-5xl flex-col gap-6 px-6 py-10">
+      {/* Header */}
+      <div className="flex items-start justify-between gap-4">
+        <div className="flex items-center gap-3">
+          <div className="p-2.5 rounded-xl bg-white/[0.04] border border-white/[0.06]">
+            <FileText size={20} className="text-[#8892AA]" />
+          </div>
+          <div>
+            <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[#4A5168] mb-1">Document Review</p>
+            <h1 className="text-2xl font-bold text-[#F1F3F9] tracking-tight">{document?.filename ?? 'Document'}</h1>
+          </div>
         </div>
         <Link
           href={workspaceId ? `/documents?workspace=${encodeURIComponent(workspaceId)}` : '/documents'}
-          className="inline-flex rounded-full border border-slate-300 px-4 py-2 text-sm font-medium text-slate-700"
+          className="flex items-center gap-2 px-4 py-2 rounded-xl border border-white/[0.08] bg-white/[0.02] text-sm font-medium text-[#8892AA] hover:text-[#F1F3F9] hover:bg-white/[0.06] transition-all"
         >
+          <ArrowLeft size={14} />
           Back to documents
         </Link>
       </div>
 
-      {errorMessage ? <p className="text-sm text-red-600">{errorMessage}</p> : null}
+      {errorMessage ? (
+        <div className="rounded-xl border border-red-500/20 bg-red-500/5 px-4 py-3 text-sm text-red-400">
+          {errorMessage}
+        </div>
+      ) : null}
 
+      {/* Source file */}
       {documentFile ? (
-        <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
-          <p className="text-sm text-slate-600">
+        <div className="rounded-2xl border border-white/[0.06] bg-[#0F1117] p-6">
+          <p className="text-sm text-[#8892AA] leading-relaxed">
             Signed document access is available for provenance review and source verification.
           </p>
           <a
             href={documentFile.signedUrl}
             target="_blank"
             rel="noreferrer"
-            className="mt-4 inline-flex rounded-full border border-slate-300 px-4 py-2 text-sm font-medium text-slate-700"
+            className="mt-4 inline-flex items-center gap-2 px-4 py-2 rounded-xl border border-white/[0.08] bg-white/[0.02] text-sm font-medium text-[#F1F3F9] hover:bg-white/[0.06] transition-all"
           >
+            <ExternalLink size={14} />
             Open source file
           </a>
         </div>
       ) : null}
 
+      {/* Clause map */}
       {document ? (
-        <section className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
-          <div className="mb-5">
-            <h2 className="text-xl font-semibold text-slate-900">Clause map</h2>
-            <p className="mt-1 text-sm text-slate-600">
-              Structured clauses generated from the current ingestion pipeline, with clause typing and risk flags.
+        <section className="rounded-2xl border border-white/[0.06] bg-[#0F1117] p-6">
+          <div className="mb-6">
+            <h2 className="text-lg font-bold text-[#F1F3F9]">Clause map</h2>
+            <p className="mt-1 text-sm text-[#8892AA]">
+              Legal clause structure extracted during ingestion, with risk classification and page references.
             </p>
           </div>
           <ClauseMap clauses={document.clauses} />

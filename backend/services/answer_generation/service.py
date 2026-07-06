@@ -491,7 +491,7 @@ async def build_answer_stream(
     get_client().table("usage_events").insert(
         {
             "workspace_id": workspace_id,
-            "kind": "answer",
+            "kind": "query",
             "input_tokens": prompt_tokens,
             "output_tokens": completion_tokens,
             "latency_ms": latency_ms,

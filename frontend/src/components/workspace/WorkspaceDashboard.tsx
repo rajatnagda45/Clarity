@@ -24,7 +24,7 @@ function MetricCard({ title, value, subtitle, icon: Icon, color }: { title: stri
         </div>
       </div>
       <div className="relative z-10">
-        <p className="text-3xl font-bold text-[#F1F3F9] tracking-tight">{value}</p>
+        <p className="text-3xl font-bold text-[#F1F3F9] tracking-tight truncate">{value}</p>
         <p className="text-xs text-[#4A5168] mt-1 font-medium">{subtitle}</p>
       </div>
     </div>
@@ -65,7 +65,7 @@ export function WorkspaceDashboard() {
     const sizes = ['B', 'KB', 'MB', 'GB', 'TB'];
     const i = storageBytes === 0 ? 0 : Math.floor(Math.log(storageBytes) / Math.log(k));
     return parseFloat((storageBytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
-  })() : 'Unavailable';
+  })() : 'N/A';
 
   return (
     <div className="relative min-h-screen bg-[#05070B] selection:bg-purple-500/30 selection:text-white pb-32">
