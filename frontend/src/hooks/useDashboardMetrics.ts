@@ -16,6 +16,8 @@ export function useDashboardMetrics() {
       return getDeveloperDashboard({ token, workspaceId: activeWorkspace!.id });
     },
     enabled: !!activeWorkspace,
+    staleTime: 20_000,
+    refetchInterval: 30_000,
   });
 
   const answerMetrics = useQuery({
@@ -26,6 +28,8 @@ export function useDashboardMetrics() {
       return getAnswerMetrics({ token, workspaceId: activeWorkspace!.id });
     },
     enabled: !!activeWorkspace,
+    staleTime: 20_000,
+    refetchInterval: 30_000,
   });
 
   const embeddingMetrics = useQuery({
@@ -36,6 +40,8 @@ export function useDashboardMetrics() {
       return getEmbeddingMetrics({ token, workspaceId: activeWorkspace!.id });
     },
     enabled: !!activeWorkspace,
+    staleTime: 20_000,
+    refetchInterval: 30_000,
   });
 
   return { devDashboard, answerMetrics, embeddingMetrics };

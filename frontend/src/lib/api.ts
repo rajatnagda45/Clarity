@@ -764,10 +764,8 @@ export async function getSystemHealth(): Promise<SystemHealth> {
   return res.json() as Promise<SystemHealth>;
 }
 
-export async function getLiveMetrics(): Promise<LiveMetrics> {
-  const res = await fetch(`${BACKEND_URL}/api/metrics`);
-  if (!res.ok) throw new Error(`Metrics fetch failed: ${res.status}`);
-  return res.json() as Promise<LiveMetrics>;
+export async function getLiveMetrics(auth: AuthContext): Promise<LiveMetrics> {
+  return apiFetch<LiveMetrics>('/api/metrics', { method: 'GET', ...auth });
 }
 
 // ---------------------------------------------------------------------------

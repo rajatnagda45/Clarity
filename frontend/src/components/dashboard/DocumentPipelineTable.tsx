@@ -1,6 +1,7 @@
 'use client';
 
-import { FileText, Clock, Server, CheckCircle2, AlertCircle, FileCode2 } from 'lucide-react';
+import Link from 'next/link';
+import { FileText, Clock, Server, CheckCircle2, AlertCircle, FileCode2, ExternalLink } from 'lucide-react';
 import type { Document, DocumentStatus, SourceType } from '@/types/clarity';
 import { EmptyState } from '@/components/ds/EmptyState';
 import { formatRelativeTime } from '@/lib/time';
@@ -8,6 +9,7 @@ import { formatRelativeTime } from '@/lib/time';
 interface DocumentPipelineTableProps {
   documents: Document[];
   loading?: boolean;
+  workspaceId: string;
 }
 
 function StatusBadge({ status }: { status: DocumentStatus }) {
@@ -27,19 +29,19 @@ function StatusBadge({ status }: { status: DocumentStatus }) {
   }
   return (
     <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-amber-500/10 border border-amber-500/20 text-amber-400 text-[10px] font-bold uppercase tracking-wider">
-      <div className="w-1.5 h-1.5 rounded-full bg-amber-400 animate-pulse" /> Processing
+      <div className="w-1.5 h-1.5 rounded-full bg-amber-400 animate-pulse" />
+      {status.replace(/_/g, ' ')}
     </div>
   );
 }
 
 function SourceTypeIcon({ type }: { type: SourceType }) {
   const map: Record<SourceType, { icon: any; cls: string }> = {
-    pdf: { icon: FileText, cls: 'text-red-400 bg-red-500/10' },
-    docx: { icon: FileText, cls: 'text-blue-400 bg-blue-500/10' },
-    url: { icon: Server, cls: 'text-purple-400 bg-purple-500/10' },
+    pdf:  { icon: FileText,  cls: 'text-red-400 bg-red-500/10' },
+    docx: { icon: FileText,  cls: 'text-blue-400 bg-blue-500/10' },
+    url:  { icon: Server,    cls: 'text-purple-400 bg-purple-500/10' },
   };
   const { icon: Icon, cls } = map[type] ?? { icon: FileCode2, cls: 'text-[#8892AA] bg-white/[0.06]' };
-  
   return (
     <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${cls}`}>
       <Icon size={14} />
@@ -62,7 +64,7 @@ function SkeletonRow() {
   );
 }
 
-export function DocumentPipelineTable({ documents, loading }: DocumentPipelineTableProps) {
+export function DocumentPipelineTable({ documents, loading, workspaceId }: DocumentPipelineTableProps) {
   const sortedDocs = [...documents].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
 
   return (
@@ -102,8 +104,8 @@ export function DocumentPipelineTable({ documents, loading }: DocumentPipelineTa
       ) : (
         <div className="flex flex-col divide-y divide-white/[0.04]">
           {sortedDocs.map((doc) => (
-            <div key={doc.id} className="grid grid-cols-[1fr_80px_100px_120px] lg:grid-cols-[2fr_1fr_1fr_1fr_1.5fr] gap-4 px-6 py-4 items-center hover:bg-white/[0.02] transition-colors group cursor-pointer">
-              
+            <div key={doc.id} className="grid grid-cols-[1fr_80px_100px_120px] lg:grid-cols-[2fr_1fr_1fr_1fr_1.5fr] gap-4 px-6 py-4 items-center hover:bg-white/[0.02] transition-colors group">
+
               {/* Document Name & Type */}
               <div className="flex items-center gap-3 overflow-hidden">
                 <SourceTypeIcon type={doc.sourceType} />
@@ -130,15 +132,19 @@ export function DocumentPipelineTable({ documents, loading }: DocumentPipelineTa
                 <StatusBadge status={doc.status} />
               </div>
 
-              {/* Time */}
+              {/* Time + Inspect */}
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2 text-xs font-medium text-[#8892AA]">
                   <Clock size={12} className="opacity-50" />
                   {formatRelativeTime(doc.createdAt)}
                 </div>
-                <button className="opacity-0 group-hover:opacity-100 transition-opacity text-xs font-semibold text-purple-400 bg-purple-500/10 px-2 py-1 rounded">
+                <Link
+                  href={`/documents/${doc.id}${workspaceId ? `?workspace=${encodeURIComponent(workspaceId)}` : ''}`}
+                  className="opacity-0 group-hover:opacity-100 transition-opacity flex items-center gap-1 text-xs font-semibold text-purple-400 bg-purple-500/10 hover:bg-purple-500/20 px-2 py-1 rounded"
+                >
+                  <ExternalLink size={10} />
                   Inspect
-                </button>
+                </Link>
               </div>
 
             </div>

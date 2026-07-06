@@ -12,6 +12,7 @@ import { useDocuments } from '@/hooks/useDocuments';
 import { useDashboardMetrics } from '@/hooks/useDashboardMetrics';
 import { PipelineVisualizer } from '@/components/dashboard/PipelineVisualizer';
 import { DocumentPipelineTable } from '@/components/dashboard/DocumentPipelineTable';
+import { useWorkspace } from '@/contexts/WorkspaceContext';
 
 function MetricCard({ title, value, subtitle, icon: Icon, color }: { title: string, value: string | number, subtitle: string, icon: any, color: string }) {
   return (
@@ -51,6 +52,7 @@ function ExplorerCard({ title, description, icon: Icon, colorClass, href }: { ti
 
 export function WorkspaceDashboard() {
   const router = useRouter();
+  const { activeWorkspace } = useWorkspace();
   const { data: documents = [], isLoading: docsLoading, refetch } = useDocuments();
   const { devDashboard, answerMetrics, embeddingMetrics } = useDashboardMetrics();
 
@@ -122,7 +124,7 @@ export function WorkspaceDashboard() {
 
         {/* DOCUMENT PIPELINE TABLE */}
         <div className="mt-8">
-          <DocumentPipelineTable documents={documents} loading={docsLoading} />
+          <DocumentPipelineTable documents={documents} loading={docsLoading} workspaceId={activeWorkspace?.id ?? ''} />
         </div>
 
         {/* EXPLORERS & INSPECTORS */}
