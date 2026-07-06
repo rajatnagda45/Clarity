@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import time
 from datetime import UTC, datetime, timedelta
 from typing import Any, Literal
 from uuid import uuid4
@@ -376,45 +377,37 @@ def _build_pending_items(
 
 async def run_document_embedding(document_id: str, workspace_id: str) -> None:
     provider = get_embedding_provider()
+    pipeline_start = time.perf_counter()
     started = _now_utc()
 
     try:
         document, run_id = _claim_embedding_lease(document_id, workspace_id, provider.target)
     except EmbeddingBusy:
-        logger.info(
-            "document_embedding_skipped_busy_document",
-            extra={"document_id": document_id, "workspace_id": workspace_id},
-        )
+        logger.info("embedding_skipped doc=%s ws=%s reason=busy_lease", document_id, workspace_id)
         return
 
     if document is None:
-        logger.warning(
-            "document_embedding_missing_document",
-            extra={"document_id": document_id, "workspace_id": workspace_id},
-        )
+        logger.warning("embedding_skipped doc=%s ws=%s reason=not_found", document_id, workspace_id)
         return
 
     if run_id is None:
-        logger.info(
-            "document_embedding_skipped_current_document",
-            extra={"document_id": document_id, "workspace_id": workspace_id},
-        )
+        logger.info("embedding_skipped doc=%s ws=%s reason=already_current", document_id, workspace_id)
         return
+
+    logger.info("embedding_started doc=%s ws=%s model=%s", document_id, workspace_id, provider.target.model)
 
     retry_count = 0
     try:
+        t0 = time.perf_counter()
         pending = _build_pending_items(document_id, workspace_id, provider.target)
-        _update_document_for_run(
-            document_id,
-            workspace_id,
-            run_id,
-            status="embedding",
-            error=None,
-            embedding_retry_count=0,
-        )
+        logger.info("embedding_stage doc=%s stage=build_pending ms=%d chunks=%d", document_id, int((time.perf_counter() - t0) * 1000), len(pending))
+
+        _update_document_for_run(document_id, workspace_id, run_id, status="embedding", error=None, embedding_retry_count=0)
 
         if pending:
+            t0 = time.perf_counter()
             retry_count = await _embed_pending_items(provider, pending)
+            logger.info("embedding_stage doc=%s stage=openai_embed ms=%d chunks=%d retries=%d", document_id, int((time.perf_counter() - t0) * 1000), len(pending), retry_count)
 
         chunks = _load_chunks(document_id, workspace_id)
         _finalize_document(
@@ -428,60 +421,26 @@ async def run_document_embedding(document_id: str, workspace_id: str) -> None:
             embedding_retry_count=retry_count,
         )
         latency_ms = int((_now_utc() - started).total_seconds() * 1000)
-        _record_usage_event(
-            workspace_id,
-            input_tokens=sum(chunk["token_count"] for chunk in chunks),
-            latency_ms=latency_ms,
-        )
+        _record_usage_event(workspace_id, input_tokens=sum(chunk["token_count"] for chunk in chunks), latency_ms=latency_ms)
+
+        logger.info("embedding_complete doc=%s total_ms=%d chunks=%d — starting indexing", document_id, int((time.perf_counter() - pipeline_start) * 1000), len(chunks))
+
         if queue_document_for_indexing(document_id, workspace_id):
             await run_document_indexing_task(document_id, workspace_id)
     except EmbeddingOwnershipLost:
-        logger.info(
-            "document_embedding_stopped_after_lease_loss",
-            extra={"document_id": document_id, "workspace_id": workspace_id},
-        )
+        logger.warning("embedding_ownership_lost doc=%s ws=%s", document_id, workspace_id)
     except (EmbeddingProviderError, ValueError) as exc:
-        logger.warning(
-            "document_embedding_failed",
-            extra={
-                "document_id": document_id,
-                "workspace_id": workspace_id,
-                "error": str(exc),
-            },
-        )
+        logger.warning("embedding_failed doc=%s error=%s", document_id, exc)
         try:
-            _finalize_document(
-                document_id,
-                workspace_id,
-                run_id,
-                status="failed",
-                error=str(exc),
-                embedding_retry_count=getattr(exc, "retry_count", retry_count),
-            )
+            _finalize_document(document_id, workspace_id, run_id, status="failed", error=str(exc), embedding_retry_count=getattr(exc, "retry_count", retry_count))
         except EmbeddingOwnershipLost:
-            logger.info(
-                "document_embedding_failure_ignored_after_lease_loss",
-                extra={"document_id": document_id, "workspace_id": workspace_id},
-            )
-    except Exception:
-        logger.exception(
-            "document_embedding_unexpected_failure",
-            extra={"document_id": document_id, "workspace_id": workspace_id},
-        )
+            pass
+    except Exception as exc:
+        logger.exception("embedding_unexpected_failure doc=%s error=%s", document_id, exc)
         try:
-            _finalize_document(
-                document_id,
-                workspace_id,
-                run_id,
-                status="failed",
-                error="Document embedding failed unexpectedly.",
-                embedding_retry_count=retry_count,
-            )
+            _finalize_document(document_id, workspace_id, run_id, status="failed", error=f"Unexpected failure: {exc}", embedding_retry_count=retry_count)
         except EmbeddingOwnershipLost:
-            logger.info(
-                "document_embedding_unexpected_failure_ignored_after_lease_loss",
-                extra={"document_id": document_id, "workspace_id": workspace_id},
-            )
+            pass
 
 
 async def run_document_embedding_task(document_id: str, workspace_id: str) -> None:

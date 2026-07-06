@@ -70,7 +70,7 @@ class Settings(BaseSettings):
 
     # Upload limits
     max_upload_bytes: int = 50 * 1024 * 1024
-    ingestion_lease_seconds: int = 900
+    ingestion_lease_seconds: int = 120
     parser_version: str = "a3.v1"
     chunk_version: str = "a4.v1"
     chunk_target_tokens: int = 400
@@ -81,14 +81,14 @@ class Settings(BaseSettings):
     embedding_batch_size: int = 32
     embedding_max_retries: int = 3
     embedding_timeout_seconds: int = 30
-    embedding_lease_seconds: int = 900
+    embedding_lease_seconds: int = 300
     embedding_cost_per_1k_tokens_usd: float = 0.0
     persist_embedding_vectors_locally: bool = True
     index_provider: str = "pinecone"
     index_batch_size: int = 100
     index_max_retries: int = 3
     index_timeout_seconds: int = 30
-    index_lease_seconds: int = 900
+    index_lease_seconds: int = 120
     retrieval_dense_top_k: int = 20
     retrieval_sparse_top_k: int = 20
     retrieval_final_top_k: int = 5

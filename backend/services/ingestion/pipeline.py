@@ -3,6 +3,7 @@ from __future__ import annotations
 import asyncio
 import hashlib
 import logging
+import time
 from datetime import UTC, datetime, timedelta
 from typing import Any, Literal
 from uuid import uuid4
@@ -20,6 +21,10 @@ from services.ingestion.preprocessor import preprocess_document
 
 
 logger = logging.getLogger(__name__)
+
+
+def _ms_since(t0: float) -> int:
+    return int((time.perf_counter() - t0) * 1000)
 
 DocumentStage = Literal[
     "uploaded",
@@ -80,10 +85,15 @@ def _now_utc() -> datetime:
     return datetime.now(UTC)
 
 
-def _parse_timestamp(value: str | None) -> datetime | None:
+def _parse_timestamp(value: str | datetime | None) -> datetime | None:
     if not value:
         return None
-    return datetime.fromisoformat(value.replace("Z", "+00:00"))
+    if isinstance(value, datetime):
+        return value
+    try:
+        return datetime.fromisoformat(str(value).replace("Z", "+00:00"))
+    except (ValueError, AttributeError):
+        return None
 
 
 def _load_document(document_id: str, workspace_id: str) -> dict[str, Any] | None:
@@ -389,164 +399,93 @@ def _extract_document(source_type: str, payload: bytes) -> ExtractedDocument:
 
 
 async def run_document_ingestion(document_id: str, workspace_id: str) -> None:
+    pipeline_start = time.perf_counter()
     try:
         document, run_id = _claim_ingestion_lease(document_id, workspace_id)
     except IngestionBusy:
         logger.info(
-            "document_ingestion_skipped_busy_document",
-            extra={"document_id": document_id, "workspace_id": workspace_id},
+            "ingestion_skipped doc=%s ws=%s reason=busy_lease",
+            document_id, workspace_id,
         )
         return
 
     if document is None:
-        logger.warning(
-            "document_ingestion_missing_document",
-            extra={"document_id": document_id, "workspace_id": workspace_id},
-        )
+        logger.warning("ingestion_skipped doc=%s ws=%s reason=not_found", document_id, workspace_id)
         return
 
     if run_id is None:
-        logger.info(
-            "document_ingestion_skipped_ready_document",
-            extra={"document_id": document_id, "workspace_id": workspace_id},
-        )
+        logger.info("ingestion_skipped doc=%s ws=%s reason=already_ready", document_id, workspace_id)
         return
 
+    logger.info("ingestion_started doc=%s ws=%s file=%s", document_id, workspace_id, document.get("filename"))
+
     try:
+        # Stage 1: Fetch from R2
+        t0 = time.perf_counter()
         source_bytes = await asyncio.to_thread(fetch_document_source, document["r2_key"])
         source_sha256 = hashlib.sha256(source_bytes).hexdigest()
+        logger.info("ingestion_stage doc=%s stage=fetch_r2 ms=%d bytes=%d", document_id, _ms_since(t0), len(source_bytes))
 
+        # Stage 2: Extract text
+        t0 = time.perf_counter()
         extracted = await asyncio.to_thread(_extract_document, document["source_type"], source_bytes)
-        _upsert_artifacts(
-            document_id,
-            workspace_id,
-            run_id,
-            source_sha256=source_sha256,
-            extraction=extracted,
-        )
-        _update_document_for_run(
-            document_id,
-            workspace_id,
-            run_id,
-            status="extracted",
-            page_count=extracted.page_count,
-            error=None,
-        )
+        logger.info("ingestion_stage doc=%s stage=extract ms=%d pages=%d", document_id, _ms_since(t0), extracted.page_count)
+        _upsert_artifacts(document_id, workspace_id, run_id, source_sha256=source_sha256, extraction=extracted)
+        _update_document_for_run(document_id, workspace_id, run_id, status="extracted", page_count=extracted.page_count, error=None)
 
+        # Stage 3: Normalize
+        t0 = time.perf_counter()
         normalized = await asyncio.to_thread(normalize_extracted_document, extracted)
-        _upsert_artifacts(
-            document_id,
-            workspace_id,
-            run_id,
-            source_sha256=source_sha256,
-            normalized=normalized,
-        )
-        _update_document_for_run(
-            document_id,
-            workspace_id,
-            run_id,
-            status="normalized",
-            page_count=normalized.page_count,
-            error=None,
-        )
+        logger.info("ingestion_stage doc=%s stage=normalize ms=%d", document_id, _ms_since(t0))
+        _upsert_artifacts(document_id, workspace_id, run_id, source_sha256=source_sha256, normalized=normalized)
+        _update_document_for_run(document_id, workspace_id, run_id, status="normalized", page_count=normalized.page_count, error=None)
 
+        # Stage 4: Preprocess / metadata
+        t0 = time.perf_counter()
         preprocessing = await asyncio.to_thread(preprocess_document, normalized, source_sha256)
-        _upsert_artifacts(
-            document_id,
-            workspace_id,
-            run_id,
-            source_sha256=source_sha256,
-            preprocessing=preprocessing,
-        )
-        _update_document_for_run(
-            document_id,
-            workspace_id,
-            run_id,
-            status="metadata_ready",
-            page_count=preprocessing.metadata.page_count,
-            error=None,
-        )
-        _update_document_for_run(
-            document_id,
-            workspace_id,
-            run_id,
-            status="awaiting_chunking",
-            page_count=preprocessing.metadata.page_count,
-            error=None,
-        )
-        chunks = await asyncio.to_thread(
-            generate_chunks,
-            workspace_id,
-            document_id,
-            normalized,
-            preprocessing,
-        )
-        _update_document_for_run(
-            document_id,
-            workspace_id,
-            run_id,
-            status="chunking",
-            page_count=preprocessing.metadata.page_count,
-            error=None,
-        )
+        logger.info("ingestion_stage doc=%s stage=preprocess ms=%d", document_id, _ms_since(t0))
+        _upsert_artifacts(document_id, workspace_id, run_id, source_sha256=source_sha256, preprocessing=preprocessing)
+        _update_document_for_run(document_id, workspace_id, run_id, status="metadata_ready", page_count=preprocessing.metadata.page_count, error=None)
+
+        # Stage 5: Chunk — transition through awaiting_chunking then set chunking BEFORE generating
+        _update_document_for_run(document_id, workspace_id, run_id, status="awaiting_chunking", page_count=preprocessing.metadata.page_count, error=None)
+        _update_document_for_run(document_id, workspace_id, run_id, status="chunking", page_count=preprocessing.metadata.page_count, error=None)
+        t0 = time.perf_counter()
+        chunks = await asyncio.to_thread(generate_chunks, workspace_id, document_id, normalized, preprocessing)
+        logger.info("ingestion_stage doc=%s stage=chunk ms=%d chunks=%d", document_id, _ms_since(t0), len(chunks))
+
+        # Stage 6: Persist chunks + clauses
+        t0 = time.perf_counter()
         await asyncio.to_thread(_persist_chunks, document_id, workspace_id, chunks)
         await asyncio.to_thread(_persist_clauses, document_id, workspace_id, chunks)
-        _finalize_document(
-            document_id,
-            workspace_id,
-            run_id,
-            status="chunked",
-            page_count=preprocessing.metadata.page_count,
-            error=None,
-        )
+        logger.info("ingestion_stage doc=%s stage=persist_chunks ms=%d", document_id, _ms_since(t0))
+
+        _finalize_document(document_id, workspace_id, run_id, status="chunked", page_count=preprocessing.metadata.page_count, error=None)
         _record_usage_event(workspace_id)
         _queue_document_for_embeddings(document_id, workspace_id)
+
+        logger.info("ingestion_complete doc=%s total_ms=%d — starting embedding", document_id, _ms_since(pipeline_start))
+
+        # Chain directly into embedding
         try:
             await run_document_embedding_task(document_id, workspace_id)
         except Exception:
-            logger.exception(
-                "document_embedding_task_failed_after_ingestion",
-                extra={"document_id": document_id, "workspace_id": workspace_id},
-            )
+            logger.exception("embedding_task_failed_after_ingestion doc=%s", document_id)
+
     except IngestionOwnershipLost:
-        logger.info(
-            "document_ingestion_stopped_after_lease_loss",
-            extra={"document_id": document_id, "workspace_id": workspace_id},
-        )
+        logger.warning("ingestion_ownership_lost doc=%s ws=%s", document_id, workspace_id)
     except (PdfExtractionError, DocxExtractionError, IngestionError, ValueError) as exc:
-        logger.warning(
-            "document_ingestion_failed",
-            extra={
-                "document_id": document_id,
-                "workspace_id": workspace_id,
-                "error": str(exc),
-            },
-        )
+        logger.warning("ingestion_failed doc=%s error=%s", document_id, exc)
         try:
             _finalize_document(document_id, workspace_id, run_id, status="failed", error=str(exc))
         except IngestionOwnershipLost:
-            logger.info(
-                "document_ingestion_failure_ignored_after_lease_loss",
-                extra={"document_id": document_id, "workspace_id": workspace_id},
-            )
-    except Exception:
-        logger.exception(
-            "document_ingestion_unexpected_failure",
-            extra={"document_id": document_id, "workspace_id": workspace_id},
-        )
+            pass
+    except Exception as exc:
+        logger.exception("ingestion_unexpected_failure doc=%s error=%s", document_id, exc)
         try:
-            _finalize_document(
-                document_id,
-                workspace_id,
-                run_id,
-                status="failed",
-                error="Document ingestion failed unexpectedly.",
-            )
+            _finalize_document(document_id, workspace_id, run_id, status="failed", error=f"Unexpected failure: {exc}")
         except IngestionOwnershipLost:
-            logger.info(
-                "document_ingestion_unexpected_failure_ignored_after_lease_loss",
-                extra={"document_id": document_id, "workspace_id": workspace_id},
-            )
+            pass
 
 
 async def run_document_ingestion_task(document_id: str, workspace_id: str) -> None:

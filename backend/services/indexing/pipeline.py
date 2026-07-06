@@ -3,6 +3,7 @@ from __future__ import annotations
 import asyncio
 import hashlib
 import logging
+import time
 from datetime import UTC, datetime, timedelta
 from typing import Any, Literal
 from uuid import uuid4
@@ -558,35 +559,31 @@ async def _delete_stale_vectors(
 
 async def run_document_indexing(document_id: str, workspace_id: str) -> None:
     provider = get_index_provider()
+    pipeline_start = time.perf_counter()
     started = _now_utc()
 
     try:
         document, run_id, target = _claim_index_lease(document_id, workspace_id)
     except IndexingBusy:
-        logger.info(
-            "document_indexing_skipped_busy_document",
-            extra={"document_id": document_id, "workspace_id": workspace_id},
-        )
+        logger.info("indexing_skipped doc=%s ws=%s reason=busy_lease", document_id, workspace_id)
         return
 
     if document is None:
-        logger.warning(
-            "document_indexing_missing_document",
-            extra={"document_id": document_id, "workspace_id": workspace_id},
-        )
+        logger.warning("indexing_skipped doc=%s ws=%s reason=not_found", document_id, workspace_id)
         return
 
     if run_id is None or target is None:
-        logger.info(
-            "document_indexing_skipped_current_document",
-            extra={"document_id": document_id, "workspace_id": workspace_id},
-        )
+        logger.info("indexing_skipped doc=%s ws=%s reason=already_indexed_or_no_embeddings", document_id, workspace_id)
         return
+
+    logger.info("indexing_started doc=%s ws=%s index=%s", document_id, workspace_id, target.index_name)
 
     retry_count = 0
     try:
+        t0 = time.perf_counter()
         current_rows = _load_current_records(document_id, workspace_id, target)
         existing_rows = _load_index_rows(document_id, workspace_id, target)
+        logger.info("indexing_stage doc=%s stage=load_records ms=%d vectors=%d", document_id, int((time.perf_counter() - t0) * 1000), len(current_rows))
 
         desired_by_id = {row.vector_id: row for row in current_rows}
         rows_to_upsert = [
@@ -604,93 +601,36 @@ async def run_document_indexing(document_id: str, workspace_id: str) -> None:
             and row.get("status") != "stale"
         ]
 
-        _update_document_for_run(
-            document_id,
-            workspace_id,
-            run_id,
-            status="indexing",
-            error=None,
-            index_retry_count=0,
-        )
+        _update_document_for_run(document_id, workspace_id, run_id, status="indexing", error=None, index_retry_count=0)
 
         if rows_to_upsert:
+            t0 = time.perf_counter()
             retry_count = max(retry_count, await _upsert_batches(provider, target, rows_to_upsert))
-        if stale_vector_ids:
-            retry_count = max(
-                retry_count,
-                await _delete_stale_vectors(provider, target, stale_vector_ids),
-            )
-            await asyncio.to_thread(
-                _mark_stale_rows,
-                document_id,
-                workspace_id,
-                target,
-                stale_vector_ids,
-            )
+            logger.info("indexing_stage doc=%s stage=pinecone_upsert ms=%d vectors=%d retries=%d", document_id, int((time.perf_counter() - t0) * 1000), len(rows_to_upsert), retry_count)
 
-        _finalize_document(
-            document_id,
-            workspace_id,
-            run_id,
-            status="indexed",
-            error=None,
-            target=target,
-            indexed_chunk_count=len(current_rows),
-            index_retry_count=retry_count,
-        )
+        if stale_vector_ids:
+            retry_count = max(retry_count, await _delete_stale_vectors(provider, target, stale_vector_ids))
+            await asyncio.to_thread(_mark_stale_rows, document_id, workspace_id, target, stale_vector_ids)
+
+        _finalize_document(document_id, workspace_id, run_id, status="indexed", error=None, target=target, indexed_chunk_count=len(current_rows), index_retry_count=retry_count)
         latency_ms = int((_now_utc() - started).total_seconds() * 1000)
-        _record_usage_event(
-            workspace_id,
-            input_tokens=len(current_rows),
-            latency_ms=latency_ms,
-        )
+        _record_usage_event(workspace_id, input_tokens=len(current_rows), latency_ms=latency_ms)
+
+        logger.info("indexing_complete doc=%s total_ms=%d vectors=%d", document_id, int((time.perf_counter() - pipeline_start) * 1000), len(current_rows))
     except IndexingOwnershipLost:
-        logger.info(
-            "document_indexing_stopped_after_lease_loss",
-            extra={"document_id": document_id, "workspace_id": workspace_id},
-        )
+        logger.warning("indexing_ownership_lost doc=%s ws=%s", document_id, workspace_id)
     except (IndexProviderError, ValueError) as exc:
-        logger.warning(
-            "document_indexing_failed",
-            extra={
-                "document_id": document_id,
-                "workspace_id": workspace_id,
-                "error": str(exc),
-            },
-        )
+        logger.warning("indexing_failed doc=%s error=%s", document_id, exc)
         try:
-            _finalize_document(
-                document_id,
-                workspace_id,
-                run_id,
-                status="failed",
-                error=str(exc),
-                index_retry_count=getattr(exc, "retry_count", retry_count),
-            )
+            _finalize_document(document_id, workspace_id, run_id, status="failed", error=str(exc), index_retry_count=getattr(exc, "retry_count", retry_count))
         except IndexingOwnershipLost:
-            logger.info(
-                "document_indexing_failure_ignored_after_lease_loss",
-                extra={"document_id": document_id, "workspace_id": workspace_id},
-            )
-    except Exception:
-        logger.exception(
-            "document_indexing_unexpected_failure",
-            extra={"document_id": document_id, "workspace_id": workspace_id},
-        )
+            pass
+    except Exception as exc:
+        logger.exception("indexing_unexpected_failure doc=%s error=%s", document_id, exc)
         try:
-            _finalize_document(
-                document_id,
-                workspace_id,
-                run_id,
-                status="failed",
-                error="Document indexing failed unexpectedly.",
-                index_retry_count=retry_count,
-            )
+            _finalize_document(document_id, workspace_id, run_id, status="failed", error=f"Unexpected failure: {exc}", index_retry_count=retry_count)
         except IndexingOwnershipLost:
-            logger.info(
-                "document_indexing_unexpected_failure_ignored_after_lease_loss",
-                extra={"document_id": document_id, "workspace_id": workspace_id},
-            )
+            pass
 
 
 async def run_document_indexing_task(document_id: str, workspace_id: str) -> None:

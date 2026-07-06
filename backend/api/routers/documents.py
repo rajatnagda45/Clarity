@@ -234,6 +234,26 @@ async def _buffer_upload(file: UploadFile) -> SpooledTemporaryFile[bytes]:
     return buffered
 
 
+def _should_recover_ingestion(row: dict) -> bool:
+    """True when a document is stuck in a pre-chunking state with no active lease."""
+    if row["status"] not in {"uploaded", "extracted", "normalized", "metadata_ready", "awaiting_chunking", "chunking"}:
+        return False
+    if row.get("ingestion_run_id"):
+        # Lease may still be valid — do not override
+        from datetime import timezone
+        from config import settings as _s
+        started_raw = row.get("ingestion_started_at")
+        if not started_raw:
+            return True
+        try:
+            started = datetime.fromisoformat(started_raw.replace("Z", "+00:00"))
+            elapsed = (datetime.now(timezone.utc) - started).total_seconds()
+            return elapsed > _s.ingestion_lease_seconds
+        except Exception:
+            return True
+    return True
+
+
 @router.get("", response_model=DocumentListResponse)
 async def list_documents(
     background_tasks: BackgroundTasks,
@@ -246,6 +266,9 @@ async def list_documents(
         .execute()
     )
     for row in rows.data or []:
+        # Recover documents stuck before chunking (no worker picked them up)
+        if _should_recover_ingestion(row):
+            background_tasks.add_task(run_document_ingestion_task, str(row["id"]), workspace_id)
         await _schedule_embedding_refresh(background_tasks, row, workspace_id)
         await _schedule_index_refresh(background_tasks, row, workspace_id)
     documents = [_document_summary_from_row(row) for row in rows.data or []]
@@ -570,22 +593,18 @@ async def upload_document(
         buffered_upload.close()
 
     created_row = (result.data or [row])[0]
-    from job_queue.client import enqueue_or_background, enqueue_job
-    # Use a stable job_id so duplicate uploads of the same document are deduplicated
-    dedup_job = await enqueue_job(
+    from job_queue.client import enqueue_job
+    # Always schedule a background task as a safety net so documents process
+    # even when the ARQ worker is not running. The lease system in the ingestion
+    # pipeline prevents double-processing if the ARQ worker also picks it up.
+    background_tasks.add_task(run_document_ingestion_task, document_id, workspace_id)
+    # Additionally enqueue in ARQ (Redis) for when the worker IS running.
+    await enqueue_job(
         "run_document_ingestion",
         document_id,
         workspace_id,
         _job_id=f"ingest:{document_id}",
     )
-    if dedup_job is None:
-        await enqueue_or_background(
-            "run_document_ingestion",
-            run_document_ingestion_task,
-            document_id,
-            workspace_id,
-            background_tasks=background_tasks,
-        )
     return _document_summary_from_row(created_row)
 
 
