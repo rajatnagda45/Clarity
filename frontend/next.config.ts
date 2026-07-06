@@ -1,5 +1,12 @@
 import type { NextConfig } from 'next';
 
+const isDev = process.env.NODE_ENV === 'development';
+
+// In dev, the backend runs on localhost:8000; in production it's behind api.clarity.ai.
+const backendOrigins = isDev
+  ? 'http://localhost:8000 http://localhost:8001'
+  : 'https://api.clarity.ai';
+
 const securityHeaders = [
   { key: 'X-Frame-Options', value: 'DENY' },
   { key: 'X-Content-Type-Options', value: 'nosniff' },
@@ -17,7 +24,7 @@ const securityHeaders = [
       "style-src 'self' 'unsafe-inline'",
       "img-src 'self' data: blob: https:",
       "font-src 'self' data:",
-      "connect-src 'self' https://api.clarity.ai https://*.clerk.accounts.dev https://*.supabase.co wss:",
+      `connect-src 'self' ${backendOrigins} https://api.clarity.ai https://*.clerk.accounts.dev https://*.supabase.co wss:`,
       "frame-src 'none'",
       "object-src 'none'",
       "base-uri 'self'",
