@@ -1,12 +1,17 @@
 from __future__ import annotations
 
+import json
+
 from fastapi import APIRouter, BackgroundTasks, Depends, Header, HTTPException, status
 from fastapi.responses import StreamingResponse
 
 from api.deps import require_workspace_role
 from db.client import tenant_query
 from schemas import ChatRequest
-from services.answer_generation.service import build_answer_stream, replay_answer_stream, stream_events
+from services.answer_generation.service import (
+    generate_live_answer_stream,
+    replay_answer_stream,
+)
 from services.eval.engine import schedule_eval
 
 
@@ -24,34 +29,46 @@ async def start_chat_stream(
     membership: tuple[str, str] = Depends(require_workspace_role),
 ):
     workspace_id, _ = membership
-    try:
-        prepared = await build_answer_stream(
-            workspace_id=workspace_id,
-            query=payload.query,
-            conversation_id=payload.conversation_id,
-            document_ids=payload.document_ids,
-            request_id=payload.request_id,
-        )
-    except BaseException as exc:
-        # Catches both regular exceptions and ExceptionGroup (Python 3.11+ anyio TaskGroup).
-        # Collapse to HTTPException so CORS middleware can add headers before the browser
-        # sees the error (otherwise the response has no CORS headers → "Failed to fetch").
-        cause = exc.exceptions[0] if isinstance(exc, BaseExceptionGroup) else exc
-        raise HTTPException(
-            status_code=status.HTTP_502_BAD_GATEWAY,
-            detail={"code": "stream_preparation_failed", "message": str(cause)},
-        ) from cause
-    # Fire LLM-as-judge eval after the answer is fully generated
-    if prepared.assistant_message_id:
-        from job_queue.client import enqueue_or_background
-        await enqueue_or_background(
-            "run_eval",
-            schedule_eval,
-            prepared.answer_run_id,
-            workspace_id,
-            background_tasks=background_tasks,
-        )
-    return StreamingResponse(stream_events(prepared.events), media_type="text/event-stream")
+
+    async def _generator():
+        answer_run_id: str | None = None
+        assistant_message_id: str | None = None
+        try:
+            async for event_str in generate_live_answer_stream(
+                workspace_id=workspace_id,
+                query=payload.query,
+                conversation_id=payload.conversation_id,
+                document_ids=payload.document_ids,
+                request_id=payload.request_id,
+            ):
+                # Intercept the meta event to capture IDs for eval scheduling
+                if event_str and answer_run_id is None and '"type": "meta"' in event_str:
+                    try:
+                        data_part = event_str.split("data: ", 1)[1].strip()
+                        meta = json.loads(data_part)
+                        answer_run_id = meta.get("answerRunId")
+                        assistant_message_id = meta.get("assistantMessageId")
+                    except Exception:
+                        pass
+                yield event_str
+        except BaseException as exc:
+            cause = exc.exceptions[0] if isinstance(exc, BaseExceptionGroup) else exc
+            yield f"id: 0\ndata: {json.dumps({'type': 'error', 'code': 'stream_failed', 'message': str(cause)})}\n\n"
+            yield f"id: 1\ndata: {json.dumps({'type': 'done'})}\n\n"
+            return
+
+        # Schedule LLM-as-judge eval after the answer is fully streamed
+        if assistant_message_id and answer_run_id:
+            from job_queue.client import enqueue_or_background
+            await enqueue_or_background(
+                "run_eval",
+                schedule_eval,
+                answer_run_id,
+                workspace_id,
+                background_tasks=background_tasks,
+            )
+
+    return StreamingResponse(_generator(), media_type="text/event-stream")
 
 
 @router.get("/conversations/{conversation_id}/answers/{answer_run_id}/stream")

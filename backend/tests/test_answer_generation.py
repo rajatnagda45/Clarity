@@ -40,34 +40,18 @@ async def test_chat_stream_returns_sse_events(client, token_a, workspace_id_a):
     from api.routers import chat as chat_router
     from api import deps as deps_module
     from db import client as db_client
-    from services.answer_generation.models import PreparedAnswerStream
 
     client_mock = MagicMock()
     client_mock.table.return_value = _memberships_query("viewer")
 
-    prepared = PreparedAnswerStream(
-        conversation_id="conv-1",
-        user_message_id="msg-user",
-        assistant_message_id="msg-assistant",
-        retrieval_run_id="retrieval-1",
-        answer_run_id="answer-1",
-        events=[
-            {
-                "type": "meta",
-                "conversationId": "conv-1",
-                "userMessageId": "msg-user",
-                "assistantMessageId": "msg-assistant",
-                "retrievalRunId": "retrieval-1",
-                "answerRunId": "answer-1",
-            },
-            {"type": "token", "text": "Hello"},
-            {"type": "done"},
-        ],
-    )
+    async def fake_live_stream(**kwargs):
+        yield 'id: 1\ndata: {"type": "meta", "conversationId": "conv-1", "answerRunId": "answer-1", "assistantMessageId": "msg-assistant"}\n\n'
+        yield 'id: 2\ndata: {"type": "token", "text": "Hello"}\n\n'
+        yield 'id: 3\ndata: {"type": "done"}\n\n'
 
     with patch.object(deps_module, "get_client", return_value=client_mock), patch.object(
         db_client, "get_client", return_value=client_mock
-    ), patch.object(chat_router, "build_answer_stream", new=AsyncMock(return_value=prepared)):
+    ), patch.object(chat_router, "generate_live_answer_stream", new=fake_live_stream):
         response = await client.post(
             "/api/chat",
             headers={
