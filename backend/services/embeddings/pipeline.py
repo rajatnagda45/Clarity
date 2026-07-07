@@ -318,7 +318,10 @@ def _record_usage_event(
 
 
 async def _sleep_backoff(retry_count: int) -> None:
-    await asyncio.sleep(min(0.25 * (2 ** max(retry_count - 1, 0)), 2.0))
+    import random
+    base = min(0.25 * (2 ** max(retry_count - 1, 0)), 4.0)
+    # Jitter prevents thundering-herd when multiple workers retry simultaneously.
+    await asyncio.sleep(base + random.uniform(0.0, base * 0.3))
 
 
 async def _embed_pending_items(
@@ -327,14 +330,18 @@ async def _embed_pending_items(
     on_batch_done: None | object = None,
 ) -> int:
     """
-    on_batch_done: optional callable(done: int, total: int) called after each
-    successful batch. Used by run_document_embedding to emit dynamic progress
-    events (e.g. 45/100 vectors → 69%).
+    Pipelined batch embedding: while batch[i] is persisting to the DB, batch[i+1]
+    is already being embedded. This overlaps network I/O so total time converges
+    toward max(sum_embed, sum_persist) rather than sum(embed + persist) per batch.
+
+    on_batch_done: optional callable(done: int, total: int) for live progress events.
     """
     current_batch_size = max(1, min(settings.embedding_batch_size, len(items)))
     retry_count = 0
     cursor = 0
     total = len(items)
+    # Persist task for the previous batch — runs concurrently with the next embed.
+    pending_persist: asyncio.Task | None = None
 
     while cursor < total:
         batch = items[cursor: cursor + current_batch_size]
@@ -354,11 +361,25 @@ async def _embed_pending_items(
 
         for embedding in result.embeddings:
             embedding.retry_count = retry_count
-        await asyncio.to_thread(_persist_embeddings, result.embeddings)
+
+        # Drain previous batch's persist before dispatching a new one so we never
+        # queue up unbounded persists if the DB is slower than the embed API.
+        if pending_persist is not None:
+            await pending_persist
+
+        # Fire-and-forget persist for this batch — next loop iteration overlaps it.
+        pending_persist = asyncio.create_task(
+            asyncio.to_thread(_persist_embeddings, result.embeddings)
+        )
+
         cursor += len(batch)
         current_batch_size = min(settings.embedding_batch_size, current_batch_size + 1)
         if on_batch_done is not None:
             on_batch_done(cursor, total)
+
+    # Drain the final persist before returning.
+    if pending_persist is not None:
+        await pending_persist
 
     return retry_count
 

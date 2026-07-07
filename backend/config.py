@@ -78,14 +78,14 @@ class Settings(BaseSettings):
     chunk_overlap_tokens: int = 60
     embedding_provider: str = "openai"
     embedding_version: str = "a5.v1"
-    embedding_batch_size: int = 32
+    embedding_batch_size: int = 96          # was 32 — 3× fewer API round-trips
     embedding_max_retries: int = 3
     embedding_timeout_seconds: int = 30
     embedding_lease_seconds: int = 300
     embedding_cost_per_1k_tokens_usd: float = 0.0
     persist_embedding_vectors_locally: bool = True
     index_provider: str = "pinecone"
-    index_batch_size: int = 100
+    index_batch_size: int = 200             # was 100 — 2× fewer Pinecone round-trips
     index_max_retries: int = 3
     index_timeout_seconds: int = 30
     index_lease_seconds: int = 120

@@ -96,6 +96,8 @@ import type {
   UpdateWorkflowPayload,
   AvailableTool,
   PipelineInspectReport,
+  PipelinePerformanceProfile,
+  PipelineConfig,
 } from '@/types/clarity';
 
 const BACKEND_URL = process.env.NEXT_PUBLIC_BACKEND_URL ?? 'http://localhost:8000';
@@ -1177,6 +1179,23 @@ export async function getDocumentPipelineInspect(
   documentId: string,
 ): Promise<PipelineInspectReport> {
   return apiFetch<PipelineInspectReport>(`/api/documents/${documentId}/pipeline-inspect`, {
+    method: 'GET',
+    ...auth,
+  });
+}
+
+export async function getPipelinePerformanceProfile(
+  auth: AuthContext,
+  documentId: string,
+): Promise<PipelinePerformanceProfile> {
+  return apiFetch<PipelinePerformanceProfile>(`/api/performance/pipeline-profile/${documentId}`, {
+    method: 'GET',
+    ...auth,
+  });
+}
+
+export async function getPipelineConfig(auth: AuthContext): Promise<PipelineConfig> {
+  return apiFetch<PipelineConfig>('/api/performance/pipeline-config', {
     method: 'GET',
     ...auth,
   });

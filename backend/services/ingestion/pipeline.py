@@ -473,10 +473,12 @@ async def run_document_ingestion(document_id: str, workspace_id: str) -> None:
         stage_timings["chunk_ms"] = _ms_since(t0)
         logger.info("ingestion_stage doc=%s stage=chunk ms=%d chunks=%d", document_id, stage_timings["chunk_ms"], len(chunks))
 
-        # Stage 6: Persist chunks + clauses
+        # Stage 6: Persist chunks + clauses — run concurrently (different tables).
         t0 = time.perf_counter()
-        await asyncio.to_thread(_persist_chunks, document_id, workspace_id, chunks)
-        await asyncio.to_thread(_persist_clauses, document_id, workspace_id, chunks)
+        await asyncio.gather(
+            asyncio.to_thread(_persist_chunks, document_id, workspace_id, chunks),
+            asyncio.to_thread(_persist_clauses, document_id, workspace_id, chunks),
+        )
         stage_timings["persist_ms"] = _ms_since(t0)
         logger.info("ingestion_stage doc=%s stage=persist_chunks ms=%d", document_id, stage_timings["persist_ms"])
 

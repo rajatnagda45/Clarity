@@ -1,9 +1,8 @@
 from __future__ import annotations
 
-import asyncio
 import time
 
-from openai import APITimeoutError, OpenAI, RateLimitError
+from openai import AsyncOpenAI, APITimeoutError, RateLimitError
 
 from config import settings
 from services.embeddings.base import EmbeddingProvider, EmbeddingProviderError, EmbeddingProviderRetryableError
@@ -14,10 +13,23 @@ from services.embeddings.models import (
     GeneratedEmbedding,
 )
 
+# Module-level async client — shared across all embed calls to reuse the
+# underlying HTTP connection pool. AsyncOpenAI is safe to share across coroutines.
+_async_client: AsyncOpenAI | None = None
+
+
+def _get_async_client() -> AsyncOpenAI:
+    global _async_client
+    if _async_client is None:
+        _async_client = AsyncOpenAI(
+            api_key=settings.openai_api_key,
+            timeout=settings.embedding_timeout_seconds,
+        )
+    return _async_client
+
 
 class OpenAIEmbeddingProvider(EmbeddingProvider):
     def __init__(self) -> None:
-        self._client = OpenAI(api_key=settings.openai_api_key, timeout=settings.embedding_timeout_seconds)
         self._target = EmbeddingTarget(
             provider=settings.embedding_provider,
             model=settings.embed_model,
@@ -34,8 +46,7 @@ class OpenAIEmbeddingProvider(EmbeddingProvider):
     async def embed(self, items: list[EmbeddingRequestItem]) -> EmbeddingBatchResult:
         started = time.perf_counter()
         try:
-            response = await asyncio.to_thread(
-                self._client.embeddings.create,
+            response = await _get_async_client().embeddings.create(
                 model=self._target.model,
                 input=[item.text for item in items],
             )

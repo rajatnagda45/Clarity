@@ -1459,6 +1459,61 @@ export interface PipelineInspectDocumentRow {
   currentIndexNamespace: string | null;
 }
 
+// ── Performance Profiler ──────────────────────────────────────────────────────
+
+export interface PipelineStageProfile {
+  stage: string;
+  label: string;
+  beforeMs: number;
+  afterMs: number;
+  savedMs: number;
+  speedup: number;
+  isBottleneck: boolean;
+  note: string;
+  beforePct: number;
+  afterPct: number;
+}
+
+export interface PipelineProfileSummary {
+  beforeTotalMs: number;
+  afterTotalMs: number;
+  savedMs: number;
+  overallSpeedup: number;
+  bottleneckStage: string;
+}
+
+export interface PipelinePerformanceProfile {
+  documentId: string;
+  chunkCount: number;
+  dataSource: 'real' | 'estimated';
+  document: { filename: string | null; status: string | null; sourceType: string | null };
+  summary: PipelineProfileSummary;
+  stages: PipelineStageProfile[];
+  optimizationsApplied: string[];
+  beforeBreakdown: Record<string, number>;
+  afterBreakdown: Record<string, number>;
+}
+
+export interface PipelineConfig {
+  embedding: {
+    provider: string; model: string; batchSize: number;
+    maxRetries: number; timeoutSeconds: number; leaseSeconds: number;
+  };
+  indexing: {
+    provider: string; indexName: string; batchSize: number;
+    maxRetries: number; timeoutSeconds: number; leaseSeconds: number;
+  };
+  ingestion: {
+    leaseSeconds: number; chunkTargetTokens: number;
+    chunkMaxTokens: number; chunkOverlapTokens: number;
+    parserVersion: string; chunkVersion: string;
+  };
+  worker: { maxJobs: number; maxTries: number; jobTimeoutSeconds: number };
+  optimizationsActive: string[];
+}
+
+// ── Pipeline Inspector ────────────────────────────────────────────────────────
+
 export interface PipelineInspectReport {
   documentId: string;
   document: PipelineInspectDocumentRow;

@@ -492,7 +492,9 @@ def _record_usage_event(
 
 
 async def _sleep_backoff(retry_count: int) -> None:
-    await asyncio.sleep(min(0.25 * (2 ** max(retry_count - 1, 0)), 2.0))
+    import random
+    base = min(0.25 * (2 ** max(retry_count - 1, 0)), 4.0)
+    await asyncio.sleep(base + random.uniform(0.0, base * 0.3))
 
 
 async def _upsert_batches(
@@ -502,14 +504,17 @@ async def _upsert_batches(
     on_batch_done: None | object = None,
 ) -> int:
     """
-    on_batch_done: optional callable(done: int, total: int) called after each
-    successful batch. Used by run_document_indexing to emit dynamic progress
-    events (e.g. 60/100 vectors → 96%).
+    Pipelined Pinecone upsert: while batch[i] is persisting index records to the DB,
+    batch[i+1] is already being upserted to Pinecone. Overlaps I/O to reduce total time.
+
+    on_batch_done: optional callable(done: int, total: int) for live progress events.
     """
     retry_count = 0
     cursor = 0
     total = len(rows)
     current_batch_size = max(1, min(settings.index_batch_size, total))
+    pending_persist: asyncio.Task | None = None
+
     while cursor < total:
         batch = rows[cursor: cursor + current_batch_size]
         try:
@@ -526,17 +531,26 @@ async def _upsert_batches(
         except IndexProviderError:
             raise
 
-        await asyncio.to_thread(
-            _persist_index_rows,
-            target,
-            batch,
-            latency_ms=result.batch_latency_ms,
-            retry_count=retry_count,
+        if pending_persist is not None:
+            await pending_persist
+
+        pending_persist = asyncio.create_task(
+            asyncio.to_thread(
+                _persist_index_rows,
+                target,
+                batch,
+                latency_ms=result.batch_latency_ms,
+                retry_count=retry_count,
+            )
         )
+
         cursor += len(batch)
         current_batch_size = min(settings.index_batch_size, current_batch_size + 1)
         if on_batch_done is not None:
             on_batch_done(cursor, total)
+
+    if pending_persist is not None:
+        await pending_persist
 
     return retry_count
 
@@ -607,8 +621,12 @@ async def run_document_indexing(document_id: str, workspace_id: str) -> None:
     retry_count = 0
     try:
         t0 = time.perf_counter()
-        current_rows = _load_current_records(document_id, workspace_id, target)
-        existing_rows = _load_index_rows(document_id, workspace_id, target)
+        # Load chunk+embedding records and existing index rows concurrently — two
+        # independent DB round-trips that don't depend on each other's results.
+        current_rows, existing_rows = await asyncio.gather(
+            asyncio.to_thread(_load_current_records, document_id, workspace_id, target),
+            asyncio.to_thread(_load_index_rows, document_id, workspace_id, target),
+        )
         stage_timings["load_records_ms"] = int((time.perf_counter() - t0) * 1000)
         logger.info("indexing_stage doc=%s stage=load_records ms=%d vectors=%d", document_id, stage_timings["load_records_ms"], len(current_rows))
 

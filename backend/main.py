@@ -58,6 +58,7 @@ from api.routers import prompt_library
 from api.routers import agents
 from api.routers import workflows
 from api.routers import review_queue
+from api.routers import performance
 
 
 def _validate_production_config() -> None:
@@ -224,3 +225,4 @@ app.include_router(prompt_library.router)
 app.include_router(agents.router)
 app.include_router(workflows.router)
 app.include_router(review_queue.router)
+app.include_router(performance.router)

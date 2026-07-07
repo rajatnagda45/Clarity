@@ -141,7 +141,7 @@ class WorkerSettings:
     job_timeout: int = int(os.getenv("WORKER_JOB_TIMEOUT", "3600"))
 
     # Maximum concurrent jobs per worker process.
-    max_jobs: int = int(os.getenv("WORKER_MAX_JOBS", "10"))
+    max_jobs: int = int(os.getenv("WORKER_MAX_JOBS", "20"))
 
     # Retry failed jobs up to this many times (with exponential backoff).
     max_tries: int = int(os.getenv("WORKER_MAX_TRIES", "3"))
