@@ -1,34 +1,29 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { lazy, Suspense, useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   User, Building2, Bell, Palette, ShieldCheck, Cpu,
   Puzzle, Key, CreditCard, Activity, Settings2, Info, Search,
-  Plug, Webhook, Shield, Zap, BookOpen, Bookmark
 } from 'lucide-react';
 import { PremiumBackground } from '@/components/landing/PremiumBackground';
-import { WorkspaceTab } from '@/components/settings/WorkspaceTab';
-import { BillingTab } from '@/components/settings/BillingTab';
-import { AccountOverviewTab } from '@/components/settings/AccountOverviewTab';
-import { PersonalInfoTab } from '@/components/settings/PersonalInfoTab';
-import { SecurityTab } from '@/components/settings/SecurityTab';
-import { ConnectedAccountsTab } from '@/components/settings/ConnectedAccountsTab';
-import { AIUsageTab } from '@/components/settings/AIUsageTab';
-import { ApiKeysTab } from '@/components/settings/ApiKeysTab';
-import { ActivityTab } from '@/components/settings/ActivityTab';
-import { AdvancedSettingsTab } from '@/components/settings/AdvancedSettingsTab';
-import { AppearanceTab } from '@/components/settings/AppearanceTab';
-import { NotificationsTab } from '@/components/settings/NotificationsTab';
-import { PreferencesTab } from '@/components/settings/PreferencesTab';
-import { UsageTab } from '@/components/settings/UsageTab';
-import { AboutTab } from '@/components/settings/AboutTab';
-import { IntegrationsTab } from '@/components/settings/IntegrationsTab';
-import { WebhooksTab } from '@/components/settings/WebhooksTab';
-import { AuditLogsTab } from '@/components/settings/AuditLogsTab';
-import { AutomationTab } from '@/components/settings/AutomationTab';
-import { PromptLibraryTab } from '@/components/settings/PromptLibraryTab';
-import { SavedViewsTab } from '@/components/settings/SavedViewsTab';
+
+// Lazy-load every tab — only the active tab's bundle is fetched
+const AccountOverviewTab = lazy(() => import('@/components/settings/AccountOverviewTab').then(m => ({ default: m.AccountOverviewTab })));
+const PersonalInfoTab = lazy(() => import('@/components/settings/PersonalInfoTab').then(m => ({ default: m.PersonalInfoTab })));
+const SecurityTab = lazy(() => import('@/components/settings/SecurityTab').then(m => ({ default: m.SecurityTab })));
+const ConnectedAccountsTab = lazy(() => import('@/components/settings/ConnectedAccountsTab').then(m => ({ default: m.ConnectedAccountsTab })));
+const AIUsageTab = lazy(() => import('@/components/settings/AIUsageTab').then(m => ({ default: m.AIUsageTab })));
+const ApiKeysTab = lazy(() => import('@/components/settings/ApiKeysTab').then(m => ({ default: m.ApiKeysTab })));
+const PreferencesTab = lazy(() => import('@/components/settings/PreferencesTab').then(m => ({ default: m.PreferencesTab })));
+const ActivityTab = lazy(() => import('@/components/settings/ActivityTab').then(m => ({ default: m.ActivityTab })));
+const WorkspaceTab = lazy(() => import('@/components/settings/WorkspaceTab').then(m => ({ default: m.WorkspaceTab })));
+const BillingTab = lazy(() => import('@/components/settings/BillingTab').then(m => ({ default: m.BillingTab })));
+const UsageTab = lazy(() => import('@/components/settings/UsageTab').then(m => ({ default: m.UsageTab })));
+const AppearanceTab = lazy(() => import('@/components/settings/AppearanceTab').then(m => ({ default: m.AppearanceTab })));
+const NotificationsTab = lazy(() => import('@/components/settings/NotificationsTab').then(m => ({ default: m.NotificationsTab })));
+const AdvancedSettingsTab = lazy(() => import('@/components/settings/AdvancedSettingsTab').then(m => ({ default: m.AdvancedSettingsTab })));
+const AboutTab = lazy(() => import('@/components/settings/AboutTab').then(m => ({ default: m.AboutTab })));
 
 const NAV_GROUPS = [
   {
@@ -53,17 +48,6 @@ const NAV_GROUPS = [
     ]
   },
   {
-    title: 'Enterprise',
-    items: [
-      { id: 'integrations', label: 'Integrations', icon: Plug },
-      { id: 'webhooks', label: 'Webhooks', icon: Webhook },
-      { id: 'audit-logs', label: 'Audit Logs', icon: Shield },
-      { id: 'automation', label: 'Automation', icon: Zap },
-      { id: 'prompt-library', label: 'Prompt Library', icon: BookOpen },
-      { id: 'saved-views', label: 'Saved Views', icon: Bookmark },
-    ]
-  },
-  {
     title: 'System',
     items: [
       { id: 'appearance', label: 'Appearance', icon: Palette },
@@ -76,14 +60,48 @@ const NAV_GROUPS = [
 
 import { useSearchParams, useRouter } from 'next/navigation';
 
+function TabContent({ activeTab }: { activeTab: string }) {
+  switch (activeTab) {
+    case 'overview': return <AccountOverviewTab />;
+    case 'personal-info': return <PersonalInfoTab />;
+    case 'security': return <SecurityTab />;
+    case 'connected-accounts': return <ConnectedAccountsTab />;
+    case 'ai-usage': return <AIUsageTab />;
+    case 'api-keys': return <ApiKeysTab />;
+    case 'preferences': return <PreferencesTab />;
+    case 'activity': return <ActivityTab />;
+    case 'workspace': return <WorkspaceTab />;
+    case 'billing': return <BillingTab />;
+    case 'usage': return <UsageTab />;
+    case 'appearance': return <AppearanceTab />;
+    case 'notifications': return <NotificationsTab />;
+    case 'advanced': return <AdvancedSettingsTab />;
+    case 'about': return <AboutTab />;
+    default: return <AccountOverviewTab />;
+  }
+}
+
+function TabSkeleton() {
+  return (
+    <div className="flex flex-col gap-6 animate-pulse">
+      <div className="h-8 w-48 rounded-lg bg-white/[0.04]" />
+      <div className="h-px w-full bg-white/[0.06]" />
+      <div className="flex flex-col gap-4">
+        {[...Array(4)].map((_, i) => (
+          <div key={i} className="h-16 w-full rounded-xl bg-white/[0.03]" />
+        ))}
+      </div>
+    </div>
+  );
+}
+
 export default function SettingsHub() {
   const searchParams = useSearchParams();
   const router = useRouter();
-  
+
   const queryTab = searchParams.get('tab');
   const [activeTab, setActiveTab] = useState(queryTab || 'overview');
 
-  // Update URL when tab changes, and update tab when URL changes
   useEffect(() => {
     if (queryTab && queryTab !== activeTab) {
       setActiveTab(queryTab);
@@ -98,51 +116,19 @@ export default function SettingsHub() {
 
   const [search, setSearch] = useState('');
 
-  const renderContent = () => {
-    switch (activeTab) {
-      case 'overview': return <AccountOverviewTab />;
-      case 'personal-info': return <PersonalInfoTab />;
-      case 'security': return <SecurityTab />;
-      case 'connected-accounts': return <ConnectedAccountsTab />;
-      case 'ai-usage': return <AIUsageTab />;
-      case 'api-keys': return <ApiKeysTab />;
-      case 'activity': return <ActivityTab />;
-      
-      case 'workspace': return <WorkspaceTab />;
-      case 'billing': return <BillingTab />;
-      
-      case 'advanced': return <AdvancedSettingsTab />;
-
-      case 'preferences': return <PreferencesTab />;
-      case 'appearance': return <AppearanceTab />;
-      case 'notifications': return <NotificationsTab />;
-      case 'usage': return <UsageTab />;
-      case 'about': return <AboutTab />;
-
-      case 'integrations': return <IntegrationsTab />;
-      case 'webhooks': return <WebhooksTab />;
-      case 'audit-logs': return <AuditLogsTab />;
-      case 'automation': return <AutomationTab />;
-      case 'prompt-library': return <PromptLibraryTab />;
-      case 'saved-views': return <SavedViewsTab />;
-
-      default: return <AccountOverviewTab />;
-    }
-  };
-
   return (
     <div className="relative min-h-screen bg-[#05070B] selection:bg-purple-500/30 selection:text-white pb-32">
       <PremiumBackground glowOpacity={0.1} />
 
       <div className="mx-auto flex w-full max-w-[1400px] flex-col lg:flex-row px-6 pt-12 pb-8 relative z-10 gap-12">
-        
+
         {/* Left Navigation Sidebar */}
         <div className="w-full lg:w-64 shrink-0 flex flex-col gap-8">
-          
+
           <div className="relative">
             <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-[#4A5168]" />
-            <input 
-              type="text" 
+            <input
+              type="text"
               placeholder="Search settings..."
               value={search}
               onChange={(e) => setSearch(e.target.value)}
@@ -152,7 +138,6 @@ export default function SettingsHub() {
 
           <div className="flex flex-col gap-6">
             {NAV_GROUPS.map((group) => {
-              // Simple client-side search filter
               const filteredItems = group.items.filter(item => item.label.toLowerCase().includes(search.toLowerCase()));
               if (filteredItems.length === 0) return null;
 
@@ -165,15 +150,15 @@ export default function SettingsHub() {
                       <button
                         key={item.id}
                         onClick={() => handleTabChange(item.id)}
-                        className={`flex w-full items-center gap-3 rounded-xl px-4 py-3 text-sm font-medium transition-colors ${
-                          isActive 
-                            ? 'text-[#F1F3F9] bg-white/[0.06] shadow-sm' 
+                        className={`relative flex w-full items-center gap-3 rounded-xl px-4 py-3 text-sm font-medium transition-colors ${
+                          isActive
+                            ? 'text-[#F1F3F9] bg-white/[0.06] shadow-sm'
                             : 'text-[#8892AA] hover:text-[#F1F3F9] hover:bg-white/[0.02]'
                           }
                         `}
                       >
                         {isActive && (
-                          <motion.div 
+                          <motion.div
                             layoutId="activeNavBackground"
                             className="absolute inset-0 bg-white/[0.06] rounded-xl border border-white/[0.04]"
                             transition={{ type: "spring", bounce: 0.2, duration: 0.6 }}
@@ -198,9 +183,11 @@ export default function SettingsHub() {
               initial={{ opacity: 0, x: 20 }}
               animate={{ opacity: 1, x: 0 }}
               exit={{ opacity: 0, x: -20 }}
-              transition={{ duration: 0.2 }}
+              transition={{ duration: 0.15 }}
             >
-              {renderContent()}
+              <Suspense fallback={<TabSkeleton />}>
+                <TabContent activeTab={activeTab} />
+              </Suspense>
             </motion.div>
           </AnimatePresence>
         </div>
