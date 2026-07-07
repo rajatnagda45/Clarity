@@ -1591,3 +1591,108 @@ class UpdateWorkflowRequest(BaseModel):
     nodes: list[WorkflowNode] | None = None
     edges: list[WorkflowEdge] | None = None
     enabled: bool | None = None
+
+
+# ---------------------------------------------------------------------------
+# Pipeline Inspector
+# ---------------------------------------------------------------------------
+
+class PipelineInspectArtifacts(BaseModel):
+    source_sha256: str | None = Field(default=None, alias="sourceSha256")
+    extraction_text_preview: str | None = Field(default=None, alias="extractionTextPreview")
+    extraction_block_count: int = Field(default=0, alias="extractionBlockCount")
+    normalized_text_preview: str | None = Field(default=None, alias="normalizedTextPreview")
+    normalized_block_count: int = Field(default=0, alias="normalizedBlockCount")
+    metadata: dict | None = None
+    preprocessing_segment_count: int = Field(default=0, alias="preprocessingSegmentCount")
+
+    model_config = {"populate_by_name": True}
+
+
+class PipelineInspectEvent(BaseModel):
+    event_id: str = Field(alias="eventId")
+    stage: str
+    status: str
+    progress: int
+    elapsed_ms: int = Field(alias="elapsedMs")
+    worker: str | None = None
+    retry_count: int = Field(default=0, alias="retryCount")
+    error: str | None = None
+    stage_timings: dict | None = Field(default=None, alias="stageTimings")
+    worker_info: dict | None = Field(default=None, alias="workerInfo")
+    created_at: str = Field(alias="createdAt")
+
+    model_config = {"populate_by_name": True}
+
+
+class PipelineInspectDocumentRow(BaseModel):
+    id: str
+    filename: str
+    status: str
+    source_type: str = Field(alias="sourceType")
+    page_count: int | None = Field(default=None, alias="pageCount")
+    created_at: str = Field(alias="createdAt")
+    error: str | None = None
+    ingestion_run_id: str | None = Field(default=None, alias="ingestionRunId")
+    ingestion_started_at: str | None = Field(default=None, alias="ingestionStartedAt")
+    ingestion_completed_at: str | None = Field(default=None, alias="ingestionCompletedAt")
+    embedding_run_id: str | None = Field(default=None, alias="embeddingRunId")
+    embedding_started_at: str | None = Field(default=None, alias="embeddingStartedAt")
+    embedding_completed_at: str | None = Field(default=None, alias="embeddingCompletedAt")
+    embedding_queued_at: str | None = Field(default=None, alias="embeddingQueuedAt")
+    embedding_retry_count: int = Field(default=0, alias="embeddingRetryCount")
+    current_embedding_provider: str | None = Field(default=None, alias="currentEmbeddingProvider")
+    current_embedding_model: str | None = Field(default=None, alias="currentEmbeddingModel")
+    current_embedding_dimension: int | None = Field(default=None, alias="currentEmbeddingDimension")
+    current_embedding_version: str | None = Field(default=None, alias="currentEmbeddingVersion")
+    current_embedding_parser_version: str | None = Field(default=None, alias="currentEmbeddingParserVersion")
+    current_embedding_chunk_version: str | None = Field(default=None, alias="currentEmbeddingChunkVersion")
+    index_run_id: str | None = Field(default=None, alias="indexRunId")
+    index_started_at: str | None = Field(default=None, alias="indexStartedAt")
+    index_completed_at: str | None = Field(default=None, alias="indexCompletedAt")
+    index_queued_at: str | None = Field(default=None, alias="indexQueuedAt")
+    index_retry_count: int = Field(default=0, alias="indexRetryCount")
+    current_index_provider: str | None = Field(default=None, alias="currentIndexProvider")
+    current_index_name: str | None = Field(default=None, alias="currentIndexName")
+    current_index_namespace: str | None = Field(default=None, alias="currentIndexNamespace")
+
+    model_config = {"populate_by_name": True}
+
+
+class PipelineInspectResponse(BaseModel):
+    document_id: str = Field(alias="documentId")
+    document: PipelineInspectDocumentRow
+    artifacts: PipelineInspectArtifacts | None = None
+    # Ingested chunks
+    chunks: list[DocumentChunkSummary]
+    chunk_count: int = Field(alias="chunkCount")
+    # Extracted clauses
+    clauses: list[ClauseSummary]
+    clause_count: int = Field(alias="clauseCount")
+    # Embeddings
+    current_embedding_provider: str | None = Field(default=None, alias="currentEmbeddingProvider")
+    current_embedding_model: str | None = Field(default=None, alias="currentEmbeddingModel")
+    current_embedding_dimension: int | None = Field(default=None, alias="currentEmbeddingDimension")
+    current_embedding_version: str | None = Field(default=None, alias="currentEmbeddingVersion")
+    current_embedding_parser_version: str | None = Field(default=None, alias="currentEmbeddingParserVersion")
+    current_embedding_chunk_version: str | None = Field(default=None, alias="currentEmbeddingChunkVersion")
+    embeddings: list[DocumentEmbeddingSummary]
+    embedding_count: int = Field(alias="embeddingCount")
+    stale_embedding_count: int = Field(alias="staleEmbeddingCount")
+    # Vector index
+    current_index_provider: str | None = Field(default=None, alias="currentIndexProvider")
+    current_index_name: str | None = Field(default=None, alias="currentIndexName")
+    current_index_namespace: str | None = Field(default=None, alias="currentIndexNamespace")
+    vectors: list[DocumentVectorIndexSummary]
+    vector_count: int = Field(alias="vectorCount")
+    stale_vector_count: int = Field(alias="staleVectorCount")
+    # Pipeline event timeline
+    events: list[PipelineInspectEvent]
+    # Computed aggregate stats
+    total_tokens: int = Field(alias="totalTokens")
+    total_cost_usd: float = Field(alias="totalCostUsd")
+    total_retries: int = Field(alias="totalRetries")
+    latest_stage_timings: dict | None = Field(default=None, alias="latestStageTimings")
+    latest_worker_info: dict | None = Field(default=None, alias="latestWorkerInfo")
+
+    model_config = {"populate_by_name": True}

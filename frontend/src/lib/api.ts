@@ -95,6 +95,7 @@ import type {
   CreateWorkflowPayload,
   UpdateWorkflowPayload,
   AvailableTool,
+  PipelineInspectReport,
 } from '@/types/clarity';
 
 const BACKEND_URL = process.env.NEXT_PUBLIC_BACKEND_URL ?? 'http://localhost:8000';
@@ -1169,4 +1170,14 @@ export async function updateWorkflow(auth: AuthContext, workflowId: string, payl
 
 export async function deleteWorkflow(auth: AuthContext, workflowId: string): Promise<void> {
   await apiFetch<unknown>(`/api/workflows/${workflowId}`, { method: 'DELETE', ...auth });
+}
+
+export async function getDocumentPipelineInspect(
+  auth: AuthContext,
+  documentId: string,
+): Promise<PipelineInspectReport> {
+  return apiFetch<PipelineInspectReport>(`/api/documents/${documentId}/pipeline-inspect`, {
+    method: 'GET',
+    ...auth,
+  });
 }

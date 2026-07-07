@@ -139,7 +139,7 @@ export function DocumentPipelineTable({ documents, loading, workspaceId }: Docum
                   {formatRelativeTime(doc.createdAt)}
                 </div>
                 <Link
-                  href={`/documents/${doc.id}${workspaceId ? `?workspace=${encodeURIComponent(workspaceId)}` : ''}`}
+                  href={`/documents/${doc.id}/inspect${workspaceId ? `?workspace=${encodeURIComponent(workspaceId)}` : ''}`}
                   className="opacity-0 group-hover:opacity-100 transition-opacity flex items-center gap-1 text-xs font-semibold text-purple-400 bg-purple-500/10 hover:bg-purple-500/20 px-2 py-1 rounded"
                 >
                   <ExternalLink size={10} />

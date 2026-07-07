@@ -21,6 +21,10 @@ from schemas import (
     DocumentSummary,
     DocumentVectorIndexListResponse,
     DocumentVectorIndexSummary,
+    PipelineInspectArtifacts,
+    PipelineInspectDocumentRow,
+    PipelineInspectEvent,
+    PipelineInspectResponse,
 )
 from services.embeddings.inspector import is_current_embedding_row
 from services.embeddings.pipeline import run_document_embedding_task
@@ -460,6 +464,301 @@ async def inspect_document_vectors(
         currentIndexName=document.get("current_index_name"),
         currentIndexNamespace=document.get("current_index_namespace"),
         vectors=vectors,
+    )
+
+
+@router.get("/{document_id}/pipeline-inspect", response_model=PipelineInspectResponse)
+async def pipeline_inspect_document(
+    document_id: str,
+    membership: tuple[str, str] = Depends(require_workspace_role),
+    _developer: str = Depends(require_developer),
+) -> PipelineInspectResponse:
+    """
+    Aggregated pipeline inspector: returns every stage's persisted data for a
+    single document in one call.  Intended for the developer observability UI.
+    No production guard — developers need this in all environments.
+    """
+    workspace_id, _ = membership
+
+    # --- 1. Document row ------------------------------------------------
+    doc_result = (
+        tenant_query("documents", workspace_id)
+        .eq("id", document_id)
+        .limit(1)
+        .execute()
+    )
+    doc_row = (doc_result.data or [None])[0]
+    if not doc_row:
+        raise _error(status.HTTP_404_NOT_FOUND, "document_not_found", "Document was not found.")
+
+    document = PipelineInspectDocumentRow(
+        id=str(doc_row["id"]),
+        filename=doc_row["filename"],
+        status=doc_row["status"],
+        sourceType=doc_row["source_type"],
+        pageCount=doc_row.get("page_count"),
+        createdAt=doc_row["created_at"],
+        error=doc_row.get("error"),
+        ingestionRunId=doc_row.get("ingestion_run_id"),
+        ingestionStartedAt=doc_row.get("ingestion_started_at"),
+        ingestionCompletedAt=doc_row.get("ingestion_completed_at"),
+        embeddingRunId=doc_row.get("embedding_run_id"),
+        embeddingStartedAt=doc_row.get("embedding_started_at"),
+        embeddingCompletedAt=doc_row.get("embedding_completed_at"),
+        embeddingQueuedAt=doc_row.get("embedding_queued_at"),
+        embeddingRetryCount=doc_row.get("embedding_retry_count") or 0,
+        currentEmbeddingProvider=doc_row.get("current_embedding_provider"),
+        currentEmbeddingModel=doc_row.get("current_embedding_model"),
+        currentEmbeddingDimension=doc_row.get("current_embedding_dimension"),
+        currentEmbeddingVersion=doc_row.get("current_embedding_version"),
+        currentEmbeddingParserVersion=doc_row.get("current_embedding_parser_version"),
+        currentEmbeddingChunkVersion=doc_row.get("current_embedding_chunk_version"),
+        indexRunId=doc_row.get("index_run_id"),
+        indexStartedAt=doc_row.get("index_started_at"),
+        indexCompletedAt=doc_row.get("index_completed_at"),
+        indexQueuedAt=doc_row.get("index_queued_at"),
+        indexRetryCount=doc_row.get("index_retry_count") or 0,
+        currentIndexProvider=doc_row.get("current_index_provider"),
+        currentIndexName=doc_row.get("current_index_name"),
+        currentIndexNamespace=doc_row.get("current_index_namespace"),
+    )
+
+    # --- 2. Ingestion artifacts (best-effort) ---------------------------
+    artifacts: PipelineInspectArtifacts | None = None
+    try:
+        art_result = (
+            get_client()
+            .table("document_ingestion_artifacts")
+            .select("*")
+            .eq("document_id", document_id)
+            .eq("workspace_id", workspace_id)
+            .limit(1)
+            .execute()
+        )
+        art_row = (art_result.data or [None])[0]
+        if art_row:
+            extraction_text = art_row.get("extraction_text") or ""
+            normalized_text = art_row.get("normalized_text") or ""
+            artifacts = PipelineInspectArtifacts(
+                sourceSha256=art_row.get("source_sha256"),
+                extractionTextPreview=extraction_text[:4000] if extraction_text else None,
+                extractionBlockCount=len(art_row.get("extraction_blocks") or []),
+                normalizedTextPreview=normalized_text[:4000] if normalized_text else None,
+                normalizedBlockCount=len(art_row.get("normalized_blocks") or []),
+                metadata=art_row.get("metadata"),
+                preprocessingSegmentCount=len(art_row.get("preprocessing_segments") or []),
+            )
+    except Exception:
+        pass
+
+    # --- 3. Chunks -------------------------------------------------------
+    chunk_rows_result = (
+        tenant_query("chunks", workspace_id)
+        .eq("document_id", document_id)
+        .order("chunk_index")
+        .execute()
+    )
+    chunks = [
+        DocumentChunkSummary(
+            chunkId=row["chunk_id"],
+            chunkIndex=row["chunk_index"],
+            sectionTitle=row.get("section_title"),
+            clauseNumber=row.get("clause_number"),
+            pageStart=row["page_start"],
+            pageEnd=row["page_end"],
+            sourceOffsets=[
+                {
+                    "page": o["page"],
+                    "blockOrder": o["block_order"],
+                    "charStart": o["char_start"],
+                    "charEnd": o["char_end"],
+                }
+                for o in (row.get("source_offsets") or [])
+            ],
+            tokenCount=row["token_count"],
+            checksum=row["checksum"],
+            parserVersion=row["parser_version"],
+            chunkVersion=row["chunk_version"],
+            chunkKind=row["chunk_kind"],
+            fragmentIndex=row.get("fragment_index", 0),
+            fragmentCount=row.get("fragment_count", 1),
+            crossReferences=row.get("cross_references") or [],
+            text=row["text"],
+        )
+        for row in chunk_rows_result.data or []
+    ]
+
+    # --- 4. Clauses -------------------------------------------------------
+    clause_rows_result = (
+        tenant_query("clauses", workspace_id)
+        .eq("document_id", document_id)
+        .order("page")
+        .execute()
+    )
+    clauses = [
+        ClauseSummary(
+            id=str(row["id"]),
+            workspaceId=workspace_id,
+            documentId=document_id,
+            clauseType=row["clause_type"],
+            text=row["text"],
+            page=row["page"],
+            riskFlag=row["risk_flag"],
+            rationale=row.get("rationale"),
+            benchmarkMatchId=row.get("benchmark_match_id"),
+            deviationNote=row.get("deviation_note"),
+            riskScore=row.get("risk_score"),
+            createdAt=row["created_at"],
+        )
+        for row in clause_rows_result.data or []
+    ]
+
+    # --- 5. Embeddings ---------------------------------------------------
+    emb_rows_result = (
+        tenant_query("chunk_embeddings", workspace_id)
+        .eq("document_id", document_id)
+        .order("chunk_index")
+        .execute()
+    )
+    embeddings = [
+        DocumentEmbeddingSummary(
+            chunkId=row["chunk_id"],
+            chunkIndex=row["chunk_index"],
+            status="current" if is_current_embedding_row(doc_row, row) else "stale",
+            embeddingProvider=row["embedding_provider"],
+            embeddingModel=row["embedding_model"],
+            embeddingDimension=row["embedding_dimension"],
+            embeddingVersion=row["embedding_version"],
+            parserVersion=row["parser_version"],
+            chunkVersion=row["chunk_version"],
+            checksum=row["checksum"],
+            tokenCount=row["token_count"],
+            latencyMs=row.get("latency_ms"),
+            retryCount=row.get("retry_count", 0),
+            estimatedCostUsd=float(row.get("estimated_cost_usd", 0) or 0),
+            vectorPreview=[float(v) for v in row.get("vector_preview") or []],
+            createdAt=row["created_at"],
+        )
+        for row in emb_rows_result.data or []
+    ]
+
+    # --- 6. Vector index records -----------------------------------------
+    vec_rows_result = (
+        tenant_query("chunk_vector_index_records", workspace_id)
+        .eq("document_id", document_id)
+        .order("chunk_index")
+        .execute()
+    )
+    chunk_text_by_id = {c.chunkId: c.text for c in chunks}
+    vectors = [
+        DocumentVectorIndexSummary(
+            chunkId=row["chunk_id"],
+            chunkIndex=row["chunk_index"],
+            chunkText=chunk_text_by_id.get(row["chunk_id"], ""),
+            vectorId=row["vector_id"],
+            namespace=row["namespace"],
+            status="current" if is_current_index_row(doc_row, row) else "stale",
+            indexProvider=row["index_provider"],
+            indexName=row["index_name"],
+            embeddingProvider=row["embedding_provider"],
+            embeddingModel=row["embedding_model"],
+            embeddingDimension=row["embedding_dimension"],
+            embeddingVersion=row["embedding_version"],
+            parserVersion=row["parser_version"],
+            chunkVersion=row["chunk_version"],
+            checksum=row["checksum"],
+            sectionTitle=row.get("section_title"),
+            clauseNumber=row.get("clause_number"),
+            pageStart=row["page_start"],
+            pageEnd=row["page_end"],
+            retryCount=row.get("retry_count", 0),
+            latencyMs=row.get("latency_ms"),
+            indexedAt=row.get("indexed_at"),
+        )
+        for row in vec_rows_result.data or []
+    ]
+
+    # --- 7. Pipeline events (best-effort) --------------------------------
+    events: list[PipelineInspectEvent] = []
+    latest_stage_timings: dict | None = None
+    latest_worker_info: dict | None = None
+    try:
+        ev_result = (
+            get_client()
+            .table("pipeline_events")
+            .select("*")
+            .eq("workspace_id", workspace_id)
+            .eq("document_id", document_id)
+            .order("created_at", desc=False)
+            .limit(200)
+            .execute()
+        )
+        for row in ev_result.data or []:
+            events.append(PipelineInspectEvent(
+                eventId=str(row["id"]),
+                stage=row["stage"],
+                status=row["status"],
+                progress=row.get("progress", 0),
+                elapsedMs=row.get("elapsed_ms", 0),
+                worker=row.get("worker"),
+                retryCount=row.get("retry_count", 0),
+                error=row.get("error"),
+                stageTimings=row.get("stage_timings"),
+                workerInfo=row.get("worker_info"),
+                createdAt=row["created_at"],
+            ))
+        # Grab most recent event that has stage_timings / worker_info
+        for ev_row in reversed(ev_result.data or []):
+            if ev_row.get("stage_timings") and latest_stage_timings is None:
+                latest_stage_timings = ev_row["stage_timings"]
+            if ev_row.get("worker_info") and latest_worker_info is None:
+                latest_worker_info = ev_row["worker_info"]
+            if latest_stage_timings and latest_worker_info:
+                break
+    except Exception:
+        pass
+
+    # --- 8. Computed stats -----------------------------------------------
+    total_tokens = sum(c.tokenCount for c in chunks)
+    total_cost_usd = sum(e.estimatedCostUsd for e in embeddings)
+    total_retries = (
+        (doc_row.get("embedding_retry_count") or 0)
+        + (doc_row.get("index_retry_count") or 0)
+        + sum(e.retryCount for e in embeddings)
+        + sum(v.retryCount for v in vectors)
+    )
+    stale_embedding_count = sum(1 for e in embeddings if e.status == "stale")
+    stale_vector_count = sum(1 for v in vectors if v.status == "stale")
+
+    return PipelineInspectResponse(
+        documentId=document_id,
+        document=document,
+        artifacts=artifacts,
+        chunks=chunks,
+        chunkCount=len(chunks),
+        clauses=clauses,
+        clauseCount=len(clauses),
+        currentEmbeddingProvider=doc_row.get("current_embedding_provider"),
+        currentEmbeddingModel=doc_row.get("current_embedding_model"),
+        currentEmbeddingDimension=doc_row.get("current_embedding_dimension"),
+        currentEmbeddingVersion=doc_row.get("current_embedding_version"),
+        currentEmbeddingParserVersion=doc_row.get("current_embedding_parser_version"),
+        currentEmbeddingChunkVersion=doc_row.get("current_embedding_chunk_version"),
+        embeddings=embeddings,
+        embeddingCount=len(embeddings),
+        staleEmbeddingCount=stale_embedding_count,
+        currentIndexProvider=doc_row.get("current_index_provider"),
+        currentIndexName=doc_row.get("current_index_name"),
+        currentIndexNamespace=doc_row.get("current_index_namespace"),
+        vectors=vectors,
+        vectorCount=len(vectors),
+        staleVectorCount=stale_vector_count,
+        events=events,
+        totalTokens=total_tokens,
+        totalCostUsd=total_cost_usd,
+        totalRetries=total_retries,
+        latestStageTimings=latest_stage_timings,
+        latestWorkerInfo=latest_worker_info,
     )
 
 

@@ -1388,3 +1388,117 @@ export interface AgentStreamEvent {
   output?: string | null;
   message?: string;
 }
+
+// ---------------------------------------------------------------------------
+// Pipeline Inspector
+// ---------------------------------------------------------------------------
+
+export interface PipelineInspectArtifacts {
+  sourceSha256: string | null;
+  extractionTextPreview: string | null;
+  extractionBlockCount: number;
+  normalizedTextPreview: string | null;
+  normalizedBlockCount: number;
+  metadata: Record<string, unknown> | null;
+  preprocessingSegmentCount: number;
+}
+
+export interface PipelineInspectEvent {
+  eventId: string;
+  stage: string;
+  status: string;
+  progress: number;
+  elapsedMs: number;
+  worker: string | null;
+  retryCount: number;
+  error: string | null;
+  stageTimings: Record<string, number> | null;
+  workerInfo: {
+    pid: number;
+    hostname: string;
+    memory_mb: number;
+    cpu_percent: number;
+    worker_version: string;
+    build: string;
+  } | null;
+  createdAt: string;
+}
+
+export interface PipelineInspectDocumentRow {
+  id: string;
+  filename: string;
+  status: DocumentStatus;
+  sourceType: SourceType;
+  pageCount: number | null;
+  createdAt: string;
+  error: string | null;
+  // Ingestion
+  ingestionRunId: string | null;
+  ingestionStartedAt: string | null;
+  ingestionCompletedAt: string | null;
+  // Embedding
+  embeddingRunId: string | null;
+  embeddingStartedAt: string | null;
+  embeddingCompletedAt: string | null;
+  embeddingQueuedAt: string | null;
+  embeddingRetryCount: number;
+  currentEmbeddingProvider: string | null;
+  currentEmbeddingModel: string | null;
+  currentEmbeddingDimension: number | null;
+  currentEmbeddingVersion: string | null;
+  currentEmbeddingParserVersion: string | null;
+  currentEmbeddingChunkVersion: string | null;
+  // Indexing
+  indexRunId: string | null;
+  indexStartedAt: string | null;
+  indexCompletedAt: string | null;
+  indexQueuedAt: string | null;
+  indexRetryCount: number;
+  currentIndexProvider: string | null;
+  currentIndexName: string | null;
+  currentIndexNamespace: string | null;
+}
+
+export interface PipelineInspectReport {
+  documentId: string;
+  document: PipelineInspectDocumentRow;
+  artifacts: PipelineInspectArtifacts | null;
+  // Chunks
+  chunks: DocumentChunk[];
+  chunkCount: number;
+  // Clauses
+  clauses: Clause[];
+  clauseCount: number;
+  // Embeddings
+  currentEmbeddingProvider: string | null;
+  currentEmbeddingModel: string | null;
+  currentEmbeddingDimension: number | null;
+  currentEmbeddingVersion: string | null;
+  currentEmbeddingParserVersion: string | null;
+  currentEmbeddingChunkVersion: string | null;
+  embeddings: DocumentEmbedding[];
+  embeddingCount: number;
+  staleEmbeddingCount: number;
+  // Vector index
+  currentIndexProvider: string | null;
+  currentIndexName: string | null;
+  currentIndexNamespace: string | null;
+  vectors: DocumentVectorIndex[];
+  vectorCount: number;
+  staleVectorCount: number;
+  // Timeline
+  events: PipelineInspectEvent[];
+  // Stats
+  totalTokens: number;
+  totalCostUsd: number;
+  totalRetries: number;
+  latestStageTimings: Record<string, number> | null;
+  latestWorkerInfo: {
+    pid: number;
+    hostname: string;
+    memory_mb: number;
+    cpu_percent: number;
+    worker_version: string;
+    build: string;
+  } | null;
+}
