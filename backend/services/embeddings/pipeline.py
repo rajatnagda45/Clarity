@@ -324,12 +324,19 @@ async def _sleep_backoff(retry_count: int) -> None:
 async def _embed_pending_items(
     provider,
     items: list[EmbeddingRequestItem],
+    on_batch_done: None | object = None,
 ) -> int:
+    """
+    on_batch_done: optional callable(done: int, total: int) called after each
+    successful batch. Used by run_document_embedding to emit dynamic progress
+    events (e.g. 45/100 vectors → 69%).
+    """
     current_batch_size = max(1, min(settings.embedding_batch_size, len(items)))
     retry_count = 0
     cursor = 0
+    total = len(items)
 
-    while cursor < len(items):
+    while cursor < total:
         batch = items[cursor: cursor + current_batch_size]
         try:
             result = await provider.embed(batch)
@@ -350,6 +357,8 @@ async def _embed_pending_items(
         await asyncio.to_thread(_persist_embeddings, result.embeddings)
         cursor += len(batch)
         current_batch_size = min(settings.embedding_batch_size, current_batch_size + 1)
+        if on_batch_done is not None:
+            on_batch_done(cursor, total)
 
     return retry_count
 
@@ -396,21 +405,41 @@ async def run_document_embedding(document_id: str, workspace_id: str) -> None:
         return
 
     filename = document.get("filename")
+    stage_timings: dict[str, int] = {}
     logger.info("embedding_started doc=%s ws=%s model=%s", document_id, workspace_id, provider.target.model)
+
+    def _ms() -> int:
+        return int((time.perf_counter() - pipeline_start) * 1000)
+
+    def _ev(status: str, progress_override: int | None = None, **kw) -> None:
+        event_bus.publish(make_event(
+            document_id, workspace_id, status, _ms(),
+            filename=filename, stage_timings=dict(stage_timings),
+            progress_override=progress_override, **kw,
+        ))
 
     retry_count = 0
     try:
         t0 = time.perf_counter()
         pending = _build_pending_items(document_id, workspace_id, provider.target)
-        logger.info("embedding_stage doc=%s stage=build_pending ms=%d chunks=%d", document_id, int((time.perf_counter() - t0) * 1000), len(pending))
+        stage_timings["build_pending_ms"] = int((time.perf_counter() - t0) * 1000)
+        logger.info("embedding_stage doc=%s stage=build_pending ms=%d chunks=%d", document_id, stage_timings["build_pending_ms"], len(pending))
 
         _update_document_for_run(document_id, workspace_id, run_id, status="embedding", error=None, embedding_retry_count=0)
-        event_bus.publish(make_event(document_id, workspace_id, "embedding", int((time.perf_counter() - pipeline_start) * 1000), filename=filename))
+        _ev("embedding")
 
         if pending:
             t0 = time.perf_counter()
-            retry_count = await _embed_pending_items(provider, pending)
-            logger.info("embedding_stage doc=%s stage=openai_embed ms=%d chunks=%d retries=%d", document_id, int((time.perf_counter() - t0) * 1000), len(pending), retry_count)
+            total = len(pending)
+
+            def _on_batch_done(done: int, _total: int) -> None:
+                # Embedding spans 60–82% of overall progress
+                pct = max(60, min(82, int(done / _total * 22) + 60))
+                _ev("embedding", progress_override=pct)
+
+            retry_count = await _embed_pending_items(provider, pending, on_batch_done=_on_batch_done)
+            stage_timings["embed_ms"] = int((time.perf_counter() - t0) * 1000)
+            logger.info("embedding_stage doc=%s stage=openai_embed ms=%d chunks=%d retries=%d", document_id, stage_timings["embed_ms"], total, retry_count)
 
         chunks = _load_chunks(document_id, workspace_id)
         _finalize_document(
@@ -426,10 +455,10 @@ async def run_document_embedding(document_id: str, workspace_id: str) -> None:
         latency_ms = int((_now_utc() - started).total_seconds() * 1000)
         _record_usage_event(workspace_id, input_tokens=sum(chunk["token_count"] for chunk in chunks), latency_ms=latency_ms)
 
-        logger.info("embedding_complete doc=%s total_ms=%d chunks=%d — starting indexing", document_id, int((time.perf_counter() - pipeline_start) * 1000), len(chunks))
+        logger.info("embedding_complete doc=%s total_ms=%d chunks=%d — starting indexing", document_id, _ms(), len(chunks))
 
         if queue_document_for_indexing(document_id, workspace_id):
-            event_bus.publish(make_event(document_id, workspace_id, "awaiting_index", int((time.perf_counter() - pipeline_start) * 1000), filename=filename))
+            _ev("awaiting_index")
             await run_document_indexing_task(document_id, workspace_id)
     except EmbeddingOwnershipLost:
         logger.warning("embedding_ownership_lost doc=%s ws=%s", document_id, workspace_id)
@@ -437,14 +466,14 @@ async def run_document_embedding(document_id: str, workspace_id: str) -> None:
         logger.warning("embedding_failed doc=%s error=%s", document_id, exc)
         try:
             _finalize_document(document_id, workspace_id, run_id, status="failed", error=str(exc), embedding_retry_count=getattr(exc, "retry_count", retry_count))
-            event_bus.publish(make_event(document_id, workspace_id, "failed", int((time.perf_counter() - pipeline_start) * 1000), retry_count=retry_count, filename=filename, error=str(exc)))
+            _ev("failed", retry_count=retry_count, error=str(exc))
         except EmbeddingOwnershipLost:
             pass
     except Exception as exc:
         logger.exception("embedding_unexpected_failure doc=%s error=%s", document_id, exc)
         try:
             _finalize_document(document_id, workspace_id, run_id, status="failed", error=f"Unexpected failure: {exc}", embedding_retry_count=retry_count)
-            event_bus.publish(make_event(document_id, workspace_id, "failed", int((time.perf_counter() - pipeline_start) * 1000), retry_count=retry_count, filename=filename, error=str(exc)))
+            _ev("failed", retry_count=retry_count, error=str(exc))
         except EmbeddingOwnershipLost:
             pass
 

@@ -40,6 +40,30 @@ export function DocumentEventsProvider({ children }: { children: ReactNode }) {
         onEvent(msg: SSEMessage) {
           if (!active) return;
 
+          // History replay frame → derive the most recent event per document
+          // and patch the cached document list with those statuses
+          if ('type' in msg && msg.type === 'history') {
+            const history = (msg as { type: 'history'; events: PipelineEvent[] }).events;
+            // Most recent event per document_id (array is newest-last from backend)
+            const latest = new Map<string, PipelineEvent>();
+            for (const ev of history) {
+              latest.set(ev.document_id, ev);
+            }
+            if (latest.size > 0) {
+              queryClient.setQueryData(
+                ['documents', workspaceId],
+                (old: Document[] | undefined) => {
+                  if (!old) return old;
+                  return old.map((doc) => {
+                    const ev = latest.get(doc.id);
+                    return ev ? { ...doc, status: ev.status as DocumentStatus } : doc;
+                  });
+                },
+              );
+            }
+            return;
+          }
+
           // Connected snapshot → refresh the full document list once
           if ('type' in msg && msg.type === 'connected') {
             queryClient.invalidateQueries({

@@ -9,6 +9,7 @@ Startup order:
 5. LangSmith tracing enabled via env vars (LANGCHAIN_TRACING_V2)
 """
 
+import asyncio
 import os
 import logging
 import logging.config
@@ -86,6 +87,9 @@ async def lifespan(app: FastAPI):
     if settings.redis_url:
         await init_redis(settings.redis_url)
         await init_pool(settings.redis_url)
+        # Cross-instance SSE relay: forward pipeline events from other pods
+        from services.events.bus import start_redis_relay
+        asyncio.create_task(start_redis_relay())
 
     # OpenTelemetry (opt-in via OTEL_ENABLED=true)
     if settings.otel_enabled:

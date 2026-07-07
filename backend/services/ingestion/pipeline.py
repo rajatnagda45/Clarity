@@ -419,58 +419,71 @@ async def run_document_ingestion(document_id: str, workspace_id: str) -> None:
         return
 
     filename = document.get("filename")
+    stage_timings: dict[str, int] = {}
     logger.info("ingestion_started doc=%s ws=%s file=%s", document_id, workspace_id, filename)
     event_bus.publish(make_event(document_id, workspace_id, "uploaded", elapsed_ms=0, filename=filename))
+
+    def _ev(status: str, **kw) -> None:
+        event_bus.publish(make_event(
+            document_id, workspace_id, status, _ms_since(pipeline_start),
+            filename=filename, stage_timings=dict(stage_timings), **kw,
+        ))
 
     try:
         # Stage 1: Fetch from R2
         t0 = time.perf_counter()
         source_bytes = await asyncio.to_thread(fetch_document_source, document["r2_key"])
         source_sha256 = hashlib.sha256(source_bytes).hexdigest()
-        logger.info("ingestion_stage doc=%s stage=fetch_r2 ms=%d bytes=%d", document_id, _ms_since(t0), len(source_bytes))
+        stage_timings["fetch_ms"] = _ms_since(t0)
+        logger.info("ingestion_stage doc=%s stage=fetch_r2 ms=%d bytes=%d", document_id, stage_timings["fetch_ms"], len(source_bytes))
 
         # Stage 2: Extract text
         t0 = time.perf_counter()
         extracted = await asyncio.to_thread(_extract_document, document["source_type"], source_bytes)
-        logger.info("ingestion_stage doc=%s stage=extract ms=%d pages=%d", document_id, _ms_since(t0), extracted.page_count)
+        stage_timings["extract_ms"] = _ms_since(t0)
+        logger.info("ingestion_stage doc=%s stage=extract ms=%d pages=%d", document_id, stage_timings["extract_ms"], extracted.page_count)
         _upsert_artifacts(document_id, workspace_id, run_id, source_sha256=source_sha256, extraction=extracted)
         _update_document_for_run(document_id, workspace_id, run_id, status="extracted", page_count=extracted.page_count, error=None)
-        event_bus.publish(make_event(document_id, workspace_id, "extracted", _ms_since(pipeline_start), filename=filename))
+        _ev("extracted")
 
         # Stage 3: Normalize
         t0 = time.perf_counter()
         normalized = await asyncio.to_thread(normalize_extracted_document, extracted)
-        logger.info("ingestion_stage doc=%s stage=normalize ms=%d", document_id, _ms_since(t0))
+        stage_timings["normalize_ms"] = _ms_since(t0)
+        logger.info("ingestion_stage doc=%s stage=normalize ms=%d", document_id, stage_timings["normalize_ms"])
         _upsert_artifacts(document_id, workspace_id, run_id, source_sha256=source_sha256, normalized=normalized)
         _update_document_for_run(document_id, workspace_id, run_id, status="normalized", page_count=normalized.page_count, error=None)
-        event_bus.publish(make_event(document_id, workspace_id, "normalized", _ms_since(pipeline_start), filename=filename))
+        _ev("normalized")
 
         # Stage 4: Preprocess / metadata
         t0 = time.perf_counter()
         preprocessing = await asyncio.to_thread(preprocess_document, normalized, source_sha256)
-        logger.info("ingestion_stage doc=%s stage=preprocess ms=%d", document_id, _ms_since(t0))
+        stage_timings["preprocess_ms"] = _ms_since(t0)
+        logger.info("ingestion_stage doc=%s stage=preprocess ms=%d", document_id, stage_timings["preprocess_ms"])
         _upsert_artifacts(document_id, workspace_id, run_id, source_sha256=source_sha256, preprocessing=preprocessing)
         _update_document_for_run(document_id, workspace_id, run_id, status="metadata_ready", page_count=preprocessing.metadata.page_count, error=None)
-        event_bus.publish(make_event(document_id, workspace_id, "metadata_ready", _ms_since(pipeline_start), filename=filename))
+        _ev("metadata_ready")
 
-        # Stage 5: Chunk — transition through awaiting_chunking then set chunking BEFORE generating
+        # Stage 5: Chunk — set chunking status BEFORE generating so UI shows it immediately
         _update_document_for_run(document_id, workspace_id, run_id, status="awaiting_chunking", page_count=preprocessing.metadata.page_count, error=None)
         _update_document_for_run(document_id, workspace_id, run_id, status="chunking", page_count=preprocessing.metadata.page_count, error=None)
-        event_bus.publish(make_event(document_id, workspace_id, "chunking", _ms_since(pipeline_start), filename=filename))
+        _ev("chunking")
         t0 = time.perf_counter()
         chunks = await asyncio.to_thread(generate_chunks, workspace_id, document_id, normalized, preprocessing)
-        logger.info("ingestion_stage doc=%s stage=chunk ms=%d chunks=%d", document_id, _ms_since(t0), len(chunks))
+        stage_timings["chunk_ms"] = _ms_since(t0)
+        logger.info("ingestion_stage doc=%s stage=chunk ms=%d chunks=%d", document_id, stage_timings["chunk_ms"], len(chunks))
 
         # Stage 6: Persist chunks + clauses
         t0 = time.perf_counter()
         await asyncio.to_thread(_persist_chunks, document_id, workspace_id, chunks)
         await asyncio.to_thread(_persist_clauses, document_id, workspace_id, chunks)
-        logger.info("ingestion_stage doc=%s stage=persist_chunks ms=%d", document_id, _ms_since(t0))
+        stage_timings["persist_ms"] = _ms_since(t0)
+        logger.info("ingestion_stage doc=%s stage=persist_chunks ms=%d", document_id, stage_timings["persist_ms"])
 
         _finalize_document(document_id, workspace_id, run_id, status="chunked", page_count=preprocessing.metadata.page_count, error=None)
         _record_usage_event(workspace_id)
         _queue_document_for_embeddings(document_id, workspace_id)
-        event_bus.publish(make_event(document_id, workspace_id, "awaiting_embeddings", _ms_since(pipeline_start), filename=filename))
+        _ev("awaiting_embeddings")
 
         logger.info("ingestion_complete doc=%s total_ms=%d — starting embedding", document_id, _ms_since(pipeline_start))
 
@@ -486,14 +499,14 @@ async def run_document_ingestion(document_id: str, workspace_id: str) -> None:
         logger.warning("ingestion_failed doc=%s error=%s", document_id, exc)
         try:
             _finalize_document(document_id, workspace_id, run_id, status="failed", error=str(exc))
-            event_bus.publish(make_event(document_id, workspace_id, "failed", _ms_since(pipeline_start), filename=filename, error=str(exc)))
+            _ev("failed", error=str(exc))
         except IngestionOwnershipLost:
             pass
     except Exception as exc:
         logger.exception("ingestion_unexpected_failure doc=%s error=%s", document_id, exc)
         try:
             _finalize_document(document_id, workspace_id, run_id, status="failed", error=f"Unexpected failure: {exc}")
-            event_bus.publish(make_event(document_id, workspace_id, "failed", _ms_since(pipeline_start), filename=filename, error=str(exc)))
+            _ev("failed", error=str(exc))
         except IngestionOwnershipLost:
             pass
 

@@ -495,11 +495,22 @@ async def _sleep_backoff(retry_count: int) -> None:
     await asyncio.sleep(min(0.25 * (2 ** max(retry_count - 1, 0)), 2.0))
 
 
-async def _upsert_batches(provider, target: IndexingTarget, rows: list[IndexVectorRecord]) -> int:
+async def _upsert_batches(
+    provider,
+    target: IndexingTarget,
+    rows: list[IndexVectorRecord],
+    on_batch_done: None | object = None,
+) -> int:
+    """
+    on_batch_done: optional callable(done: int, total: int) called after each
+    successful batch. Used by run_document_indexing to emit dynamic progress
+    events (e.g. 60/100 vectors → 96%).
+    """
     retry_count = 0
     cursor = 0
-    current_batch_size = max(1, min(settings.index_batch_size, len(rows)))
-    while cursor < len(rows):
+    total = len(rows)
+    current_batch_size = max(1, min(settings.index_batch_size, total))
+    while cursor < total:
         batch = rows[cursor: cursor + current_batch_size]
         try:
             result = await provider.upsert(target, batch)
@@ -524,6 +535,8 @@ async def _upsert_batches(provider, target: IndexingTarget, rows: list[IndexVect
         )
         cursor += len(batch)
         current_batch_size = min(settings.index_batch_size, current_batch_size + 1)
+        if on_batch_done is not None:
+            on_batch_done(cursor, total)
 
     return retry_count
 
@@ -578,14 +591,26 @@ async def run_document_indexing(document_id: str, workspace_id: str) -> None:
         return
 
     filename = document.get("filename")
+    stage_timings: dict[str, int] = {}
     logger.info("indexing_started doc=%s ws=%s index=%s", document_id, workspace_id, target.index_name)
+
+    def _ms() -> int:
+        return int((time.perf_counter() - pipeline_start) * 1000)
+
+    def _ev(status: str, progress_override: int | None = None, **kw) -> None:
+        event_bus.publish(make_event(
+            document_id, workspace_id, status, _ms(),
+            filename=filename, stage_timings=dict(stage_timings),
+            progress_override=progress_override, **kw,
+        ))
 
     retry_count = 0
     try:
         t0 = time.perf_counter()
         current_rows = _load_current_records(document_id, workspace_id, target)
         existing_rows = _load_index_rows(document_id, workspace_id, target)
-        logger.info("indexing_stage doc=%s stage=load_records ms=%d vectors=%d", document_id, int((time.perf_counter() - t0) * 1000), len(current_rows))
+        stage_timings["load_records_ms"] = int((time.perf_counter() - t0) * 1000)
+        logger.info("indexing_stage doc=%s stage=load_records ms=%d vectors=%d", document_id, stage_timings["load_records_ms"], len(current_rows))
 
         desired_by_id = {row.vector_id: row for row in current_rows}
         rows_to_upsert = [
@@ -604,37 +629,47 @@ async def run_document_indexing(document_id: str, workspace_id: str) -> None:
         ]
 
         _update_document_for_run(document_id, workspace_id, run_id, status="indexing", error=None, index_retry_count=0)
-        event_bus.publish(make_event(document_id, workspace_id, "indexing", int((time.perf_counter() - pipeline_start) * 1000), filename=filename))
+        _ev("indexing")
 
         if rows_to_upsert:
             t0 = time.perf_counter()
-            retry_count = max(retry_count, await _upsert_batches(provider, target, rows_to_upsert))
-            logger.info("indexing_stage doc=%s stage=pinecone_upsert ms=%d vectors=%d retries=%d", document_id, int((time.perf_counter() - t0) * 1000), len(rows_to_upsert), retry_count)
+            total = len(rows_to_upsert)
+
+            def _on_upsert_done(done: int, _total: int) -> None:
+                # Indexing spans 85–100% of overall progress
+                pct = max(85, min(99, int(done / _total * 15) + 85))
+                _ev("indexing", progress_override=pct)
+
+            retry_count = max(retry_count, await _upsert_batches(provider, target, rows_to_upsert, on_batch_done=_on_upsert_done))
+            stage_timings["upsert_ms"] = int((time.perf_counter() - t0) * 1000)
+            logger.info("indexing_stage doc=%s stage=pinecone_upsert ms=%d vectors=%d retries=%d", document_id, stage_timings["upsert_ms"], total, retry_count)
 
         if stale_vector_ids:
+            t0 = time.perf_counter()
             retry_count = max(retry_count, await _delete_stale_vectors(provider, target, stale_vector_ids))
             await asyncio.to_thread(_mark_stale_rows, document_id, workspace_id, target, stale_vector_ids)
+            stage_timings["cleanup_ms"] = int((time.perf_counter() - t0) * 1000)
 
         _finalize_document(document_id, workspace_id, run_id, status="indexed", error=None, target=target, indexed_chunk_count=len(current_rows), index_retry_count=retry_count)
-        event_bus.publish(make_event(document_id, workspace_id, "indexed", int((time.perf_counter() - pipeline_start) * 1000), retry_count=retry_count, filename=filename))
+        _ev("indexed", retry_count=retry_count)
         latency_ms = int((_now_utc() - started).total_seconds() * 1000)
         _record_usage_event(workspace_id, input_tokens=len(current_rows), latency_ms=latency_ms)
 
-        logger.info("indexing_complete doc=%s total_ms=%d vectors=%d", document_id, int((time.perf_counter() - pipeline_start) * 1000), len(current_rows))
+        logger.info("indexing_complete doc=%s total_ms=%d vectors=%d", document_id, _ms(), len(current_rows))
     except IndexingOwnershipLost:
         logger.warning("indexing_ownership_lost doc=%s ws=%s", document_id, workspace_id)
     except (IndexProviderError, ValueError) as exc:
         logger.warning("indexing_failed doc=%s error=%s", document_id, exc)
         try:
             _finalize_document(document_id, workspace_id, run_id, status="failed", error=str(exc), index_retry_count=getattr(exc, "retry_count", retry_count))
-            event_bus.publish(make_event(document_id, workspace_id, "failed", int((time.perf_counter() - pipeline_start) * 1000), retry_count=retry_count, filename=filename, error=str(exc)))
+            _ev("failed", retry_count=retry_count, error=str(exc))
         except IndexingOwnershipLost:
             pass
     except Exception as exc:
         logger.exception("indexing_unexpected_failure doc=%s error=%s", document_id, exc)
         try:
             _finalize_document(document_id, workspace_id, run_id, status="failed", error=f"Unexpected failure: {exc}", index_retry_count=retry_count)
-            event_bus.publish(make_event(document_id, workspace_id, "failed", int((time.perf_counter() - pipeline_start) * 1000), retry_count=retry_count, filename=filename, error=str(exc)))
+            _ev("failed", retry_count=retry_count, error=str(exc))
         except IndexingOwnershipLost:
             pass
 
