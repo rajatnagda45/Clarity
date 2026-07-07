@@ -63,6 +63,31 @@ def _get_conversation(workspace_id: str, conversation_id: str) -> dict | None:
     return (result.data or [None])[0]
 
 
+def _create_conversation(workspace_id: str, conversation_id: str, title: str) -> None:
+    get_client().table("conversations").insert(
+        {
+            "id": conversation_id,
+            "workspace_id": workspace_id,
+            "title": title,
+            "created_at": _now_iso(),
+            "last_message_at": _now_iso(),
+        }
+    ).execute()
+
+
+def _create_user_message(workspace_id: str, conversation_id: str, message_id: str, content: str) -> None:
+    get_client().table("messages").insert(
+        {
+            "id": message_id,
+            "workspace_id": workspace_id,
+            "conversation_id": conversation_id,
+            "role": "user",
+            "content": content,
+            "created_at": _now_iso(),
+        }
+    ).execute()
+
+
 def _load_recent_messages(workspace_id: str, conversation_id: str) -> list[dict]:
     result = (
         tenant_query("messages", workspace_id)
@@ -737,39 +762,22 @@ async def generate_live_answer_stream(
     stage_timings: dict[str, int] = {}
 
     # ---- Check idempotency (replay) ----
-    replay = _replay_if_request_exists(workspace_id, request_id)
+    replay = await asyncio.to_thread(_replay_if_request_exists, workspace_id, request_id)
     if replay is not None:
         for event in replay.events:
             yield _emit(event)
         return
 
-    # ---- Create conversation + user message ----
-    conversation = _get_conversation(workspace_id, conversation_id) if conversation_id else None
+    # ---- Create conversation + user message (non-blocking) ----
+    conversation = await asyncio.to_thread(_get_conversation, workspace_id, conversation_id) if conversation_id else None
     if conversation is None:
         conversation_id = str(uuid4())
-        get_client().table("conversations").insert(
-            {
-                "id": conversation_id,
-                "workspace_id": workspace_id,
-                "title": query[:120],
-                "created_at": _now_iso(),
-                "last_message_at": _now_iso(),
-            }
-        ).execute()
+        await asyncio.to_thread(_create_conversation, workspace_id, conversation_id, query[:120])
     else:
         conversation_id = str(conversation["id"])
 
     user_message_id = str(uuid4())
-    get_client().table("messages").insert(
-        {
-            "id": user_message_id,
-            "workspace_id": workspace_id,
-            "conversation_id": conversation_id,
-            "role": "user",
-            "content": query,
-            "created_at": _now_iso(),
-        }
-    ).execute()
+    await asyncio.to_thread(_create_user_message, workspace_id, conversation_id, user_message_id, query)
 
     # ---- Parallel: history load + retrieval ----
     t0 = time.perf_counter()
@@ -1029,8 +1037,9 @@ async def generate_live_answer_stream(
 
     yield _emit({"type": "done"})
 
-    # ---- DB persistence (after client receives done) ----
-    _persist_answer_to_db(
+    # ---- DB persistence in a thread — never blocks event loop, never leaks exceptions ----
+    await asyncio.to_thread(
+        _persist_answer_to_db,
         workspace_id=workspace_id,
         conversation_id=conversation_id,
         user_message_id=user_message_id,

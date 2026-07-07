@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import logging
 
 from fastapi import APIRouter, BackgroundTasks, Depends, Header, HTTPException, status
 from fastapi.responses import StreamingResponse
@@ -14,6 +15,7 @@ from services.answer_generation.service import (
 )
 from services.eval.engine import schedule_eval
 
+logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api/chat", tags=["chat"])
 
@@ -51,7 +53,9 @@ async def start_chat_stream(
                     except Exception:
                         pass
                 yield event_str
-        except BaseException as exc:
+        except Exception as exc:
+            # Only catch real errors — CancelledError/GeneratorExit must propagate
+            # so Python doesn't raise RuntimeError for yielding inside a closing generator.
             cause = exc.exceptions[0] if isinstance(exc, BaseExceptionGroup) else exc
             yield f"id: 0\ndata: {json.dumps({'type': 'error', 'code': 'stream_failed', 'message': str(cause)})}\n\n"
             yield f"id: 1\ndata: {json.dumps({'type': 'done'})}\n\n"
@@ -59,14 +63,17 @@ async def start_chat_stream(
 
         # Schedule LLM-as-judge eval after the answer is fully streamed
         if assistant_message_id and answer_run_id:
-            from job_queue.client import enqueue_or_background
-            await enqueue_or_background(
-                "run_eval",
-                schedule_eval,
-                answer_run_id,
-                workspace_id,
-                background_tasks=background_tasks,
-            )
+            try:
+                from job_queue.client import enqueue_or_background
+                await enqueue_or_background(
+                    "run_eval",
+                    schedule_eval,
+                    answer_run_id,
+                    workspace_id,
+                    background_tasks=background_tasks,
+                )
+            except Exception:
+                logger.exception("Failed to schedule eval answer_run_id=%s", answer_run_id)
 
     return StreamingResponse(_generator(), media_type="text/event-stream")
 

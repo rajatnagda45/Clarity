@@ -310,13 +310,14 @@ async def retrieve_evidence(
     normalized_query = normalize_query(request.query)
     limit = request.limit or settings.retrieval_final_top_k
 
-    document_rows = _load_current_documents(workspace_id, request.document_ids)
-    chunks = _load_current_chunks(workspace_id, document_rows, request.filters)
+    document_rows = await asyncio.to_thread(_load_current_documents, workspace_id, request.document_ids)
+    chunks = await asyncio.to_thread(_load_current_chunks, workspace_id, document_rows, request.filters)
     cache_key = _build_cache_key(workspace_id, request, document_rows)
     cache = get_retrieval_cache()
     cached = cache.get(cache_key)
     if cached is not None:
-        _record_retrieval_event(
+        await asyncio.to_thread(
+            _record_retrieval_event,
             workspace_id,
             normalized_query=normalized_query.normalized_query,
             cache_hit=True,
@@ -451,9 +452,10 @@ async def retrieve_evidence(
             ]
             if texts_to_rerank:
                 try:
-                    scores = cohere_rerank(
-                        query=normalized_query.normalized_query,
-                        documents=texts_to_rerank,
+                    scores = await asyncio.to_thread(
+                        cohere_rerank,
+                        normalized_query.normalized_query,
+                        texts_to_rerank,
                     )
                     for idx, row in enumerate(candidate_rows):
                         if idx < len(scores):
@@ -543,7 +545,8 @@ async def retrieve_evidence(
                 "results": results,
             },
         )
-        _record_retrieval_event(
+        await asyncio.to_thread(
+            _record_retrieval_event,
             workspace_id,
             normalized_query=normalized_query.normalized_query,
             cache_hit=False,
@@ -580,7 +583,8 @@ async def retrieve_evidence(
         return response, explorer
     except (VectorSearchProviderError, ValueError):
         total_latency_ms = int(_now_ms() - started_ms)
-        _record_retrieval_event(
+        await asyncio.to_thread(
+            _record_retrieval_event,
             workspace_id,
             normalized_query=normalized_query.normalized_query,
             cache_hit=False,
