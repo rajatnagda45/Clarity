@@ -1,5 +1,5 @@
 'use client';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, keepPreviousData } from '@tanstack/react-query';
 import { useAuth } from '@clerk/nextjs';
 import { useWorkspace } from '@/contexts/WorkspaceContext';
 import { getDeveloperDashboard, getAnswerMetrics, getEmbeddingMetrics } from '@/lib/api';
@@ -18,6 +18,7 @@ export function useDashboardMetrics() {
     enabled: !!activeWorkspace,
     staleTime: 20_000,
     refetchInterval: 60_000,
+    placeholderData: keepPreviousData,
   });
 
   const answerMetrics = useQuery({
@@ -30,6 +31,7 @@ export function useDashboardMetrics() {
     enabled: !!activeWorkspace,
     staleTime: 20_000,
     refetchInterval: 30_000,
+    placeholderData: keepPreviousData,
   });
 
   const embeddingMetrics = useQuery({
@@ -42,6 +44,7 @@ export function useDashboardMetrics() {
     enabled: !!activeWorkspace,
     staleTime: 20_000,
     refetchInterval: 30_000,
+    placeholderData: keepPreviousData,
   });
 
   return { devDashboard, answerMetrics, embeddingMetrics };

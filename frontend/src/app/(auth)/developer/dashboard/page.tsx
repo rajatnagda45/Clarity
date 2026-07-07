@@ -1,5 +1,6 @@
 'use client';
 
+import { lazy, Suspense } from 'react';
 import Link from 'next/link';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
@@ -10,10 +11,11 @@ import {
   Sparkles, UploadCloud, Webhook, Zap, AlertCircle, MessageSquare
 } from 'lucide-react';
 
-import { SystemHealthPanel } from '@/components/developer/SystemHealthPanel';
-import { LiveMetricsPanel } from '@/components/developer/LiveMetricsPanel';
 import { useWorkspace } from '@/contexts/WorkspaceContext';
 import { useDeveloperConsole } from '@/hooks/useDeveloperConsole';
+
+const SystemHealthPanel = lazy(() => import('@/components/developer/SystemHealthPanel').then(m => ({ default: m.SystemHealthPanel })));
+const LiveMetricsPanel  = lazy(() => import('@/components/developer/LiveMetricsPanel').then(m => ({ default: m.LiveMetricsPanel })));
 
 
 function formatRate(value: number | undefined): string {
@@ -422,8 +424,12 @@ export default function DeveloperDashboardPage() {
 
             {/* Observability */}
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-              <SystemHealthPanel />
-              <LiveMetricsPanel />
+              <Suspense fallback={<div className="h-48 rounded-3xl bg-[#0C0F16]/80 border border-[rgba(255,255,255,0.06)] animate-pulse" />}>
+                <SystemHealthPanel />
+              </Suspense>
+              <Suspense fallback={<div className="h-48 rounded-3xl bg-[#0C0F16]/80 border border-[rgba(255,255,255,0.06)] animate-pulse" />}>
+                <LiveMetricsPanel />
+              </Suspense>
             </div>
 
           </div>

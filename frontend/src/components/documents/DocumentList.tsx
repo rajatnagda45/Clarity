@@ -1,4 +1,5 @@
-import { useState } from 'react';
+import { useRef, useState } from 'react';
+import { useVirtualizer } from '@tanstack/react-virtual';
 import { useAuth } from '@clerk/nextjs';
 import type { Document } from '@/types/clarity';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -6,6 +7,8 @@ import { DocumentCard } from './DocumentCard';
 import { FileUp, Trash2, Loader2 } from 'lucide-react';
 import { deleteDocument } from '@/lib/api';
 import { useToast } from '@/contexts/ToastContext';
+
+const ESTIMATED_LIST_ITEM_HEIGHT = 88;
 
 export function DocumentList({
   documents,
@@ -24,6 +27,23 @@ export function DocumentList({
   const { toast } = useToast();
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [bulkDeleting, setBulkDeleting] = useState(false);
+  const listRef = useRef<HTMLDivElement>(null);
+
+  const virtualizer = useVirtualizer({
+    count: documents.length,
+    getScrollElement: () => {
+      // Walk up the DOM to find the scrollable main container
+      let el: HTMLElement | null = listRef.current;
+      while (el) {
+        if (el.tagName === 'MAIN' || el.classList.contains('overflow-y-auto')) return el;
+        el = el.parentElement;
+      }
+      return null;
+    },
+    estimateSize: () => ESTIMATED_LIST_ITEM_HEIGHT,
+    overscan: 8,
+    enabled: viewMode === 'list' && documents.length > 30,
+  });
 
   async function handleBulkDelete() {
     if (!workspaceId || selectedIds.size === 0) return;
@@ -82,7 +102,7 @@ export function DocumentList({
 
   if (documents.length === 0) {
     return (
-      <motion.div 
+      <motion.div
         initial={{ opacity: 0, scale: 0.98 }}
         animate={{ opacity: 1, scale: 1 }}
         className="rounded-3xl border border-white/[0.04] bg-[#0F1117] p-12 flex flex-col items-center justify-center text-center shadow-2xl relative overflow-hidden"
@@ -90,7 +110,7 @@ export function DocumentList({
         <div className="absolute inset-0 bg-gradient-to-b from-transparent to-purple-500/5 pointer-events-none" />
         <div className="w-20 h-20 rounded-full bg-purple-500/10 flex items-center justify-center mb-6 border border-purple-500/20 relative">
           <FileUp size={32} className="text-purple-400" />
-          <motion.div 
+          <motion.div
             animate={{ scale: [1, 1.2, 1], opacity: [0.3, 0.8, 0.3] }}
             transition={{ duration: 3, repeat: Infinity }}
             className="absolute inset-0 rounded-full border border-purple-400/30"
@@ -98,10 +118,10 @@ export function DocumentList({
         </div>
         <h3 className="text-xl font-bold text-[#F1F3F9] tracking-tight mb-2">No documents yet</h3>
         <p className="text-[#8892AA] max-w-md text-sm leading-relaxed mb-8">
-          Upload your first PDF or DOCX file using the drag-and-drop zone above. 
+          Upload your first PDF or DOCX file using the drag-and-drop zone above.
           We&apos;ll automatically extract, normalize, and index it for AI retrieval.
         </p>
-        <button 
+        <button
           onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}
           className="bg-white text-black font-semibold px-6 py-2.5 rounded-xl hover:bg-slate-200 transition-colors"
         >
@@ -111,11 +131,13 @@ export function DocumentList({
     );
   }
 
+  const useVirtual = viewMode === 'list' && documents.length > 30;
+
   return (
     <>
       {documents.length > 0 && (
         <div className="mb-4 flex items-center justify-between">
-          <button 
+          <button
             onClick={selectAll}
             className="text-xs font-medium text-[#8892AA] hover:text-[#F1F3F9] transition-colors flex items-center gap-2"
           >
@@ -127,24 +149,59 @@ export function DocumentList({
         </div>
       )}
 
-      <div className={viewMode === 'list' ? 'flex flex-col gap-3' : 'grid grid-cols-1 md:grid-cols-2 2xl:grid-cols-3 gap-6'}>
-        {documents.map((document, i) => (
-          <motion.div
-            key={document.id}
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: Math.min(i * 0.05, 0.5), duration: 0.4, ease: "easeOut" }}
-          >
+      {viewMode === 'grid' ? (
+        <div className="grid grid-cols-1 md:grid-cols-2 2xl:grid-cols-3 gap-6">
+          {documents.map((document, i) => (
+            <motion.div
+              key={document.id}
+              initial={{ opacity: 0, y: 16 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: i < 12 ? i * 0.04 : 0, duration: 0.3, ease: 'easeOut' }}
+            >
+              <DocumentCard
+                document={document}
+                workspaceId={workspaceId}
+                isSelected={selectedIds.has(document.id)}
+                onToggleSelect={() => toggleSelect(document.id)}
+                onDelete={onDelete}
+              />
+            </motion.div>
+          ))}
+        </div>
+      ) : useVirtual ? (
+        <div ref={listRef} style={{ height: virtualizer.getTotalSize(), position: 'relative' }}>
+          {virtualizer.getVirtualItems().map(vItem => (
+            <div
+              key={vItem.key}
+              data-index={vItem.index}
+              ref={virtualizer.measureElement}
+              style={{ position: 'absolute', top: vItem.start, left: 0, right: 0 }}
+              className="pb-3"
+            >
+              <DocumentCard
+                document={documents[vItem.index]}
+                workspaceId={workspaceId}
+                isSelected={selectedIds.has(documents[vItem.index].id)}
+                onToggleSelect={() => toggleSelect(documents[vItem.index].id)}
+                onDelete={onDelete}
+              />
+            </div>
+          ))}
+        </div>
+      ) : (
+        <div className="flex flex-col gap-3">
+          {documents.map((document) => (
             <DocumentCard
+              key={document.id}
               document={document}
               workspaceId={workspaceId}
               isSelected={selectedIds.has(document.id)}
               onToggleSelect={() => toggleSelect(document.id)}
               onDelete={onDelete}
             />
-          </motion.div>
-        ))}
-      </div>
+          ))}
+        </div>
+      )}
 
       <AnimatePresence>
         {selectedIds.size > 0 && (
@@ -157,9 +214,7 @@ export function DocumentList({
             <span className="text-sm font-semibold text-white bg-white/10 px-3 py-1 rounded-full">
               {selectedIds.size} selected
             </span>
-            
             <div className="w-px h-6 bg-white/10" />
-
             <button
               onClick={handleBulkDelete}
               disabled={bulkDeleting}
@@ -168,8 +223,7 @@ export function DocumentList({
               {bulkDeleting ? <Loader2 size={16} className="animate-spin" /> : <Trash2 size={16} />}
               {bulkDeleting ? 'Deleting...' : 'Delete'}
             </button>
-
-            <button 
+            <button
               onClick={() => setSelectedIds(new Set())}
               className="ml-4 p-1 rounded-full hover:bg-white/10 text-[#8892AA] hover:text-white transition-colors"
             >

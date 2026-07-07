@@ -1,5 +1,6 @@
 'use client';
 
+import { lazy, Suspense } from 'react';
 import { usePathname } from 'next/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
 import { DarkSidebar } from './DarkSidebar';
@@ -13,11 +14,13 @@ import { CommandCenter } from './CommandCenter';
 import { NotificationDrawer } from './NotificationDrawer';
 
 import { OnboardingProvider, useOnboarding } from '@/contexts/OnboardingContext';
-import { OnboardingWelcome } from '@/components/onboarding/OnboardingWelcome';
-import { OnboardingWizard } from '@/components/onboarding/OnboardingWizard';
-import { OnboardingChecklist } from '@/components/onboarding/OnboardingChecklist';
-import { CompletionCelebration } from '@/components/onboarding/CompletionCelebration';
-import { Spotlight } from '@/components/onboarding/Spotlight';
+
+const OnboardingWelcome    = lazy(() => import('@/components/onboarding/OnboardingWelcome').then(m => ({ default: m.OnboardingWelcome })));
+const OnboardingWizard     = lazy(() => import('@/components/onboarding/OnboardingWizard').then(m => ({ default: m.OnboardingWizard })));
+const OnboardingChecklist  = lazy(() => import('@/components/onboarding/OnboardingChecklist').then(m => ({ default: m.OnboardingChecklist })));
+const CompletionCelebration = lazy(() => import('@/components/onboarding/CompletionCelebration').then(m => ({ default: m.CompletionCelebration })));
+const Spotlight            = lazy(() => import('@/components/onboarding/Spotlight').then(m => ({ default: m.Spotlight })));
+const PerformanceOverlay   = lazy(() => import('@/components/perf/PerformanceOverlay').then(m => ({ default: m.PerformanceOverlay })));
 
 function LayoutInner({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
@@ -29,8 +32,10 @@ function LayoutInner({ children }: { children: React.ReactNode }) {
   if (hideDashboard) {
     return (
       <div className="flex h-screen w-screen bg-[#05070B]">
-        <OnboardingWelcome />
-        <OnboardingWizard />
+        <Suspense fallback={null}>
+          <OnboardingWelcome />
+          <OnboardingWizard />
+        </Suspense>
       </div>
     );
   }
@@ -54,7 +59,9 @@ function LayoutInner({ children }: { children: React.ReactNode }) {
                   transition={{ duration: 0.15, ease: [0.25, 0.1, 0.25, 1] }}
                   className="min-h-full"
                 >
-                  {children}
+                  <Suspense fallback={null}>
+                    {children}
+                  </Suspense>
                 </motion.div>
               </AnimatePresence>
             </main>
@@ -67,28 +74,28 @@ function LayoutInner({ children }: { children: React.ReactNode }) {
         </div>
         <CommandCenter />
         <NotificationDrawer />
-        
-        {/* Onboarding Flow overlays */}
-        <OnboardingChecklist />
-        <CompletionCelebration />
 
-        {/* Spotlights */}
-        <Spotlight
-          id="cmd-center"
-          targetId="topbar-command-center"
-          title="Command Center"
-          description="Hit ⌘K from anywhere to jump between documents, chats, and settings without touching the mouse."
-          placement="bottom"
-          condition={pathname === '/dashboard'}
-        />
-        <Spotlight
-          id="notifications"
-          targetId="topbar-notifications"
-          title="Stay Updated"
-          description="We'll notify you here when your documents finish indexing or when team members invite you to collections."
-          placement="bottom"
-          condition={pathname === '/documents'}
-        />
+        <Suspense fallback={null}>
+          <OnboardingChecklist />
+          <CompletionCelebration />
+          {process.env.NODE_ENV === 'development' && <PerformanceOverlay />}
+          <Spotlight
+            id="cmd-center"
+            targetId="topbar-command-center"
+            title="Command Center"
+            description="Hit ⌘K from anywhere to jump between documents, chats, and settings without touching the mouse."
+            placement="bottom"
+            condition={pathname === '/dashboard'}
+          />
+          <Spotlight
+            id="notifications"
+            targetId="topbar-notifications"
+            title="Stay Updated"
+            description="We'll notify you here when your documents finish indexing or when team members invite you to collections."
+            placement="bottom"
+            condition={pathname === '/documents'}
+          />
+        </Suspense>
       </NotificationProvider>
     </CommandProvider>
   );

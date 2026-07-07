@@ -1,5 +1,5 @@
 'use client';
-import { useQueries } from '@tanstack/react-query';
+import { useQueries, keepPreviousData } from '@tanstack/react-query';
 import { useAuth } from '@clerk/nextjs';
 import { useWorkspace } from '@/contexts/WorkspaceContext';
 import {
@@ -30,6 +30,7 @@ export function useDeveloperConsole() {
         enabled: !!id,
         staleTime: STALE,
         gcTime: GC,
+        placeholderData: keepPreviousData,
       },
       {
         queryKey: ['embedding-metrics', id] as const,
@@ -41,6 +42,7 @@ export function useDeveloperConsole() {
         enabled: !!id,
         staleTime: STALE,
         gcTime: GC,
+        placeholderData: keepPreviousData,
       },
       {
         queryKey: ['index-metrics', id] as const,
@@ -52,6 +54,7 @@ export function useDeveloperConsole() {
         enabled: !!id,
         staleTime: STALE,
         gcTime: GC,
+        placeholderData: keepPreviousData,
       },
       {
         queryKey: ['retrieval-metrics', id] as const,
@@ -63,6 +66,7 @@ export function useDeveloperConsole() {
         enabled: !!id,
         staleTime: STALE,
         gcTime: GC,
+        placeholderData: keepPreviousData,
       },
       {
         queryKey: ['answer-metrics', id] as const,
@@ -74,6 +78,7 @@ export function useDeveloperConsole() {
         enabled: !!id,
         staleTime: STALE,
         gcTime: GC,
+        placeholderData: keepPreviousData,
       },
     ],
   });

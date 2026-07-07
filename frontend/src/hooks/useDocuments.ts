@@ -1,5 +1,5 @@
 'use client';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, keepPreviousData } from '@tanstack/react-query';
 import { useAuth } from '@clerk/nextjs';
 import { useWorkspace } from '@/contexts/WorkspaceContext';
 import { useDocumentEvents } from '@/hooks/useDocumentEvents';
@@ -26,6 +26,7 @@ export function useDocuments() {
     },
     enabled: !!activeWorkspace,
     staleTime: 10_000,
+    placeholderData: keepPreviousData,
     // SSE is the primary update mechanism — polling is a fallback only.
     // When the SSE connection is live, poll every 60 s just to keep data
     // fresh across browser tab switches or brief disconnects.

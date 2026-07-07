@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { lazy, Suspense, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   Building2, Users, Shield, Key, History, Puzzle,
@@ -13,13 +13,23 @@ import { useDashboardMetrics } from '@/hooks/useDashboardMetrics';
 import { CreateWorkspaceModal } from '@/components/workspace/CreateWorkspaceModal';
 import { EmptyState } from '@/components/ds/EmptyState';
 import { formatBytes } from '@/lib/format';
-import { MemberList } from '@/components/settings/members/MemberList';
-import { AddMemberForm } from '@/components/settings/members/AddMemberForm';
-import { RolePermissionsMatrix } from '@/components/settings/members/RolePermissionsMatrix';
-import { SecurityTab } from '@/components/settings/SecurityTab';
-import { ApiKeysTab } from '@/components/settings/ApiKeysTab';
-import { AuditLogsTab } from '@/components/settings/AuditLogsTab';
-import { IntegrationsTab } from '@/components/settings/IntegrationsTab';
+
+const MemberList          = lazy(() => import('@/components/settings/members/MemberList').then(m => ({ default: m.MemberList })));
+const AddMemberForm       = lazy(() => import('@/components/settings/members/AddMemberForm').then(m => ({ default: m.AddMemberForm })));
+const RolePermissionsMatrix = lazy(() => import('@/components/settings/members/RolePermissionsMatrix').then(m => ({ default: m.RolePermissionsMatrix })));
+const SecurityTab         = lazy(() => import('@/components/settings/SecurityTab').then(m => ({ default: m.SecurityTab })));
+const ApiKeysTab          = lazy(() => import('@/components/settings/ApiKeysTab').then(m => ({ default: m.ApiKeysTab })));
+const AuditLogsTab        = lazy(() => import('@/components/settings/AuditLogsTab').then(m => ({ default: m.AuditLogsTab })));
+const IntegrationsTab     = lazy(() => import('@/components/settings/IntegrationsTab').then(m => ({ default: m.IntegrationsTab })));
+
+function TabSkeleton() {
+  return (
+    <div className="space-y-4">
+      <div className="h-24 rounded-2xl bg-white/[0.03] border border-white/[0.04] animate-pulse" />
+      <div className="h-24 rounded-2xl bg-white/[0.03] border border-white/[0.04] animate-pulse" />
+    </div>
+  );
+}
 
 const TABS = [
   { id: 'overview', label: 'Overview', icon: Building2 },
@@ -180,14 +190,15 @@ export function WorkspaceTab() {
         </div>
       </div>
 
-      <AnimatePresence mode="wait">
+      <AnimatePresence mode="popLayout">
         <motion.div
           key={activeTab}
-          initial={{ opacity: 0, y: 10 }}
+          initial={{ opacity: 0, y: 8 }}
           animate={{ opacity: 1, y: 0 }}
-          exit={{ opacity: 0, y: -10 }}
-          transition={{ duration: 0.2 }}
+          exit={{ opacity: 0 }}
+          transition={{ duration: 0.12 }}
         >
+          <Suspense fallback={<TabSkeleton />}>
           {activeTab === 'overview' && (
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
               <div className="lg:col-span-2 space-y-6">
@@ -314,6 +325,7 @@ export function WorkspaceTab() {
           {activeTab === 'integrations' && (
             <IntegrationsTab />
           )}
+          </Suspense>
         </motion.div>
       </AnimatePresence>
 

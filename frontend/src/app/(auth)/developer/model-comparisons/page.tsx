@@ -1,14 +1,11 @@
 'use client';
 
-import { useMemo } from 'react';
-import {
-  RadarChart, Radar, PolarGrid, PolarAngleAxis, PolarRadiusAxis,
-  BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend,
-  ResponsiveContainer, Cell,
-} from 'recharts';
-import { Brain, Zap, Shield, BookOpen, AlertTriangle, Trophy } from 'lucide-react';
+import { lazy, Suspense, useMemo } from 'react';
+import { Brain, Trophy } from 'lucide-react';
 import { PremiumBackground } from '@/components/landing/PremiumBackground';
 import { useModelComparisons } from '@/hooks/useRegressions';
+
+const ModelCharts = lazy(() => import('./ModelCharts').then(m => ({ default: m.ModelCharts })));
 
 const MODEL_COLORS = ['#8B5CF6', '#06B6D4', '#10B981', '#F59E0B', '#EF4444', '#EC4899'];
 
@@ -21,33 +18,24 @@ function MetricBadge({ value, label, color }: { value: string; label: string; co
   );
 }
 
+function ChartsSkeleton() {
+  return (
+    <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+      <div className="h-72 bg-white/[0.03] border border-white/[0.04] rounded-2xl animate-pulse" />
+      <div className="h-72 bg-white/[0.03] border border-white/[0.04] rounded-2xl animate-pulse" />
+    </div>
+  );
+}
+
 export default function ModelComparisonsPage() {
   const { data, isLoading, isError } = useModelComparisons();
   const comparisons = useMemo(() => data?.comparisons ?? [], [data?.comparisons]);
-
-  const radarData = useMemo(() => {
-    if (!comparisons.length) return [];
-    return [
-      { metric: 'Judge Score', ...Object.fromEntries(comparisons.map(c => [c.modelVersion, (c.avgJudgeOverall ?? 0)])) },
-      { metric: 'Trust (×10)', ...Object.fromEntries(comparisons.map(c => [c.modelVersion, (c.avgTrustConfidence ?? 0) * 10])) },
-    ];
-  }, [comparisons]);
-
-  const barData = useMemo(() => comparisons.map((c, i) => ({
-    name: c.modelVersion.length > 20 ? c.modelVersion.slice(0, 20) + '…' : c.modelVersion,
-    fullName: c.modelVersion,
-    judge: +(c.avgJudgeOverall ?? 0).toFixed(2),
-    trust: +((c.avgTrustConfidence ?? 0) * 10).toFixed(2),
-    latency: c.avgLatencyMs ? +(c.avgLatencyMs / 100).toFixed(2) : 0,
-    color: MODEL_COLORS[i % MODEL_COLORS.length],
-  })), [comparisons]);
 
   return (
     <div className="relative min-h-screen bg-[#05070B] selection:bg-purple-500/30 selection:text-white pb-32">
       <PremiumBackground glowOpacity={0.07} />
 
       <div className="relative z-10 mx-auto max-w-[1400px] px-6 pt-10 pb-8">
-        {/* Header */}
         <div className="mb-8">
           <h1 className="text-3xl font-bold text-[#F1F3F9] tracking-tight flex items-center gap-3">
             <div className="w-10 h-10 rounded-xl bg-purple-500/20 flex items-center justify-center">
@@ -60,7 +48,7 @@ export default function ModelComparisonsPage() {
 
         {isLoading && (
           <div className="space-y-6">
-            <div className="h-72 bg-white/[0.03] border border-white/[0.04] rounded-2xl animate-pulse" />
+            <ChartsSkeleton />
             <div className="h-56 bg-white/[0.03] border border-white/[0.04] rounded-2xl animate-pulse" />
           </div>
         )}
@@ -81,53 +69,10 @@ export default function ModelComparisonsPage() {
 
         {!isLoading && comparisons.length > 0 && (
           <div className="space-y-8">
-            {/* Charts row */}
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-              {/* Radar Chart */}
-              <div className="bg-[#0F1117] border border-white/[0.06] rounded-2xl p-6">
-                <p className="text-sm font-semibold text-[#F1F3F9] mb-6">Multi-Metric Radar</p>
-                <ResponsiveContainer width="100%" height={280}>
-                  <RadarChart data={radarData} cx="50%" cy="50%" outerRadius="70%">
-                    <PolarGrid stroke="rgba(255,255,255,0.06)" />
-                    <PolarAngleAxis dataKey="metric" tick={{ fill: '#8892AA', fontSize: 12 }} />
-                    <PolarRadiusAxis angle={30} domain={[0, 10]} tick={{ fill: '#4A5168', fontSize: 10 }} />
-                    {comparisons.slice(0, 4).map((c, i) => (
-                      <Radar
-                        key={c.modelVersion}
-                        name={c.modelVersion}
-                        dataKey={c.modelVersion}
-                        stroke={MODEL_COLORS[i % MODEL_COLORS.length]}
-                        fill={MODEL_COLORS[i % MODEL_COLORS.length]}
-                        fillOpacity={0.12}
-                        strokeWidth={2}
-                      />
-                    ))}
-                    <Legend wrapperStyle={{ color: '#8892AA', fontSize: 11 }} />
-                    <Tooltip contentStyle={{ background: '#0F1117', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 8 }} />
-                  </RadarChart>
-                </ResponsiveContainer>
-              </div>
+            <Suspense fallback={<ChartsSkeleton />}>
+              <ModelCharts comparisons={comparisons} modelColors={MODEL_COLORS} />
+            </Suspense>
 
-              {/* Bar Chart: Judge vs Trust vs Latency */}
-              <div className="bg-[#0F1117] border border-white/[0.06] rounded-2xl p-6">
-                <p className="text-sm font-semibold text-[#F1F3F9] mb-1">Judge · Trust · Latency</p>
-                <p className="text-xs text-[#4A5168] mb-4">Judge & Trust out of 10 · Latency ÷ 100</p>
-                <ResponsiveContainer width="100%" height={280}>
-                  <BarChart data={barData} layout="vertical">
-                    <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.04)" horizontal={false} />
-                    <XAxis type="number" domain={[0, 10]} tick={{ fill: '#4A5168', fontSize: 10 }} axisLine={false} tickLine={false} />
-                    <YAxis type="category" dataKey="name" tick={{ fill: '#8892AA', fontSize: 10 }} axisLine={false} tickLine={false} width={110} />
-                    <Tooltip contentStyle={{ background: '#0F1117', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 8 }} />
-                    <Legend wrapperStyle={{ color: '#8892AA', fontSize: 11 }} />
-                    <Bar dataKey="judge" fill="#8B5CF6" radius={[0, 3, 3, 0]} name="Judge Score" />
-                    <Bar dataKey="trust" fill="#10B981" radius={[0, 3, 3, 0]} name="Trust (×10)" />
-                    <Bar dataKey="latency" fill="#F59E0B" radius={[0, 3, 3, 0]} name="Latency (÷100)" />
-                  </BarChart>
-                </ResponsiveContainer>
-              </div>
-            </div>
-
-            {/* Leaderboard cards */}
             <div>
               <p className="text-sm font-semibold text-[#F1F3F9] mb-4">Full Leaderboard</p>
               <div className="space-y-3">
@@ -141,12 +86,10 @@ export default function ModelComparisonsPage() {
                     }`}>
                       {i === 0 ? <Trophy size={16} /> : i + 1}
                     </div>
-
                     <div className="flex-1 min-w-0">
                       <p className="text-sm font-mono font-semibold text-[#F1F3F9] truncate">{c.modelVersion}</p>
                       <p className="text-xs text-[#4A5168] mt-0.5">{c.runCount} run{c.runCount !== 1 ? 's' : ''} · {c.totalCases} cases evaluated</p>
                     </div>
-
                     <div className="flex items-center gap-8 shrink-0">
                       <MetricBadge
                         value={c.avgJudgeOverall?.toFixed(2) ?? '—'}
@@ -169,7 +112,6 @@ export default function ModelComparisonsPage() {
               </div>
             </div>
 
-            {/* Raw data table */}
             <div className="bg-[#0F1117] border border-white/[0.06] rounded-2xl overflow-hidden">
               <div className="px-6 py-4 border-b border-white/[0.06]">
                 <p className="text-sm font-semibold text-[#F1F3F9]">Raw Data</p>
@@ -184,7 +126,7 @@ export default function ModelComparisonsPage() {
                     </tr>
                   </thead>
                   <tbody>
-                    {comparisons.map((c, i) => (
+                    {comparisons.map((c) => (
                       <tr key={c.modelVersion} className="border-b border-white/[0.04] hover:bg-white/[0.02] transition-colors">
                         <td className="px-5 py-3.5 font-mono text-[#F1F3F9]">{c.modelVersion}</td>
                         <td className="px-5 py-3.5 text-[#8892AA]">{c.runCount}</td>
