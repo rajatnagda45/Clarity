@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import Link from 'next/link';
-import { usePathname, useRouter } from 'next/navigation';
+import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import { useUser, useClerk } from '@clerk/nextjs';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
@@ -28,6 +28,8 @@ import {
   Target,
   TrendingDown,
   Bot,
+  Plug2,
+  ScrollText,
 } from 'lucide-react';
 import { useWorkspace } from '@/contexts/WorkspaceContext';
 import { useUI } from '@/contexts/UIContext';
@@ -62,6 +64,11 @@ const toolsNavItems: NavItem[] = [
   { label: 'Billing', href: '/billing', icon: <CreditCard size={18} /> },
   { label: 'Settings', href: '/settings', icon: <Settings size={18} /> },
   { label: 'Help Center', href: '/help', icon: <HelpCircle size={18} /> },
+];
+
+const enterpriseNavItems: NavItem[] = [
+  { label: 'Integrations', href: '/settings?tab=integrations', icon: <Plug2 size={18} /> },
+  { label: 'Audit Logs', href: '/settings?tab=audit-logs', icon: <ScrollText size={18} /> },
 ];
 
 function Tooltip({ children, text, show }: { children: React.ReactNode; text: string; show: boolean }) {
@@ -154,6 +161,7 @@ function NavItemRow({
 
 function SidebarContent() {
   const pathname = usePathname();
+  const searchParams = useSearchParams();
   const router = useRouter();
   const { activeWorkspace, workspaces, setActiveWorkspace } = useWorkspace();
   const { user } = useUser();
@@ -302,6 +310,28 @@ function SidebarContent() {
               collapsed={sidebarCollapsed}
             />
           ))}
+        </div>
+
+        {/* Enterprise Group */}
+        <div className="flex flex-col gap-1">
+          {!sidebarCollapsed && (
+            <span className="px-3 text-[10px] font-bold uppercase tracking-[0.2em] text-[#4A5168] mb-1">
+              Enterprise
+            </span>
+          )}
+          {enterpriseNavItems.map((item) => {
+            const [itemPath, itemQuery] = item.href.split('?');
+            const itemTab = itemQuery ? new URLSearchParams(itemQuery).get('tab') : null;
+            const isActive = pathname === itemPath && (!itemTab || searchParams.get('tab') === itemTab);
+            return (
+              <NavItemRow
+                key={item.href + item.label}
+                item={item}
+                active={isActive}
+                collapsed={sidebarCollapsed}
+              />
+            );
+          })}
         </div>
 
       </nav>
