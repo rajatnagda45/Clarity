@@ -5,6 +5,7 @@ import {
   useCallback,
   useContext,
   useEffect,
+  useMemo,
   useRef,
   useState,
   type ReactNode,
@@ -73,17 +74,13 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
     }
   }, []);
 
+  const value = useMemo(
+    () => ({ workspaces, activeWorkspace, isLoading, error, setActiveWorkspace, refresh: load }),
+    [workspaces, activeWorkspace, isLoading, error, setActiveWorkspace, load],
+  );
+
   return (
-    <WorkspaceContext.Provider
-      value={{
-        workspaces,
-        activeWorkspace,
-        isLoading,
-        error,
-        setActiveWorkspace,
-        refresh: load,
-      }}
-    >
+    <WorkspaceContext.Provider value={value}>
       {children}
     </WorkspaceContext.Provider>
   );

@@ -1,9 +1,6 @@
 'use client';
 
 import Link from 'next/link';
-import { useAuth } from '@clerk/nextjs';
-import { useEffect, useState } from 'react';
-import { useSearchParams } from 'next/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   Activity, ArrowRight, BookOpen, BrainCircuit, CheckCircle2,
@@ -13,13 +10,11 @@ import {
   Sparkles, UploadCloud, Webhook, Zap, AlertCircle, MessageSquare
 } from 'lucide-react';
 
-import { getAnswerMetrics, getDeveloperDashboard, getEmbeddingMetrics, getIndexMetrics, getRetrievalMetrics } from '@/lib/api';
-import type { AnswerMetrics, DeveloperDashboard, EmbeddingMetrics, IndexMetrics, RetrievalMetrics } from '@/types/clarity';
 import { SystemHealthPanel } from '@/components/developer/SystemHealthPanel';
 import { LiveMetricsPanel } from '@/components/developer/LiveMetricsPanel';
 import { useWorkspace } from '@/contexts/WorkspaceContext';
+import { useDeveloperConsole } from '@/hooks/useDeveloperConsole';
 
-type LoadState = 'idle' | 'loading' | 'loaded' | 'error';
 
 function formatRate(value: number | undefined): string {
   if (value === undefined || isNaN(value)) return 'N/A';
@@ -95,61 +90,22 @@ function MetricCard({ label, value, subValue }: any) {
 // MAIN PAGE
 // -----------------------------------------------------------------------------
 export default function DeveloperDashboardPage() {
-  const searchParams = useSearchParams();
   const { activeWorkspace } = useWorkspace();
-  const workspaceId = searchParams.get('workspace') || activeWorkspace?.id || '';
-  const { getToken } = useAuth();
+  const workspaceId = activeWorkspace?.id || '';
 
-  const [dashboard, setDashboard] = useState<DeveloperDashboard | null>(null);
-  const [embeddingMetrics, setEmbeddingMetrics] = useState<EmbeddingMetrics | null>(null);
-  const [indexMetrics, setIndexMetrics] = useState<IndexMetrics | null>(null);
-  const [retrievalMetrics, setRetrievalMetrics] = useState<RetrievalMetrics | null>(null);
-  const [answerMetrics, setAnswerMetrics] = useState<AnswerMetrics | null>(null);
-  const [loadState, setLoadState] = useState<LoadState>('idle');
-  const [errorMessage, setErrorMessage] = useState('');
+  const {
+    dashboard,
+    embeddingMetrics,
+    indexMetrics,
+    retrievalMetrics,
+    answerMetrics,
+    isLoading,
+    isError,
+    error: errorMessage,
+    refetch,
+  } = useDeveloperConsole();
 
-  const loadDashboard = async () => {
-    if (!workspaceId) {
-      setLoadState('idle'); // Workspace selection needed
-      return;
-    }
-
-    setLoadState('loading');
-    setErrorMessage('');
-
-    try {
-      const token = await getToken();
-      if (!token) throw new Error('Clerk session token unavailable.');
-
-      const [nextDashboard, nextEmbeddingMetrics, nextIndexMetrics, nextRetrievalMetrics, nextAnswerMetrics] = await Promise.all([
-        getDeveloperDashboard({ token, workspaceId }),
-        getEmbeddingMetrics({ token, workspaceId }),
-        getIndexMetrics({ token, workspaceId }),
-        getRetrievalMetrics({ token, workspaceId }),
-        getAnswerMetrics({ token, workspaceId }),
-      ]);
-
-      setDashboard(nextDashboard);
-      setEmbeddingMetrics(nextEmbeddingMetrics);
-      setIndexMetrics(nextIndexMetrics);
-      setRetrievalMetrics(nextRetrievalMetrics);
-      setAnswerMetrics(nextAnswerMetrics);
-      setLoadState('loaded');
-    } catch (error) {
-      setLoadState('error');
-      setErrorMessage(error instanceof Error ? error.message : 'Failed to load developer dashboard.');
-    }
-  };
-
-  useEffect(() => {
-    let cancelled = false;
-    const fetch = async () => {
-      if (!cancelled) await loadDashboard();
-    };
-    fetch();
-    return () => { cancelled = true; };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [getToken, workspaceId]);
+  const loadState = !workspaceId ? 'idle' : isLoading ? 'loading' : isError ? 'error' : 'loaded';
 
   // Derived Data
   const documents = dashboard?.documents ?? [];
@@ -239,11 +195,11 @@ export default function DeveloperDashboardPage() {
           </div>
           
           <div className="flex items-center gap-3">
-            <button 
-              onClick={loadDashboard}
+            <button
+              onClick={refetch}
               className="flex items-center gap-2 rounded-xl border border-[rgba(255,255,255,0.1)] bg-[#151923] px-4 py-2.5 text-sm font-medium text-[#F1F3F9] transition-all hover:bg-[rgba(255,255,255,0.05)] active:scale-95"
             >
-              <RefreshCcw size={16} className={loadState === 'loading' ? 'animate-spin' : ''} />
+              <RefreshCcw size={16} className={isLoading ? 'animate-spin' : ''} />
               Refresh
             </button>
             <button className="flex items-center gap-2 rounded-xl bg-white px-4 py-2.5 text-sm font-bold text-black transition-transform hover:scale-105 active:scale-95">
@@ -275,7 +231,7 @@ export default function DeveloperDashboardPage() {
             </div>
             <h3 className="text-xl font-bold text-white mb-2">Pipeline Connection Failed</h3>
             <p className="text-red-400 mb-6">{errorMessage}</p>
-            <button onClick={loadDashboard} className="rounded-xl bg-red-500 px-6 py-2.5 text-sm font-bold text-white transition-transform hover:scale-105">
+            <button onClick={refetch} className="rounded-xl bg-red-500 px-6 py-2.5 text-sm font-bold text-white transition-transform hover:scale-105">
               Retry Connection
             </button>
           </motion.div>

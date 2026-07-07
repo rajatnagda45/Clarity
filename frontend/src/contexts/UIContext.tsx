@@ -5,6 +5,7 @@ import {
   useCallback,
   useContext,
   useEffect,
+  useMemo,
   useState,
   type ReactNode,
 } from 'react';
@@ -129,24 +130,19 @@ export function UIProvider({ children }: { children: ReactNode }) {
   // ⌘K is handled by CommandContext to avoid double-firing.
   // UIContext only manages theme, sidebar, and palette open-state for legacy shell components.
 
+  const value = useMemo(
+    () => ({
+      theme, setTheme, toggleTheme,
+      sidebarOpen, setSidebarOpen, toggleSidebar,
+      sidebarCollapsed, setSidebarCollapsed, toggleSidebarCollapsed,
+      commandPaletteOpen, setCommandPaletteOpen, openCommandPalette, closeCommandPalette,
+    }),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [theme, sidebarOpen, sidebarCollapsed, commandPaletteOpen],
+  );
+
   return (
-    <UIContext.Provider
-      value={{
-        theme,
-        setTheme,
-        toggleTheme,
-        sidebarOpen,
-        setSidebarOpen,
-        toggleSidebar,
-        sidebarCollapsed,
-        setSidebarCollapsed,
-        toggleSidebarCollapsed,
-        commandPaletteOpen,
-        setCommandPaletteOpen,
-        openCommandPalette,
-        closeCommandPalette,
-      }}
-    >
+    <UIContext.Provider value={value}>
       {children}
     </UIContext.Provider>
   );
