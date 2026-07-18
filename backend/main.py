@@ -56,6 +56,7 @@ from api.routers import integrations
 from api.routers import automation
 from api.routers import prompt_library
 from api.routers import agents
+from api.routers import agent_runtime
 from api.routers import workflows
 from api.routers import review_queue
 from api.routers import performance
@@ -91,6 +92,9 @@ async def lifespan(app: FastAPI):
         # Cross-instance SSE relay: forward pipeline events from other pods
         from services.events.bus import start_redis_relay
         asyncio.create_task(start_redis_relay())
+        # Cross-instance SSE relay for the agent runtime
+        from services.agent_runtime.bus import start_agent_redis_relay
+        asyncio.create_task(start_agent_redis_relay())
 
     # OpenTelemetry (opt-in via OTEL_ENABLED=true)
     if settings.otel_enabled:
@@ -223,6 +227,7 @@ app.include_router(integrations.router)
 app.include_router(automation.router)
 app.include_router(prompt_library.router)
 app.include_router(agents.router)
+app.include_router(agent_runtime.router)
 app.include_router(workflows.router)
 app.include_router(review_queue.router)
 app.include_router(performance.router)

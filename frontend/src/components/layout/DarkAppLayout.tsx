@@ -14,6 +14,12 @@ import { CommandCenter } from './CommandCenter';
 import { NotificationDrawer } from './NotificationDrawer';
 
 import { OnboardingProvider, useOnboarding } from '@/contexts/OnboardingContext';
+import { useGlobalShortcuts } from '@/hooks/useGlobalShortcuts';
+
+function GlobalShortcutsMount() {
+  useGlobalShortcuts();
+  return null;
+}
 
 const OnboardingWelcome    = lazy(() => import('@/components/onboarding/OnboardingWelcome').then(m => ({ default: m.OnboardingWelcome })));
 const OnboardingWizard     = lazy(() => import('@/components/onboarding/OnboardingWizard').then(m => ({ default: m.OnboardingWizard })));
@@ -45,6 +51,7 @@ function LayoutInner({ children }: { children: React.ReactNode }) {
   return (
     <CommandProvider>
       <NotificationProvider>
+        <GlobalShortcutsMount />
         <div className="flex h-screen bg-[#05070B] text-[#F1F3F9]">
           <DarkSidebar />
           <div className={`flex flex-1 flex-col min-w-0 ${showAIPanel ? 'mr-[280px]' : ''}`}>

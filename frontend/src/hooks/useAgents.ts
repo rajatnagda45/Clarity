@@ -1,62 +1,62 @@
 'use client';
 
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { useAuth } from '@clerk/nextjs';
+import { useApiAuth, useApiAuthOrThrow } from '@/contexts/useApiAuth';
 import { useWorkspace } from '@/contexts/WorkspaceContext';
 import {
   listAgents, createAgent, getAgent, updateAgent, deleteAgent, archiveAgent,
-  triggerAgentRun, listAgentRuns, getAgentRun, getAgentAnalytics, listAvailableTools,
+  restoreAgent as apiRestoreAgent, duplicateAgent as apiDuplicateAgent,
+  cloneAgent as apiCloneAgent, versionAgent as apiVersionAgent,
+  bulkDeleteAgents as apiBulkDelete, bulkArchiveAgents as apiBulkArchive,
+  exportAgents as apiExportAgents, importAgents as apiImportAgents,
+  triggerAgentRunStreaming, listAgentRuns, getAgentRun, getAgentAnalytics, listAvailableTools,
   listReviewQueue, submitReviewDecision, getReviewQueueStats,
   listWorkflows, createWorkflow, getWorkflow, updateWorkflow, deleteWorkflow,
 } from '@/lib/api';
 import type {
+  Agent,
   CreateAgentPayload, UpdateAgentPayload,
-  TriggerAgentRunPayload, ReviewDecisionPayload,
+  ReviewDecisionPayload,
   CreateWorkflowPayload, UpdateWorkflowPayload,
 } from '@/types/clarity';
-
-function useAuthContext() {
-  const { getToken } = useAuth();
-  const { activeWorkspace } = useWorkspace();
-  const workspaceId = activeWorkspace?.id;
-  return async () => {
-    const token = await getToken();
-    return { token: token ?? '', workspaceId: workspaceId ?? undefined };
-  };
-}
+import type { TriggerAgentRunStreamingOptions } from '@/lib/api';
 
 // ─── Agents ───────────────────────────────────────────────────────────────────
 
 export function useAgents(category?: string) {
-  const getAuth = useAuthContext();
+  const auth = useApiAuth();
   const { activeWorkspace } = useWorkspace();
   const workspaceId = activeWorkspace?.id;
   return useQuery({
     queryKey: ['agents', workspaceId, category],
     queryFn: async () => {
-      const auth = await getAuth();
-      return listAgents(auth, category);
+      const a = await auth.getAuth();
+      if (!a) throw new Error('not_ready');
+      return listAgents(a, category);
     },
-    enabled: !!workspaceId,
+    enabled: auth.ready,
+    placeholderData: (prev) => prev,
   });
 }
 
 export function useAgent(agentId: string) {
-  const getAuth = useAuthContext();
+  const auth = useApiAuth();
   const { activeWorkspace } = useWorkspace();
   const workspaceId = activeWorkspace?.id;
   return useQuery({
     queryKey: ['agent', workspaceId, agentId],
     queryFn: async () => {
-      const auth = await getAuth();
-      return getAgent(auth, agentId);
+      const a = await auth.getAuth();
+      if (!a) throw new Error('not_ready');
+      return getAgent(a, agentId);
     },
-    enabled: !!workspaceId && !!agentId,
+    enabled: auth.ready && !!agentId,
+    placeholderData: (prev) => prev,
   });
 }
 
 export function useCreateAgent() {
-  const getAuth = useAuthContext();
+  const getAuth = useApiAuthOrThrow();
   const qc = useQueryClient();
   const { activeWorkspace } = useWorkspace();
   const workspaceId = activeWorkspace?.id;
@@ -72,16 +72,46 @@ export function useCreateAgent() {
 }
 
 export function useUpdateAgent() {
-  const getAuth = useAuthContext();
+  const getAuth = useApiAuthOrThrow();
   const qc = useQueryClient();
   const { activeWorkspace } = useWorkspace();
   const workspaceId = activeWorkspace?.id;
-  return useMutation({
+  return useMutation<
+    Agent,
+    Error,
+    { agentId: string; payload: UpdateAgentPayload },
+    { prevList?: { agents: Agent[]; total: number }; prevDetail?: Agent }
+  >({
     mutationFn: async ({ agentId, payload }: { agentId: string; payload: UpdateAgentPayload }) => {
       const auth = await getAuth();
       return updateAgent(auth, agentId, payload);
     },
-    onSuccess: (_, { agentId }) => {
+    // Optimistic update — patch the cached agent and the list immediately
+    onMutate: async ({ agentId, payload }) => {
+      const listKey = ['agents', workspaceId];
+      const detailKey = ['agent', workspaceId, agentId];
+      await qc.cancelQueries({ queryKey: listKey });
+      await qc.cancelQueries({ queryKey: detailKey });
+      const prevList = qc.getQueryData<{ agents: Agent[]; total: number }>(listKey);
+      const prevDetail = qc.getQueryData<Agent>(detailKey);
+      if (prevList) {
+        qc.setQueryData(listKey, {
+          ...prevList,
+          agents: prevList.agents.map(a => a.id === agentId ? { ...a, ...payload } as Agent : a),
+        });
+      }
+      if (prevDetail) {
+        qc.setQueryData(detailKey, { ...prevDetail, ...payload } as Agent);
+      }
+      return { prevList, prevDetail };
+    },
+    onError: (err, { agentId }, context) => {
+      const ctx = context as { prevList?: { agents: Agent[]; total: number }; prevDetail?: Agent } | undefined;
+      if (ctx?.prevList) qc.setQueryData(['agents', workspaceId], ctx.prevList);
+      if (ctx?.prevDetail) qc.setQueryData(['agent', workspaceId, agentId], ctx.prevDetail);
+      void err; // suppress unused warning
+    },
+    onSettled: (_data, _err, { agentId }) => {
       void qc.invalidateQueries({ queryKey: ['agents', workspaceId] });
       void qc.invalidateQueries({ queryKey: ['agent', workspaceId, agentId] });
     },
@@ -89,7 +119,7 @@ export function useUpdateAgent() {
 }
 
 export function useDeleteAgent() {
-  const getAuth = useAuthContext();
+  const getAuth = useApiAuthOrThrow();
   const qc = useQueryClient();
   const { activeWorkspace } = useWorkspace();
   const workspaceId = activeWorkspace?.id;
@@ -105,7 +135,7 @@ export function useDeleteAgent() {
 }
 
 export function useArchiveAgent() {
-  const getAuth = useAuthContext();
+  const getAuth = useApiAuthOrThrow();
   const qc = useQueryClient();
   const { activeWorkspace } = useWorkspace();
   const workspaceId = activeWorkspace?.id;
@@ -120,84 +150,201 @@ export function useArchiveAgent() {
   });
 }
 
-// ─── Agent Runs ───────────────────────────────────────────────────────────────
-
-export function useAgentRuns(agentId: string, enabled = true) {
-  const getAuth = useAuthContext();
-  const { activeWorkspace } = useWorkspace();
-  const workspaceId = activeWorkspace?.id;
-  return useQuery({
-    queryKey: ['agent-runs', workspaceId, agentId],
-    queryFn: async () => {
-      const auth = await getAuth();
-      return listAgentRuns(auth, agentId);
-    },
-    enabled: !!workspaceId && !!agentId && enabled,
-    refetchInterval: 5000,
-  });
-}
-
-export function useAgentRun(runId: string) {
-  const getAuth = useAuthContext();
-  const { activeWorkspace } = useWorkspace();
-  const workspaceId = activeWorkspace?.id;
-  return useQuery({
-    queryKey: ['agent-run', workspaceId, runId],
-    queryFn: async () => {
-      const auth = await getAuth();
-      return getAgentRun(auth, runId);
-    },
-    enabled: !!workspaceId && !!runId,
-    refetchInterval: (query) => {
-      const data = query.state.data;
-      if (!data) return 2000;
-      return ['completed', 'failed', 'review_required'].includes(data.status) ? false : 2000;
-    },
-  });
-}
-
-export function useTriggerAgentRun() {
-  const getAuth = useAuthContext();
+export function useRestoreAgent() {
+  const getAuth = useApiAuthOrThrow();
   const qc = useQueryClient();
   const { activeWorkspace } = useWorkspace();
   const workspaceId = activeWorkspace?.id;
   return useMutation({
-    mutationFn: async ({ agentId, payload }: { agentId: string; payload: TriggerAgentRunPayload }) => {
+    mutationFn: async (agentId: string) => {
       const auth = await getAuth();
-      return triggerAgentRun(auth, agentId, payload);
+      return apiRestoreAgent(auth, agentId);
     },
-    onSuccess: (_, { agentId }) => {
-      void qc.invalidateQueries({ queryKey: ['agent-runs', workspaceId, agentId] });
+    onSuccess: () => {
       void qc.invalidateQueries({ queryKey: ['agents', workspaceId] });
     },
   });
 }
 
+export function useDuplicateAgent() {
+  const getAuth = useApiAuthOrThrow();
+  const qc = useQueryClient();
+  const { activeWorkspace } = useWorkspace();
+  const workspaceId = activeWorkspace?.id;
+  return useMutation({
+    mutationFn: async (agentId: string) => {
+      const auth = await getAuth();
+      return apiDuplicateAgent(auth, agentId);
+    },
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: ['agents', workspaceId] });
+    },
+  });
+}
+
+export function useCloneAgent() {
+  const getAuth = useApiAuthOrThrow();
+  const qc = useQueryClient();
+  const { activeWorkspace } = useWorkspace();
+  const workspaceId = activeWorkspace?.id;
+  return useMutation({
+    mutationFn: async ({ agentId, targetWorkspaceId }: { agentId: string; targetWorkspaceId?: string }) => {
+      const auth = await getAuth();
+      return apiCloneAgent(auth, agentId, targetWorkspaceId);
+    },
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: ['agents', workspaceId] });
+    },
+  });
+}
+
+export function useVersionAgent() {
+  const getAuth = useApiAuthOrThrow();
+  const qc = useQueryClient();
+  const { activeWorkspace } = useWorkspace();
+  const workspaceId = activeWorkspace?.id;
+  return useMutation({
+    mutationFn: async (agentId: string) => {
+      const auth = await getAuth();
+      return apiVersionAgent(auth, agentId);
+    },
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: ['agents', workspaceId] });
+    },
+  });
+}
+
+export function useBulkDeleteAgents() {
+  const getAuth = useApiAuthOrThrow();
+  const qc = useQueryClient();
+  const { activeWorkspace } = useWorkspace();
+  const workspaceId = activeWorkspace?.id;
+  return useMutation({
+    mutationFn: async (agentIds: string[]) => {
+      const auth = await getAuth();
+      return apiBulkDelete(auth, agentIds);
+    },
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: ['agents', workspaceId] });
+    },
+  });
+}
+
+export function useBulkArchiveAgents() {
+  const getAuth = useApiAuthOrThrow();
+  const qc = useQueryClient();
+  const { activeWorkspace } = useWorkspace();
+  const workspaceId = activeWorkspace?.id;
+  return useMutation({
+    mutationFn: async (agentIds: string[]) => {
+      const auth = await getAuth();
+      return apiBulkArchive(auth, agentIds);
+    },
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: ['agents', workspaceId] });
+    },
+  });
+}
+
+export function useExportAgents(includeArchived = false) {
+  const auth = useApiAuth();
+  return useQuery({
+    queryKey: ['agents-export', includeArchived],
+    queryFn: async () => {
+      const a = await auth.getAuth();
+      if (!a) throw new Error('not_ready');
+      return apiExportAgents(a, includeArchived);
+    },
+    enabled: auth.ready,
+    staleTime: 0,
+    gcTime: 0,
+  });
+}
+
+export function useImportAgents() {
+  const getAuth = useApiAuthOrThrow();
+  const qc = useQueryClient();
+  const { activeWorkspace } = useWorkspace();
+  const workspaceId = activeWorkspace?.id;
+  return useMutation({
+    mutationFn: async (bundle: { agents: Array<Record<string, unknown>> }) => {
+      const auth = await getAuth();
+      return apiImportAgents(auth, bundle);
+    },
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: ['agents', workspaceId] });
+    },
+  });
+}
+
+// ─── Agent Runs ───────────────────────────────────────────────────────────────
+
+export function useAgentRuns(agentId: string, enabled = true) {
+  const auth = useApiAuth();
+  const { activeWorkspace } = useWorkspace();
+  const workspaceId = activeWorkspace?.id;
+  return useQuery({
+    queryKey: ['agent-runs', workspaceId, agentId],
+    queryFn: async () => {
+      const a = await auth.getAuth();
+      if (!a) throw new Error('not_ready');
+      return listAgentRuns(a, agentId);
+    },
+    enabled: auth.ready && !!agentId && enabled,
+    refetchInterval: 5000,
+    placeholderData: (prev) => prev,
+  });
+}
+
+export function useAgentRun(runId: string) {
+  const auth = useApiAuth();
+  const { activeWorkspace } = useWorkspace();
+  const workspaceId = activeWorkspace?.id;
+  return useQuery({
+    queryKey: ['agent-run', workspaceId, runId],
+    queryFn: async () => {
+      const a = await auth.getAuth();
+      if (!a) throw new Error('not_ready');
+      return getAgentRun(a, runId);
+    },
+    enabled: auth.ready && !!runId,
+    refetchInterval: (query) => {
+      const data = query.state.data;
+      if (!data) return 2000;
+      return ['completed', 'failed', 'cancelled', 'review_required'].includes(data.status) ? false : 2000;
+    },
+    placeholderData: (prev) => prev,
+  });
+}
+
 export function useAgentAnalytics(agentId: string) {
-  const getAuth = useAuthContext();
+  const auth = useApiAuth();
   const { activeWorkspace } = useWorkspace();
   const workspaceId = activeWorkspace?.id;
   return useQuery({
     queryKey: ['agent-analytics', workspaceId, agentId],
     queryFn: async () => {
-      const auth = await getAuth();
-      return getAgentAnalytics(auth, agentId);
+      const a = await auth.getAuth();
+      if (!a) throw new Error('not_ready');
+      return getAgentAnalytics(a, agentId);
     },
-    enabled: !!workspaceId && !!agentId,
+    enabled: auth.ready && !!agentId,
+    placeholderData: (prev) => prev,
   });
 }
 
 export function useAvailableTools() {
-  const getAuth = useAuthContext();
+  const auth = useApiAuth();
   const { activeWorkspace } = useWorkspace();
   const workspaceId = activeWorkspace?.id;
   return useQuery({
     queryKey: ['available-tools', workspaceId],
     queryFn: async () => {
-      const auth = await getAuth();
-      return listAvailableTools(auth);
+      const a = await auth.getAuth();
+      if (!a) throw new Error('not_ready');
+      return listAvailableTools(a);
     },
-    enabled: !!workspaceId,
+    enabled: auth.ready,
     staleTime: 5 * 60 * 1000,
   });
 }
@@ -205,37 +352,41 @@ export function useAvailableTools() {
 // ─── Review Queue ─────────────────────────────────────────────────────────────
 
 export function useReviewQueue(opts?: { status?: string; priority?: string }) {
-  const getAuth = useAuthContext();
+  const auth = useApiAuth();
   const { activeWorkspace } = useWorkspace();
   const workspaceId = activeWorkspace?.id;
   return useQuery({
     queryKey: ['review-queue', workspaceId, opts],
     queryFn: async () => {
-      const auth = await getAuth();
-      return listReviewQueue(auth, opts);
+      const a = await auth.getAuth();
+      if (!a) throw new Error('not_ready');
+      return listReviewQueue(a, opts);
     },
-    enabled: !!workspaceId,
+    enabled: auth.ready,
     refetchInterval: 30000,
+    placeholderData: (prev) => prev,
   });
 }
 
 export function useReviewQueueStats() {
-  const getAuth = useAuthContext();
+  const auth = useApiAuth();
   const { activeWorkspace } = useWorkspace();
   const workspaceId = activeWorkspace?.id;
   return useQuery({
     queryKey: ['review-queue-stats', workspaceId],
     queryFn: async () => {
-      const auth = await getAuth();
-      return getReviewQueueStats(auth);
+      const a = await auth.getAuth();
+      if (!a) throw new Error('not_ready');
+      return getReviewQueueStats(a);
     },
-    enabled: !!workspaceId,
+    enabled: auth.ready,
     refetchInterval: 30000,
+    placeholderData: (prev) => prev,
   });
 }
 
 export function useSubmitReview() {
-  const getAuth = useAuthContext();
+  const getAuth = useApiAuthOrThrow();
   const qc = useQueryClient();
   const { activeWorkspace } = useWorkspace();
   const workspaceId = activeWorkspace?.id;
@@ -254,35 +405,39 @@ export function useSubmitReview() {
 // ─── Workflows ────────────────────────────────────────────────────────────────
 
 export function useWorkflows() {
-  const getAuth = useAuthContext();
+  const auth = useApiAuth();
   const { activeWorkspace } = useWorkspace();
   const workspaceId = activeWorkspace?.id;
   return useQuery({
     queryKey: ['workflows', workspaceId],
     queryFn: async () => {
-      const auth = await getAuth();
-      return listWorkflows(auth);
+      const a = await auth.getAuth();
+      if (!a) throw new Error('not_ready');
+      return listWorkflows(a);
     },
-    enabled: !!workspaceId,
+    enabled: auth.ready,
+    placeholderData: (prev) => prev,
   });
 }
 
 export function useWorkflow(workflowId: string) {
-  const getAuth = useAuthContext();
+  const auth = useApiAuth();
   const { activeWorkspace } = useWorkspace();
   const workspaceId = activeWorkspace?.id;
   return useQuery({
     queryKey: ['workflow', workspaceId, workflowId],
     queryFn: async () => {
-      const auth = await getAuth();
-      return getWorkflow(auth, workflowId);
+      const a = await auth.getAuth();
+      if (!a) throw new Error('not_ready');
+      return getWorkflow(a, workflowId);
     },
-    enabled: !!workspaceId && !!workflowId,
+    enabled: auth.ready && !!workflowId,
+    placeholderData: (prev) => prev,
   });
 }
 
 export function useCreateWorkflow() {
-  const getAuth = useAuthContext();
+  const getAuth = useApiAuthOrThrow();
   const qc = useQueryClient();
   const { activeWorkspace } = useWorkspace();
   const workspaceId = activeWorkspace?.id;
@@ -298,7 +453,7 @@ export function useCreateWorkflow() {
 }
 
 export function useUpdateWorkflow() {
-  const getAuth = useAuthContext();
+  const getAuth = useApiAuthOrThrow();
   const qc = useQueryClient();
   const { activeWorkspace } = useWorkspace();
   const workspaceId = activeWorkspace?.id;
@@ -315,7 +470,7 @@ export function useUpdateWorkflow() {
 }
 
 export function useDeleteWorkflow() {
-  const getAuth = useAuthContext();
+  const getAuth = useApiAuthOrThrow();
   const qc = useQueryClient();
   const { activeWorkspace } = useWorkspace();
   const workspaceId = activeWorkspace?.id;
@@ -329,3 +484,5 @@ export function useDeleteWorkflow() {
     },
   });
 }
+
+export type { TriggerAgentRunStreamingOptions };

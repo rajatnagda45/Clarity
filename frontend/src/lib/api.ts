@@ -5,6 +5,8 @@
  * Use `streamQuery` for SSE-based query responses.
  */
 
+import { ApiError } from './apiError';
+
 import type {
   Document,
   DocumentChunk,
@@ -25,7 +27,6 @@ import type {
   Contradiction,
   EvalMetrics,
   StreamEvent,
-  ApiError,
   MeResponse,
   Workspace,
   AnswerExplorerResponse,
@@ -129,30 +130,56 @@ async function apiFetch<T>(
   return response.json() as Promise<T>;
 }
 
-async function parseApiError(response: Response): Promise<Error> {
-  const err = await response
+async function parseApiError(response: Response): Promise<ApiError> {
+  // Pull Retry-After header if present
+  const retryAfterHeader = response.headers.get('Retry-After');
+  const retryAfter = retryAfterHeader ? Number(retryAfterHeader) : null;
+
+  // Read the body — backend can return either:
+  //   { detail: { code, message } }   (FastAPI default with our middleware)
+  //   { detail: "string" }            (plain FastAPI HTTPException)
+  //   { error: { code, message } }     (older shape)
+  //   { error: "string" }             (older)
+  const body = await response
     .json()
-    .catch(() => ({ error: response.statusText })) as ApiError | { detail?: unknown };
+    .catch(() => null) as
+    | null
+    | { detail?: unknown; error?: unknown };
 
-  if ('detail' in err && err.detail && typeof err.detail === 'object' && 'message' in err.detail) {
-    return new Error(String((err.detail as { message: string }).message));
-  }
+  let code = 'http_error';
+  let message = response.statusText || `Request failed (${response.status})`;
 
-  if ('detail' in err && typeof err.detail === 'string') {
-    return new Error(err.detail);
-  }
-
-  if ('error' in err && err.error) {
-    if (typeof err.error === 'string') {
-      return new Error(err.error);
+  if (body && typeof body === 'object') {
+    // FastAPI /middleware shape: { error: { code, message } }
+    const errObj = (body as { error?: unknown }).error;
+    if (errObj && typeof errObj === 'object') {
+      const eo = errObj as { code?: unknown; message?: unknown };
+      if (typeof eo.code === 'string') code = eo.code;
+      if (typeof eo.message === 'string' && eo.message) message = eo.message;
+    } else if (typeof errObj === 'string' && errObj) {
+      message = errObj;
     }
-
-    if (typeof err.error === 'object' && err.error && 'message' in err.error) {
-      return new Error(String(err.error.message));
+    // FastAPI default shape: { detail: "string" | { msg, code } }
+    const detail = (body as { detail?: unknown }).detail;
+    if (!errObj && detail) {
+      if (typeof detail === 'string' && detail) {
+        message = detail;
+      } else if (detail && typeof detail === 'object') {
+        const d = detail as { code?: unknown; message?: unknown; msg?: unknown };
+        if (typeof d.code === 'string') code = d.code;
+        if (typeof d.message === 'string' && d.message) message = d.message;
+        else if (typeof d.msg === 'string' && d.msg) message = d.msg;
+      }
     }
   }
 
-  return new Error(response.statusText);
+  return new ApiError({
+    status: response.status,
+    code,
+    message,
+    retryAfter,
+    payload: body,
+  });
 }
 
 // ---------------------------------------------------------------------------
@@ -1118,8 +1145,247 @@ export async function getAgentAnalytics(auth: AuthContext, agentId: string): Pro
   return apiFetch<AgentAnalytics>(`/api/agents/${agentId}/analytics`, auth);
 }
 
-export async function listAvailableTools(auth: AuthContext): Promise<{ tools: AvailableTool[] }> {
-  return apiFetch<{ tools: AvailableTool[] }>('/api/agents/tools', auth);
+export async function listAvailableTools(auth: AuthContext): Promise<{ tools: AgentToolDescriptor[] }> {
+  // Hits the runtime router which returns rich AgentToolDescriptor.
+  return apiFetch<{ tools: AgentToolDescriptor[] }>('/api/agents/tools', auth);
+}
+
+// ─── Agent lifecycle extensions (restore, duplicate, clone, version) ─────────
+
+export async function restoreAgent(auth: AuthContext, agentId: string): Promise<Agent> {
+  return apiFetch<Agent>(`/api/agents/${agentId}/restore`, { method: 'POST', ...auth });
+}
+
+export async function duplicateAgent(auth: AuthContext, agentId: string): Promise<Agent> {
+  return apiFetch<Agent>(`/api/agents/${agentId}/duplicate`, { method: 'POST', ...auth });
+}
+
+export async function cloneAgent(
+  auth: AuthContext,
+  agentId: string,
+  targetWorkspaceId?: string,
+): Promise<Agent> {
+  const qs = targetWorkspaceId ? `?target_workspace_id=${encodeURIComponent(targetWorkspaceId)}` : '';
+  return apiFetch<Agent>(`/api/agents/${agentId}/clone${qs}`, { method: 'POST', ...auth });
+}
+
+export async function versionAgent(auth: AuthContext, agentId: string): Promise<Agent> {
+  return apiFetch<Agent>(`/api/agents/${agentId}/version`, { method: 'POST', ...auth });
+}
+
+export async function bulkDeleteAgents(
+  auth: AuthContext,
+  agentIds: string[],
+): Promise<{ deleted: string[]; failed: Array<{ id: string; reason: string }>; deleted_count: number }> {
+  return apiFetch(`/api/agents/bulk-delete`, {
+    method: 'POST',
+    body: JSON.stringify({ agent_ids: agentIds }),
+    ...auth,
+  });
+}
+
+export async function bulkArchiveAgents(
+  auth: AuthContext,
+  agentIds: string[],
+): Promise<{ archived: string[]; failed: Array<{ id: string; reason: string }>; archived_count: number }> {
+  return apiFetch(`/api/agents/bulk-archive`, {
+    method: 'POST',
+    body: JSON.stringify({ agent_ids: agentIds }),
+    ...auth,
+  });
+}
+
+export async function exportAgents(
+  auth: AuthContext,
+  includeArchived = false,
+): Promise<{ version: string; exported_at: string; workspace_id: string; count: number; agents: Array<Record<string, unknown>> }> {
+  const qs = includeArchived ? '?archived=true' : '';
+  return apiFetch(`/api/agents/export${qs}`, auth);
+}
+
+export async function importAgents(
+  auth: AuthContext,
+  bundle: { version?: string; agents: Array<Record<string, unknown>> },
+): Promise<{ created: string[]; failed: Array<{ name: string; reason: string }>; created_count: number }> {
+  return apiFetch(`/api/agents/import`, {
+    method: 'POST',
+    body: JSON.stringify(bundle),
+    ...auth,
+  });
+}
+
+// ─── Agent Runtime (autonomous execution) ────────────────────────────────────
+
+import type {
+  AgentRuntimeEvent,
+  AgentRunGraph,
+  AgentRunMemory,
+  AgentToolDescriptor,
+} from '@/types/clarity';
+
+export interface TriggerAgentRunStreamingOptions {
+  input: string;
+  signal?: AbortSignal;
+  onEvent: (event: AgentRuntimeEvent) => void;
+  onError?: (err: Error) => void;
+  onComplete?: () => void;
+}
+
+export async function triggerAgentRunStreaming(
+  auth: AuthContext,
+  agentId: string,
+  options: TriggerAgentRunStreamingOptions,
+): Promise<{ runId: string; abort: () => void }> {
+  const params = new URLSearchParams();
+  params.set('input', options.input);
+  params.set('stream', 'true');
+  const url = `/api/agents/${agentId}/runs?${params.toString()}`;
+  const baseUrl = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:8000';
+  const fullUrl = url.startsWith('http') ? url : `${baseUrl}${url}`;
+
+  const controller = new AbortController();
+  if (options.signal) {
+    options.signal.addEventListener('abort', () => controller.abort());
+  }
+
+  const response = await fetch(fullUrl, {
+    method: 'POST',
+    headers: {
+      Authorization: `Bearer ${auth.token ?? ''}`,
+      'X-Workspace-Id': auth.workspaceId ?? '',
+      Accept: 'text/event-stream',
+    },
+    signal: controller.signal,
+  });
+
+  if (!response.ok || !response.body) {
+    const errText = await response.text().catch(() => '');
+    const err = new Error(`trigger_failed:${response.status}:${errText}`);
+    options.onError?.(err);
+    throw err;
+  }
+
+  const reader = response.body.getReader();
+  const decoder = new TextDecoder();
+  let buffer = '';
+  let runId = '';
+
+  const pump = async () => {
+    try {
+      while (true) {
+        const { value, done } = await reader.read();
+        if (done) break;
+        buffer += decoder.decode(value, { stream: true });
+        let idx: number;
+        while ((idx = buffer.indexOf('\n\n')) >= 0) {
+          const frame = buffer.slice(0, idx);
+          buffer = buffer.slice(idx + 2);
+          if (!frame.trim()) continue;
+          let dataLine: string | null = null;
+          for (const line of frame.split('\n')) {
+            if (line.startsWith('data:')) dataLine = line.slice(5).trim();
+          }
+          if (!dataLine) continue;
+          try {
+            const ev = JSON.parse(dataLine) as AgentRuntimeEvent;
+            if (ev.runId) runId = ev.runId;
+            options.onEvent(ev);
+            if (ev.type === 'completed' || ev.type === 'cancelled' || ev.type === 'error') {
+              options.onComplete?.();
+            }
+          } catch {
+            // malformed line — skip
+          }
+        }
+      }
+    } catch (err) {
+      if ((err as Error).name !== 'AbortError') {
+        options.onError?.(err as Error);
+      }
+    } finally {
+      options.onComplete?.();
+    }
+  };
+  void pump();
+
+  return { runId, abort: () => controller.abort() };
+}
+
+export async function getAgentRunGraph(auth: AuthContext, runId: string): Promise<AgentRunGraph> {
+  return apiFetch<AgentRunGraph>(`/api/agents/runs/${runId}/graph`, auth);
+}
+
+export async function getAgentRunMemory(
+  auth: AuthContext,
+  runId: string,
+  scope?: 'run' | 'global',
+): Promise<{ entries: AgentRunMemory[]; count: number }> {
+  const qs = scope ? `?scope=${scope}` : '';
+  return apiFetch<{ entries: AgentRunMemory[]; count: number }>(`/api/agents/runs/${runId}/memory${qs}`, auth);
+}
+
+export async function listAgentRunToolCalls(
+  auth: AuthContext,
+  runId: string,
+): Promise<{ tool_calls: Array<Record<string, unknown>>; count: number }> {
+  return apiFetch<{ tool_calls: Array<Record<string, unknown>>; count: number }>(
+    `/api/agents/runs/${runId}/tool-calls`,
+    auth,
+  );
+}
+
+export async function listAgentRunEvents(
+  auth: AuthContext,
+  runId: string,
+  after = 0,
+  limit = 200,
+): Promise<{ events: Array<Record<string, unknown>>; count: number }> {
+  return apiFetch<{ events: Array<Record<string, unknown>>; count: number }>(
+    `/api/agents/runs/${runId}/events?after=${after}&limit=${limit}`,
+    auth,
+  );
+}
+
+export async function cancelAgentRun(auth: AuthContext, runId: string): Promise<{ run_id: string; status: string }> {
+  return apiFetch<{ run_id: string; status: string }>(`/api/agents/runs/${runId}/cancel`, {
+    method: 'POST',
+    ...auth,
+  });
+}
+
+export async function resumeAgentRun(auth: AuthContext, runId: string): Promise<{ run_id: string; status: string }> {
+  return apiFetch<{ run_id: string; status: string }>(`/api/agents/runs/${runId}/resume`, {
+    method: 'POST',
+    ...auth,
+  });
+}
+
+export async function approveAgentRun(
+  auth: AuthContext,
+  runId: string,
+  editedOutput?: string,
+): Promise<{ run_id: string; decision: string; approval_id: string }> {
+  const qs = editedOutput ? `?edited_output=${encodeURIComponent(editedOutput)}` : '';
+  return apiFetch<{ run_id: string; decision: string; approval_id: string }>(
+    `/api/agents/runs/${runId}/approve${qs}`,
+    { method: 'POST', ...auth },
+  );
+}
+
+export async function rejectAgentRun(
+  auth: AuthContext,
+  runId: string,
+  reason?: string,
+): Promise<{ run_id: string; decision: string; approval_id: string }> {
+  const qs = reason ? `?reason=${encodeURIComponent(reason)}` : '';
+  return apiFetch<{ run_id: string; decision: string; approval_id: string }>(
+    `/api/agents/runs/${runId}/reject${qs}`,
+    { method: 'POST', ...auth },
+  );
+}
+
+export async function listRuntimeTools(auth: AuthContext): Promise<{ tools: AgentToolDescriptor[] }> {
+  return apiFetch<{ tools: AgentToolDescriptor[] }>('/api/agents/tools', auth);
 }
 
 // ─── Review Queue ─────────────────────────────────────────────────────────────

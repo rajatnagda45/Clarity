@@ -1557,3 +1557,100 @@ export interface PipelineInspectReport {
     build: string;
   } | null;
 }
+
+// ─── Agent Runtime ──────────────────────────────────────────────────────────
+
+export type AgentRuntimeEventType =
+  | 'run_started'
+  | 'plan_created'
+  | 'node_started'
+  | 'node_completed'
+  | 'node_failed'
+  | 'tool_started'
+  | 'tool_completed'
+  | 'tool_retried'
+  | 'tool_timeout'
+  | 'tool_failed'
+  | 'memory_written'
+  | 'memory_recalled'
+  | 'critic_verdict'
+  | 'trust_score'
+  | 'abstention'
+  | 'decision'
+  | 'approval_requested'
+  | 'approval_received'
+  | 'token'
+  | 'message'
+  | 'error'
+  | 'cancelled'
+  | 'completed'
+  | 'resumed';
+
+export interface AgentRuntimeEvent {
+  type: AgentRuntimeEventType;
+  runId: string;
+  sequence: number;
+  timestamp: string;
+  nodeId?: string | null;
+  nodeType?: string | null;
+  parentNodeId?: string | null;
+  attempt?: number;
+  payload?: Record<string, unknown>;
+  elapsedMs?: number;
+  totalTokensIn?: number;
+  totalTokensOut?: number;
+  totalCostUsd?: number;
+}
+
+export interface AgentRunNode {
+  id: string;
+  node_type: string;
+  parent_node_id: string | null;
+  attempt: number;
+  status: 'pending' | 'running' | 'success' | 'error' | 'skipped' | 'awaiting_approval';
+  input: Record<string, unknown>;
+  output: Record<string, unknown>;
+  error: string | null;
+  latency_ms: number;
+  tokens_in: number;
+  tokens_out: number;
+  cost_usd: number;
+  created_at: string;
+}
+
+export interface AgentRunGraph {
+  run_id: string;
+  status: string;
+  plan: Array<Record<string, unknown>>;
+  nodes: AgentRunNode[];
+  edges: Array<{ source: string; target: string; type: string }>;
+  summary: {
+    node_count: number;
+    edge_count: number;
+    total_latency_ms: number;
+    total_tokens_in: number;
+    total_tokens_out: number;
+    total_cost_usd: number;
+    trust_score: number | null;
+    confidence: number | null;
+  };
+}
+
+export interface AgentRunMemory {
+  id: string;
+  role: 'system' | 'user' | 'assistant' | 'tool' | 'observation';
+  content: string;
+  tool: string | null;
+  metadata: Record<string, unknown>;
+  scope: 'run' | 'global';
+  token_count: number;
+  created_at: string;
+}
+
+export interface AgentToolDescriptor {
+  name: string;
+  description: string;
+  signature: Record<string, { type: string; required: boolean; default: unknown; description: string }>;
+  timeout_s: number;
+  max_retries: number;
+}

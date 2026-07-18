@@ -21,7 +21,10 @@ const AGENT_TEMPLATES = [
   { category: 'custom' as AgentCategory, avatar: '🤖', color: '#6366F1', name: 'Custom Agent', description: 'Start from scratch with a fully custom agent configuration.', systemPrompt: '' },
 ];
 
-const MODELS = ['gpt-4o', 'gpt-4o-mini', 'claude-opus-4-8', 'claude-sonnet-4-6'];
+const MODELS = [
+  { id: 'gpt-4o-mini', label: 'gpt-4o-mini', desc: 'Fast and cost-effective. Default.' },
+  { id: 'gpt-4o', label: 'gpt-4o', desc: 'Higher quality. Best for complex tasks.' },
+];
 const BEHAVIORS: { value: AgentBehavior; label: string; desc: string }[] = [
   { value: 'precise', label: 'Precise', desc: 'Low creativity, high accuracy. Best for legal and compliance.' },
   { value: 'balanced', label: 'Balanced', desc: 'Default mix of accuracy and creativity.' },
@@ -48,7 +51,7 @@ export default function NewAgentPage() {
   const [systemPrompt, setSystemPrompt] = useState('');
   const [behavior, setBehavior] = useState<AgentBehavior>('balanced');
   const [temperature, setTemperature] = useState(0.7);
-  const [model, setModel] = useState('gpt-4o');
+  const [model, setModel] = useState('gpt-4o-mini');
   const [selectedTools, setSelectedTools] = useState<string[]>([]);
   const [selectedCollections, setSelectedCollections] = useState<string[]>([]);
   const [memoryEnabled, setMemoryEnabled] = useState(true);
@@ -97,7 +100,10 @@ export default function NewAgentPage() {
         toast.success(`${agent.name} created.`);
         router.push(`/agents/${agent.id}`);
       },
-      onError: () => toast.error('Failed to create agent.'),
+      onError: (err) => {
+        const message = err instanceof Error ? err.message : 'Failed to create agent.';
+        toast.error(message);
+      },
     });
   };
 
@@ -212,11 +218,12 @@ export default function NewAgentPage() {
                 </div>
                 <div>
                   <label className="block text-xs font-semibold text-[#8892AA] mb-2">Model</label>
-                  <div className="grid grid-cols-2 gap-1.5">
+                  <div className="grid grid-cols-1 gap-1.5">
                     {MODELS.map(m => (
-                      <button key={m} onClick={() => setModel(m)}
-                        className={`px-2 py-1.5 rounded-lg text-[11px] font-mono font-semibold transition-colors border ${model === m ? 'bg-purple-500/15 border-purple-500/30 text-purple-300' : 'bg-white/[0.02] border-white/[0.06] text-[#4A5168] hover:text-[#8892AA]'}`}>
-                        {m}
+                      <button key={m.id} onClick={() => setModel(m.id)}
+                        className={`text-left px-3 py-2 rounded-lg transition-colors border ${model === m.id ? 'bg-purple-500/15 border-purple-500/30 text-purple-300' : 'bg-white/[0.02] border-white/[0.06] text-[#4A5168] hover:text-[#8892AA]'}`}>
+                        <p className="text-[11px] font-mono font-semibold">{m.label}</p>
+                        <p className="text-[10px] opacity-70">{m.desc}</p>
                       </button>
                     ))}
                   </div>

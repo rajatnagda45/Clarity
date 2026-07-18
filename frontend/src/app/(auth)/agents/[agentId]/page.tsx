@@ -1,11 +1,12 @@
 'use client';
 
 import { useState, use } from 'react';
+import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { motion, AnimatePresence } from 'framer-motion';
 import { ArrowLeft, Play, Settings, Bot, CheckCircle2, XCircle, Clock, AlertCircle, Wrench, BarChart2, ChevronDown, ChevronUp, Loader2 } from 'lucide-react';
 import { PremiumBackground } from '@/components/landing/PremiumBackground';
-import { useAgent, useAgentRuns, useAgentAnalytics, useTriggerAgentRun, useUpdateAgent } from '@/hooks/useAgents';
+import { useAgent, useAgentRuns, useAgentAnalytics, useUpdateAgent, useDeleteAgent, useDuplicateAgent, useRestoreAgent } from '@/hooks/useAgents';
 import { useToast } from '@/contexts/ToastContext';
 import { formatRelativeTime } from '@/lib/time';
 import type { AgentRun } from '@/types/clarity';
@@ -39,6 +40,11 @@ function RunCard({ run }: { run: AgentRun }) {
         </div>
         {expanded ? <ChevronUp size={14} className="text-[#4A5168]" /> : <ChevronDown size={14} className="text-[#4A5168]" />}
       </button>
+      <div className="border-t border-white/[0.04] bg-[#090B11] px-5 py-2 flex items-center justify-end gap-2">
+        <Link href={`/developer/runs/${run.id}`} className="text-xs text-[#8892AA] hover:text-[#F1F3F9] transition-colors">
+          Open in developer console →
+        </Link>
+      </div>
       <AnimatePresence>
         {expanded && (
           <motion.div
@@ -89,28 +95,49 @@ function RunCard({ run }: { run: AgentRun }) {
 
 export default function AgentDetailPage({ params }: { params: Promise<{ agentId: string }> }) {
   const { agentId } = use(params);
+  const router = useRouter();
   const { toast } = useToast();
   const [activeTab, setActiveTab] = useState<'runs' | 'analytics' | 'settings'>('runs');
-  const [runInput, setRunInput] = useState('');
-  const [showRunPanel, setShowRunPanel] = useState(false);
 
   const { data: agent, isLoading: agentLoading, isError: agentError } = useAgent(agentId);
   const { data: runsData, isLoading: runsLoading } = useAgentRuns(agentId);
   const { data: analytics } = useAgentAnalytics(agentId);
-  const triggerRun = useTriggerAgentRun();
   const updateAgent = useUpdateAgent();
+  const deleteAgent = useDeleteAgent();
+  const duplicateAgent = useDuplicateAgent();
+  const restoreAgent = useRestoreAgent();
 
   const runs = runsData?.runs ?? [];
 
   const handleRun = () => {
-    if (!runInput.trim()) { toast.error('Enter a query to run.'); return; }
-    triggerRun.mutate({ agentId, payload: { input: runInput.trim() } }, {
+    router.push(`/agents/${agentId}/live?run=1`);
+  };
+
+  const handleDelete = () => {
+    if (typeof window !== 'undefined' && !window.confirm(`Delete "${agent?.name}"? This cannot be undone.`)) return;
+    deleteAgent.mutate(agentId, {
       onSuccess: () => {
-        toast.success('Agent run started.');
-        setRunInput('');
-        setShowRunPanel(false);
+        toast.success('Agent deleted.');
+        router.push('/agents');
       },
-      onError: () => toast.error('Failed to start run.'),
+      onError: (err) => toast.error(err instanceof Error ? err.message : 'Failed to delete.'),
+    });
+  };
+
+  const handleDuplicate = () => {
+    duplicateAgent.mutate(agentId, {
+      onSuccess: (newAgent) => {
+        toast.success('Agent duplicated.');
+        router.push(`/agents/${newAgent.id}`);
+      },
+      onError: (err) => toast.error(err instanceof Error ? err.message : 'Failed to duplicate.'),
+    });
+  };
+
+  const handleRestore = () => {
+    restoreAgent.mutate(agentId, {
+      onSuccess: () => toast.success('Agent restored.'),
+      onError: (err) => toast.error(err instanceof Error ? err.message : 'Failed to restore.'),
     });
   };
 
@@ -170,7 +197,15 @@ export default function AgentDetailPage({ params }: { params: Promise<{ agentId:
               {agent.isFavorite ? '★ Favorited' : '☆ Favorite'}
             </button>
             <button
-              onClick={() => setShowRunPanel(v => !v)}
+              onClick={handleDuplicate}
+              disabled={duplicateAgent.isPending}
+              className="px-3 py-2 rounded-xl text-xs font-semibold border bg-white/[0.04] text-[#4A5168] border-white/[0.08] hover:text-[#F1F3F9] disabled:opacity-50 transition-colors"
+              title="Duplicate this agent"
+            >
+              Duplicate
+            </button>
+            <button
+              onClick={handleRun}
               className="flex items-center gap-2 px-4 py-2 bg-purple-600 hover:bg-purple-500 text-white rounded-xl text-sm font-semibold transition-colors"
             >
               <Play size={14} />
@@ -179,38 +214,39 @@ export default function AgentDetailPage({ params }: { params: Promise<{ agentId:
           </div>
         </div>
 
-        {/* Run Panel */}
-        <AnimatePresence>
-          {showRunPanel && (
-            <motion.div
-              initial={{ opacity: 0, height: 0 }}
-              animate={{ opacity: 1, height: 'auto' }}
-              exit={{ opacity: 0, height: 0 }}
-              className="mb-6 bg-[#0F1117] border border-purple-500/20 rounded-2xl p-5 overflow-hidden"
+        {/* Archived banner */}
+        {agent.archivedAt && (
+          <div className="mb-6 flex items-center justify-between rounded-2xl border border-amber-500/30 bg-amber-500/5 p-4">
+            <div className="flex items-center gap-2 text-amber-400">
+              <AlertCircle size={16} />
+              <span className="text-sm">This agent is archived. Restore it to use it again.</span>
+            </div>
+            <button
+              onClick={handleRestore}
+              disabled={restoreAgent.isPending}
+              className="px-3 py-1.5 rounded-lg text-xs font-semibold bg-amber-500/15 text-amber-300 hover:bg-amber-500/25 transition-colors"
             >
-              <h3 className="text-sm font-bold text-[#F1F3F9] mb-3">Run Agent</h3>
-              <textarea
-                value={runInput}
-                onChange={e => setRunInput(e.target.value)}
-                placeholder={`Ask ${agent.name} something…`}
-                rows={4}
-                className="w-full bg-[#090B11] border border-white/[0.08] rounded-xl px-3 py-2.5 text-sm text-[#F1F3F9] placeholder:text-[#4A5168] focus:outline-none focus:border-purple-500/50 transition-colors resize-none mb-3"
-              />
-              <div className="flex gap-3">
-                <button onClick={() => setShowRunPanel(false)} className="flex-1 py-2.5 rounded-xl text-sm font-semibold text-[#8892AA] bg-white/[0.04] hover:bg-white/[0.08] transition-colors">
-                  Cancel
-                </button>
-                <button
-                  onClick={handleRun}
-                  disabled={triggerRun.isPending || !runInput.trim()}
-                  className="flex-1 py-2.5 rounded-xl text-sm font-semibold bg-purple-600 hover:bg-purple-500 text-white disabled:opacity-50 transition-colors"
-                >
-                  {triggerRun.isPending ? 'Starting…' : 'Run'}
-                </button>
-              </div>
-            </motion.div>
-          )}
-        </AnimatePresence>
+              {restoreAgent.isPending ? 'Restoring…' : 'Restore'}
+            </button>
+          </div>
+        )}
+
+        {/* Delete confirmation banner */}
+        <details className="mb-6 group">
+          <summary className="cursor-pointer text-xs text-[#4A5168] hover:text-red-400 transition-colors list-none">
+            ⚠ Danger zone
+          </summary>
+          <div className="mt-3 flex items-center justify-between rounded-2xl border border-red-500/20 bg-red-500/5 p-4">
+            <p className="text-sm text-red-400">Delete this agent permanently.</p>
+            <button
+              onClick={handleDelete}
+              disabled={deleteAgent.isPending}
+              className="px-3 py-1.5 rounded-lg text-xs font-semibold bg-red-500/15 text-red-300 hover:bg-red-500/25 disabled:opacity-50 transition-colors"
+            >
+              {deleteAgent.isPending ? 'Deleting…' : 'Delete agent'}
+            </button>
+          </div>
+        </details>
 
         {/* Tabs */}
         <div className="flex gap-1 mb-6 bg-[#0F1117] border border-white/[0.06] rounded-xl p-1 w-fit">
@@ -241,9 +277,9 @@ export default function AgentDetailPage({ params }: { params: Promise<{ agentId:
                 <Bot size={32} className="text-[#4A5168] mb-3" />
                 <p className="text-sm font-semibold text-[#F1F3F9] mb-1">No runs yet</p>
                 <p className="text-xs text-[#4A5168] mb-4">Click &quot;Run Agent&quot; to start this agent&apos;s first execution.</p>
-                <button onClick={() => setShowRunPanel(true)} className="px-4 py-2 bg-purple-600 hover:bg-purple-500 text-white rounded-xl text-sm font-semibold transition-colors">
+                <Link href={`/agents/${agentId}/live?run=1`} className="px-4 py-2 bg-purple-600 hover:bg-purple-500 text-white rounded-xl text-sm font-semibold transition-colors inline-block">
                   Run Agent
-                </button>
+                </Link>
               </div>
             ) : (
               <div className="space-y-3">

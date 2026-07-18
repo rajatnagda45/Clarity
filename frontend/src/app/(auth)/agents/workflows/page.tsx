@@ -113,7 +113,7 @@ function CreateWorkflowModal({ onClose }: { onClose: () => void }) {
     if (!name.trim()) { toast.error('Workflow name is required.'); return; }
     create.mutate({ name: name.trim(), description, nodes, edges }, {
       onSuccess: () => { toast.success('Workflow created.'); onClose(); },
-      onError: () => toast.error('Failed to create workflow.'),
+      onError: (err) => toast.error(err instanceof Error ? err.message : 'Failed to create workflow.'),
     });
   };
 
@@ -221,7 +221,7 @@ function WorkflowCard({ workflow }: { workflow: Workflow }) {
           </button>
           <button onClick={() => remove.mutate(workflow.id, {
             onSuccess: () => toast.success('Workflow deleted.'),
-            onError: () => toast.error('Failed to delete.'),
+            onError: (err) => toast.error(err instanceof Error ? err.message : 'Failed to delete.'),
           })} className="p-1.5 rounded-lg text-[#4A5168] hover:text-red-400 hover:bg-red-500/10 transition-colors">
             <Trash2 size={14} />
           </button>

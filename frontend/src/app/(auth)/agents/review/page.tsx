@@ -33,7 +33,7 @@ function ReviewCard({ item }: { item: ReviewQueueItem }) {
       },
     }, {
       onSuccess: () => toast.success(`Review submitted: ${verdict}.`),
-      onError: () => toast.error('Failed to submit review.'),
+      onError: (err) => toast.error(err instanceof Error ? err.message : 'Failed to submit review.'),
     });
   };
 
